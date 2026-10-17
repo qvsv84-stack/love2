@@ -21,6 +21,19 @@
       --bg-glass: rgba(255, 240, 245, 0.95);
     }
 
+    /* ================= TOAST NOTIFICATION (MỚI) ================= */
+    .toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+    .toast { background: #fff; color: #5a3e4b; padding: 12px 20px; border-radius: 30px; box-shadow: 0 10px 30px rgba(200, 100, 130, 0.2); font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 10px; animation: toastIn 0.3s ease forwards; border-left: 5px solid #1e8449; pointer-events: auto; }
+    .toast.error { border-left-color: #c0392b; }
+    .toast.info { border-left-color: #fbc4d0; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ================= SKELETON LOADING (MỚI) ================= */
+    .skeleton { background: #f0e6e9; background-image: linear-gradient(90deg, #f0e6e9 0px, #f8f0f3 40px, #f0e6e9 80px); background-size: 200% 100%; animation: shimmer 1.5s infinite linear; border-radius: 10px; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    .skeleton-text { height: 16px; margin-bottom: 10px; width: 100%; border-radius: 4px; }
+    .skeleton-card { height: 120px; margin-bottom: 15px; border-radius: 15px; }
+
     /* ================= ĐĂNG NHẬP ================= */
     .login-screen { position: fixed; inset: 0; background: #fff0f5; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; transition: opacity 0.4s ease, visibility 0.4s; }
     .login-screen.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
@@ -78,12 +91,7 @@
     .lined-paper { flex: 1; overflow-y: auto; white-space: pre-wrap; min-height: 350px; }
     .empty-state { text-align: center; color: #b38392; font-style: italic; padding: 40px 20px; line-height: 1.6; }
 
-    /* Hiệu ứng khi đối phương đang gõ chữ */
-    .live-typing {
-      border-color: #fbc4d0 !important;
-      background-color: #fffafc !important;
-      box-shadow: 0 0 15px rgba(251, 196, 208, 0.6) !important;
-    }
+    .live-typing { border-color: #fbc4d0 !important; background-color: #fffafc !important; box-shadow: 0 0 15px rgba(251, 196, 208, 0.6) !important; }
 
     .action-buttons { display: flex; gap: 10px; margin-top: 15px; flex-shrink: 0; }
     .btn-action { flex: 1; padding: 14px; border-radius: 15px; border: none; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -101,8 +109,9 @@
     .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding-bottom: 20px; }
     .photo-card { background: #fff; padding: 6px; border-radius: 16px; box-shadow: 0 8px 20px -8px #dba5b8; display: flex; flex-direction: column; transition: 0.3s; position: relative; overflow: hidden; }
     .photo-card:hover { transform: translateY(-5px); box-shadow: 0 12px 25px -8px #dba5b8; }
-    .photo-img-wrapper { position: relative; width: 100%; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden; }
-    .photo-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-img-wrapper { position: relative; width: 100%; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden; background: #f0e6e9; }
+    .photo-img-wrapper img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.3s; }
+    .photo-img-wrapper img.loaded { opacity: 1; }
     
     .photo-actions { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
     .photo-actions button { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.9); color: #b15170; font-size: 0.8rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); transition: 0.2s; }
@@ -112,6 +121,10 @@
     .photo-info { padding: 10px 5px 5px; display: flex; flex-direction: column; gap: 4px; }
     .photo-caption { font-size: 0.85rem; font-weight: 700; color: #5a3e4b; line-height: 1.3; }
     .photo-author { font-size: 0.7rem; color: #b38392; display: flex; align-items: center; gap: 4px; }
+
+    /* Nút Load More */
+    .load-more-btn { background: #fff; border: 2px dashed #fbc4d0; color: #b15170; padding: 12px; border-radius: 15px; font-weight: 700; cursor: pointer; margin-top: 10px; transition: 0.2s; display: none; }
+    .load-more-btn:hover { background: #fff0f5; }
 
     /* ================= GIAO ƯỚC ================= */
     .promise-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px; }
@@ -184,6 +197,7 @@
 
     .btn-modal-save { background: #fbc4d0; border: none; width: 100%; padding: 16px; border-radius: 15px; font-size: 1.1rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 4px 10px rgba(200,100,130,0.2); margin-top: 10px; }
     .btn-modal-save:hover { background: #ffdae5; }
+    .btn-modal-save:disabled { opacity: 0.6; cursor: not-allowed; }
     .btn-modal-close { background: transparent; border: none; color: #b38392; font-weight: 600; width: 100%; padding: 12px; cursor: pointer; margin-top: 5px; font-family: inherit; font-size: 1rem; }
 
     /* ================= BOTTOM NAVIGATION ================= */
@@ -201,6 +215,9 @@
   </style>
 </head>
 <body>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <!-- MÀN HÌNH ĐĂNG NHẬP -->
   <div class="login-screen" id="loginScreen">
@@ -262,6 +279,7 @@
         <div class="photo-grid" id="photoGrid">
           <!-- Ảnh sẽ load ở đây -->
         </div>
+        <button class="load-more-btn" id="loadMorePhotosBtn">Xem thêm ảnh cũ hơn <i class="fas fa-chevron-down"></i></button>
       </div>
 
       <!-- TAB GIAO ƯỚC -->
@@ -354,7 +372,7 @@
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // State
+    // ====== UTILITIES & STATE ======
     let currentUser = '';
     let partnerUser = '';
     let currentDiaryTab = 'self';
@@ -363,12 +381,60 @@
     let editingPromiseId = null;
     let editingPhotoId = null;
     let realtimeChannel = null;
+    
+    // Phân trang cho ảnh
+    let photoPage = 0;
+    const PHOTOS_PER_PAGE = 10;
+    let hasMorePhotos = true;
+    let isLoadingPhotos = false;
 
+    // Hàm Toast thông báo
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+      toast.innerHTML = `<i class="fas ${icon}" style="color: ${type === 'success' ? '#1e8449' : type === 'error' ? '#c0392b' : '#fbc4d0'};"></i> ${message}`;
+      container.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+
+    // Hàm nén ảnh (Client-side Image Compression)
+    async function compressImage(file, maxWidth = 1200, quality = 0.7) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+          };
+        };
+      });
+    }
+
+    // Hàm format ngày
     function getTodayString() {
       const today = new Date();
       const vnTime = new Date(today.getTime() + (7 * 60 * 60 * 1000));
       return vnTime.toISOString().split('T')[0];
     }
+
+    // Skeleton Loading templates
+    const skeletonText = `<div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:80%"></div><div class="skeleton skeleton-text" style="width:90%"></div>`;
+    const skeletonCard = `<div class="skeleton skeleton-card"></div>`;
 
     // ====== AUTH ======
     async function checkSession() {
@@ -387,68 +453,10 @@
       
       document.getElementById('diaryDate').value = getTodayString();
       
-      // Khởi tạo kênh Realtime để đồng bộ trực tiếp
       setupRealtime();
-      
       renderDiaryTab();
-      loadPhotos();
+      loadPhotos(true); // true = tải trang đầu tiên
       loadPromises();
-    }
-
-    // ====== SETUP REALTIME LIVE TYPING ======
-    function setupRealtime() {
-      realtimeChannel = supabaseClient.channel('diary_live_room');
-      
-      realtimeChannel.on('broadcast', { event: 'typing' }, (payload) => {
-        const { author, content, date } = payload.payload;
-        const currentDate = document.getElementById('diaryDate').value;
-        
-        // Chỉ cập nhật nếu đúng ngày đang xem và không phải tin nhắn của chính mình
-        if (date !== currentDate || author === currentUser) return;
-        
-        // Nếu đang ở tab "Nhật ký người ấy"
-        if (currentDiaryTab === 'partner') {
-          const partnerEl = document.getElementById('partner-live-text');
-          if (partnerEl) {
-            partnerEl.innerHTML = escapeHtml(content) || '<span class="empty-state">Chưa viết gì...</span>';
-            partnerEl.classList.add('live-typing');
-            showTypingIndicator('partner-typing', true);
-            
-            clearTimeout(window.partnerTypingTimeout);
-            window.partnerTypingTimeout = setTimeout(() => {
-              partnerEl.classList.remove('live-typing');
-              showTypingIndicator('partner-typing', false);
-            }, 1500);
-          }
-        }
-        
-        // Nếu đang ở tab "Nhật ký cặp đôi"
-        if (currentDiaryTab === 'couple') {
-          const partnerEl = document.getElementById('couple-partner-live');
-          if (partnerEl) {
-            partnerEl.innerHTML = escapeHtml(content) || '<span class="empty-state">Chưa viết gì...</span>';
-            partnerEl.classList.add('live-typing');
-            showTypingIndicator('couple-partner-typing', true);
-            
-            clearTimeout(window.couplePartnerTypingTimeout);
-            window.couplePartnerTypingTimeout = setTimeout(() => {
-              partnerEl.classList.remove('live-typing');
-              showTypingIndicator('couple-partner-typing', false);
-            }, 1500);
-          }
-        }
-      }).subscribe();
-    }
-
-    function showTypingIndicator(id, show) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (show) {
-        el.innerHTML = `<i class="fas fa-pen" style="animation: pulse 1s infinite;"></i> Đang viết...`;
-        el.style.opacity = '1';
-      } else {
-        el.style.opacity = '0';
-      }
     }
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
@@ -492,6 +500,57 @@
       });
     });
 
+    // ====== SETUP REALTIME LIVE TYPING ======
+    function setupRealtime() {
+      realtimeChannel = supabaseClient.channel('diary_live_room');
+      
+      realtimeChannel.on('broadcast', { event: 'typing' }, (payload) => {
+        const { author, content, date } = payload.payload;
+        const currentDate = document.getElementById('diaryDate').value;
+        
+        if (date !== currentDate || author === currentUser) return;
+        
+        if (currentDiaryTab === 'partner') {
+          const partnerEl = document.getElementById('partner-live-text');
+          if (partnerEl) {
+            partnerEl.innerHTML = escapeHtml(content) || '<span class="empty-state">Chưa viết gì...</span>';
+            partnerEl.classList.add('live-typing');
+            showTypingIndicator('partner-typing', true);
+            clearTimeout(window.partnerTypingTimeout);
+            window.partnerTypingTimeout = setTimeout(() => {
+              partnerEl.classList.remove('live-typing');
+              showTypingIndicator('partner-typing', false);
+            }, 1500);
+          }
+        }
+        
+        if (currentDiaryTab === 'couple') {
+          const partnerEl = document.getElementById('couple-partner-live');
+          if (partnerEl) {
+            partnerEl.innerHTML = escapeHtml(content) || '<span class="empty-state">Chưa viết gì...</span>';
+            partnerEl.classList.add('live-typing');
+            showTypingIndicator('couple-partner-typing', true);
+            clearTimeout(window.couplePartnerTypingTimeout);
+            window.couplePartnerTypingTimeout = setTimeout(() => {
+              partnerEl.classList.remove('live-typing');
+              showTypingIndicator('couple-partner-typing', false);
+            }, 1500);
+          }
+        }
+      }).subscribe();
+    }
+
+    function showTypingIndicator(id, show) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (show) {
+        el.innerHTML = `<i class="fas fa-pen" style="animation: pulse 1s infinite;"></i> Đang viết...`;
+        el.style.opacity = '1';
+      } else {
+        el.style.opacity = '0';
+      }
+    }
+
     // ====== LOGIC NHẬT KÝ ======
     document.querySelectorAll('.dtab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -508,7 +567,7 @@
       const selectedDate = document.getElementById('diaryDate').value;
       if (!selectedDate) return;
 
-      document.getElementById('diaryTabContent').innerHTML = '<div style="text-align:center; padding: 40px; color:#b38392;"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+      document.getElementById('diaryTabContent').innerHTML = `<div style="padding: 20px;">${skeletonCard}</div>`;
 
       const startOfDay = new Date(`${selectedDate}T00:00:00+07:00`).toISOString();
       const endOfDay = new Date(`${selectedDate}T23:59:59.999+07:00`).toISOString();
@@ -551,7 +610,6 @@
       }
       document.getElementById('diaryTabContent').innerHTML = html;
 
-      // Bắt sự kiện gõ phím để gửi Realtime Broadcast
       const selfTextarea = document.getElementById('selfTextarea');
       if (selfTextarea) {
         let typingTimer;
@@ -562,14 +620,10 @@
               realtimeChannel.send({
                 type: 'broadcast',
                 event: 'typing',
-                payload: {
-                  author: currentUser,
-                  content: selfTextarea.value,
-                  date: document.getElementById('diaryDate').value
-                }
+                payload: { author: currentUser, content: selfTextarea.value, date: document.getElementById('diaryDate').value }
               });
             }
-          }, 300); // Đợi 300ms sau khi ngừng gõ mới gửi
+          }, 300);
         });
       }
 
@@ -580,7 +634,7 @@
 
     async function saveSelfDiary() {
       const content = document.getElementById('selfTextarea').value.trim();
-      if (!content) return alert('Chưa viết gì mà!');
+      if (!content) return showToast('Chưa viết gì mà!', 'error');
       const btn = document.getElementById('btnSaveSelf');
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
       btn.disabled = true;
@@ -593,9 +647,10 @@
           const { error } = await supabaseClient.from('diary_entries').insert([{ content, author: currentUser }]);
           if (error) throw error;
         }
+        showToast('Đã lưu nhật ký thành công!');
         renderDiaryTab();
       } catch (err) {
-        alert('Lỗi khi lưu: ' + err.message);
+        showToast('Lỗi khi lưu: ' + err.message, 'error');
         btn.innerHTML = '<i class="fas fa-save"></i> Lưu lại';
         btn.disabled = false;
       }
@@ -606,15 +661,15 @@
       try {
         const { error } = await supabaseClient.from('diary_entries').delete().eq('id', currentEntryId);
         if (error) throw error;
+        showToast('Đã xóa nhật ký!', 'info');
         renderDiaryTab();
       } catch (err) {
-        alert('Lỗi khi xóa: ' + err.message);
+        showToast('Lỗi khi xóa: ' + err.message, 'error');
       }
     }
 
     async function renderPartnerTab(startOfDay, endOfDay) {
       const entry = await fetchEntry(partnerUser, startOfDay, endOfDay);
-      
       document.getElementById('diaryTabContent').innerHTML = `
         <div class="lined-paper" id="partner-live-text">${entry ? escapeHtml(entry.content) : '<span class="empty-state">Người ấy chưa viết gì vào ngày này...</span>'}</div>
         <div id="partner-typing" style="font-size: 0.8rem; color: #b15170; text-align: right; margin-top: 5px; height: 20px; font-style: italic; opacity: 0; transition: opacity 0.3s;"></div>
@@ -642,7 +697,7 @@
       `;
     }
 
-    // ====== LOGIC ALBUM ẢNH ======
+    // ====== LOGIC ALBUM ẢNH (CÓ PHÂN TRANG & NÉN ẢNH) ======
     const photoModal = document.getElementById('photoModal');
 
     document.getElementById('openAddPhotoModal').addEventListener('click', () => {
@@ -689,22 +744,53 @@
       }
     });
 
-    async function loadPhotos() {
+    async function loadPhotos(reset = false) {
+      if (isLoadingPhotos) return;
+      if (!reset && !hasMorePhotos) return;
+      
+      isLoadingPhotos = true;
       const grid = document.getElementById('photoGrid');
-      grid.innerHTML = '<div style="text-align:center; grid-column: 1/-1; color:#b38392; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
+      const loadMoreBtn = document.getElementById('loadMorePhotosBtn');
+      
+      if (reset) {
+        photoPage = 0;
+        hasMorePhotos = true;
+        grid.innerHTML = `<div class="skeleton" style="height:150px;"></div><div class="skeleton" style="height:150px;"></div>`;
+      }
 
-      const { data, error } = await supabaseClient.from('photo_album').select('*').order('created_at', { ascending: false });
+      const from = photoPage * PHOTOS_PER_PAGE;
+      const to = from + PHOTOS_PER_PAGE - 1;
+
+      const { data, error } = await supabaseClient
+        .from('photo_album')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      isLoadingPhotos = false;
 
       if (error) {
-        grid.innerHTML = `<div style="color:#c0392b; grid-column: 1/-1; text-align: center;">Lỗi: ${error.message}</div>`;
-        return;
-      }
-      if (data.length === 0) {
-        grid.innerHTML = '<div style="text-align:center; grid-column: 1/-1; color:#b38392; font-style:italic; padding: 20px;">Chưa có ảnh nào. Hãy thêm kỷ niệm đầu tiên nhé!</div>';
+        showToast('Lỗi tải ảnh: ' + error.message, 'error');
         return;
       }
 
-      grid.innerHTML = data.map(photo => {
+      if (reset) grid.innerHTML = '';
+
+      if (data.length === 0 && reset) {
+        grid.innerHTML = '<div style="text-align:center; grid-column: 1/-1; color:#b38392; font-style:italic; padding: 20px;">Chưa có ảnh nào. Hãy thêm kỷ niệm đầu tiên nhé!</div>';
+        loadMoreBtn.style.display = 'none';
+        return;
+      }
+
+      if (data.length < PHOTOS_PER_PAGE) {
+        hasMorePhotos = false;
+        loadMoreBtn.style.display = 'none';
+      } else {
+        hasMorePhotos = true;
+        loadMoreBtn.style.display = 'block';
+      }
+
+      const html = data.map(photo => {
         const isMine = photo.uploaded_by === currentUser;
         const actionsHtml = isMine ? `
           <div class="photo-actions">
@@ -716,7 +802,7 @@
         return `
           <div class="photo-card">
             <div class="photo-img-wrapper">
-              <img src="${escapeHtml(photo.image_url)}" alt="Kỷ niệm" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
+              <img src="${escapeHtml(photo.image_url)}" alt="Kỷ niệm" loading="lazy" onload="this.classList.add('loaded')" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
               ${actionsHtml}
             </div>
             <div class="photo-info">
@@ -726,7 +812,12 @@
           </div>
         `;
       }).join('');
+
+      grid.insertAdjacentHTML('beforeend', html);
+      photoPage++;
     }
+
+    document.getElementById('loadMorePhotosBtn').addEventListener('click', () => loadPhotos(false));
 
     document.getElementById('savePhotoBtn').addEventListener('click', async () => {
       const caption = document.getElementById('photoCaptionInput').value.trim();
@@ -739,8 +830,10 @@
         if (editingPhotoId) {
           const { error } = await supabaseClient.from('photo_album').update({ caption }).eq('id', editingPhotoId);
           if (error) throw error;
+          showToast('Đã cập nhật chú thích!');
         } else {
           let finalImageUrl = '';
+          let fileToUpload = null;
 
           if (currentPhotoTab === 'url') {
             const url = document.getElementById('photoUrlInput').value.trim();
@@ -751,11 +844,16 @@
             const file = fileInput.files[0];
             if (!file) throw new Error('Vui lòng chọn 1 bức ảnh!');
 
-            const fileExt = file.name.split('.').pop();
+            // TỐI ƯU: Nén ảnh trước khi upload
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang nén ảnh...';
+            fileToUpload = await compressImage(file);
+
+            const fileExt = 'jpg';
             const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
             const filePath = `${currentUser}/${fileName}`;
 
-            const { error: uploadError } = await supabaseClient.storage.from('photos').upload(filePath, file);
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải lên...';
+            const { error: uploadError } = await supabaseClient.storage.from('photos').upload(filePath, fileToUpload, { contentType: 'image/jpeg' });
             if (uploadError) throw new Error('Lỗi upload: ' + uploadError.message);
 
             const { data: publicUrlData } = supabaseClient.storage.from('photos').getPublicUrl(filePath);
@@ -769,13 +867,14 @@
           }]);
           
           if (dbError) throw new Error('Lỗi lưu database: ' + dbError.message);
+          showToast('Đã thêm ảnh mới!');
         }
 
         photoModal.classList.remove('open');
-        await loadPhotos();
+        await loadPhotos(true); // Reset lại trang 1
 
       } catch (err) {
-        alert(err.message);
+        showToast(err.message, 'error');
       } finally {
         btn.innerHTML = '<i class="fas fa-save"></i> Lưu vào Album';
         btn.disabled = false;
@@ -797,9 +896,10 @@
       try {
         const { error } = await supabaseClient.from('photo_album').delete().eq('id', id);
         if (error) throw error;
-        await loadPhotos();
+        showToast('Đã xóa ảnh!', 'info');
+        await loadPhotos(true);
       } catch (err) {
-        alert('Lỗi khi xóa: ' + err.message);
+        showToast('Lỗi khi xóa: ' + err.message, 'error');
       }
     };
 
@@ -829,7 +929,7 @@
 
     async function loadPromises() {
       const list = document.getElementById('promiseList');
-      list.innerHTML = '<div style="text-align:center; padding: 20px; color:#b38392;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
+      list.innerHTML = `<div style="padding: 20px;">${skeletonCard}</div>`;
 
       const { data, error } = await supabaseClient.from('couple_promises').select('*').order('created_at', { ascending: true });
 
@@ -866,7 +966,7 @@
 
     document.getElementById('savePromiseBtn').addEventListener('click', async () => {
       const content = document.getElementById('promiseInput').value.trim();
-      if (!content) return alert('Chưa viết gì mà!');
+      if (!content) return showToast('Chưa viết gì mà!', 'error');
 
       const btn = document.getElementById('savePromiseBtn');
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -876,14 +976,16 @@
         if (editingPromiseId) {
           const { error } = await supabaseClient.from('couple_promises').update({ content }).eq('id', editingPromiseId);
           if (error) throw error;
+          showToast('Đã cập nhật giao ước!');
         } else {
           const { error } = await supabaseClient.from('couple_promises').insert([{ content, author: currentUser }]);
           if (error) throw error;
+          showToast('Đã thêm giao ước mới!');
         }
         promiseModal.classList.remove('open');
         await loadPromises();
       } catch (err) {
-        alert('Lỗi: ' + err.message);
+        showToast('Lỗi: ' + err.message, 'error');
       } finally {
         btn.innerHTML = '<i class="fas fa-save"></i> Lưu giao ước';
         btn.disabled = false;
@@ -902,9 +1004,10 @@
       try {
         const { error } = await supabaseClient.from('couple_promises').delete().eq('id', id);
         if (error) throw error;
+        showToast('Đã xóa giao ước!', 'info');
         await loadPromises();
       } catch (err) {
-        alert('Lỗi khi xóa: ' + err.message);
+        showToast('Lỗi khi xóa: ' + err.message, 'error');
       }
     };
 
