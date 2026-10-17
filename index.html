@@ -32,12 +32,12 @@
     .login-error { color: #c0392b; font-size: 0.9rem; margin-top: 15px; min-height: 20px; font-weight: 500; }
 
     /* ================= APP SHELL ================= */
-    .app-screen { max-width: 500px; width: 100%; height: 100vh; max-height: 932px; /* iPhone 14 Pro Max height */ background: var(--bg-glass); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    .app-screen { max-width: 500px; width: 100%; height: 100vh; max-height: 932px; background: var(--bg-glass); display: flex; flex-direction: column; overflow: hidden; position: relative; }
     @media (min-width: 500px) { .app-screen { border-radius: 40px; height: 90vh; box-shadow: 0 25px 50px -15px rgba(230, 120, 150, 0.4); } }
     .app-screen.hidden { display: none; }
     
     /* Header */
-    .app-header { padding: 20px 20px 15px; display: flex; justify-content: space-between; align-items: center; background: transparent; flex-shrink: 0; }
+    .app-header { padding: 20px 20px 15px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
     .app-header h1 { font-family: 'Dancing Script', cursive; font-size: 2.2rem; color: #c96b8b; line-height: 1; }
     .user-info { font-weight: 600; color: #b15170; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 4px 10px #f3cedb; font-size: 0.85rem; display: flex; align-items: center; gap: 10px; }
 
@@ -64,9 +64,7 @@
     .lined-textarea, .lined-paper {
       width: 100%;
       background-color: #fffbfd;
-      background-image: repeating-linear-gradient(
-        transparent, transparent 31px, #fce4ec 31px, #fce4ec 32px
-      );
+      background-image: repeating-linear-gradient(transparent, transparent 31px, #fce4ec 31px, #fce4ec 32px);
       background-attachment: local;
       line-height: 32px;
       padding: 8px 15px;
@@ -77,27 +75,46 @@
       color: #4b2e39;
       outline: none;
     }
-    
     .lined-textarea { flex: 1; resize: none; min-height: 350px; }
     .lined-textarea:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
     .lined-paper { flex: 1; overflow-y: auto; white-space: pre-wrap; min-height: 350px; }
-    
     .empty-state { text-align: center; color: #b38392; font-style: italic; padding: 40px 20px; line-height: 1.6; }
 
     /* Nút hành động (Sửa/Xóa/Lưu) */
     .action-buttons { display: flex; gap: 10px; margin-top: 15px; flex-shrink: 0; }
     .btn-action { flex: 1; padding: 14px; border-radius: 15px; border: none; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
     .btn-save { background: #fbc4d0; color: #5a2c3e; box-shadow: 0 4px 10px rgba(200,100,130,0.2); }
-    .btn-save:hover { background: #ffdae5; }
-    .btn-edit { background: #fff; color: #b15170; border: 2px solid #fbc4d0; }
     .btn-delete { background: #fff0f0; color: #c0392b; border: 2px solid #ffcccc; }
+
+    /* ================= ALBUM ẢNH TABS ================= */
+    .photo-tabs { display: flex; background: #fff; border-radius: 15px; padding: 4px; margin-bottom: 15px; box-shadow: 0 4px 10px -4px #e5bccb; }
+    .ptab { flex: 1; text-align: center; padding: 10px; font-weight: 700; font-size: 0.9rem; color: #b38392; cursor: pointer; border-radius: 12px; transition: 0.2s; }
+    .ptab.active { background: #ffe2eb; color: #b15170; }
+
+    .photo-form { display: none; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+    .photo-form.active { display: flex; }
     
-    /* Tab Cặp đôi (2 cột) */
-    .couple-grid { display: flex; gap: 15px; flex: 1; overflow: hidden; }
-    .couple-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-    .couple-col-header { font-weight: 700; font-size: 1rem; color: #b15170; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
-    .couple-col:nth-child(2) .couple-col-header { color: #4a7ab5; }
-    .couple-col .lined-paper { font-size: 0.95rem; }
+    .photo-form input[type="url"], .photo-form input[type="text"] { width: 100%; padding: 12px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem; }
+    .photo-form input[type="url"]:focus, .photo-form input[type="text"]:focus { border-color: #fbc4d0; }
+
+    /* Nút upload file */
+    .file-upload-wrapper { position: relative; width: 100%; }
+    .file-upload-wrapper input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .file-upload-label { display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff; border: 2px dashed #f8c8d8; padding: 15px; border-radius: 15px; color: #b15170; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .file-upload-label:hover { background: #fff0f5; border-color: #fbc4d0; }
+    .file-name-display { font-size: 0.85rem; color: #1e8449; text-align: center; margin-top: 5px; font-weight: 600; }
+
+    /* Preview ảnh */
+    .image-preview-container { text-align: center; margin-top: 10px; display: none; }
+    .image-preview-container img { max-width: 100%; max-height: 150px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+    /* Grid Ảnh */
+    .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding-bottom: 20px; }
+    .photo-card { background: #fff; padding: 8px 8px 12px; border-radius: 10px; box-shadow: 0 5px 15px -5px #dba5b8; text-align: center; transform: rotate(-1.5deg); transition: 0.3s; }
+    .photo-card:nth-child(even) { transform: rotate(1.5deg); }
+    .photo-card:hover { transform: scale(1.05) rotate(0); z-index: 10; }
+    .photo-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 5px; margin-bottom: 8px; }
+    .photo-card p { font-size: 0.8rem; color: #5a3e4b; font-weight: 600; line-height: 1.3; }
 
     /* ================= BOTTOM NAVIGATION ================= */
     .bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 12px 10px 20px; border-top: 1px solid #f8c8d8; border-radius: 20px 20px 0 0; z-index: 100; }
@@ -147,15 +164,12 @@
       
       <!-- TAB NHẬT KÝ -->
       <div class="view-section active" id="view-diary">
-        
-        <!-- Tabs con -->
         <div class="diary-tabs-container">
           <div class="dtab active" data-dtab="self">Nhật ký bản thân</div>
           <div class="dtab" data-dtab="partner">Nhật ký người ấy</div>
           <div class="dtab" data-dtab="couple">Nhật ký cặp đôi</div>
         </div>
 
-        <!-- Chọn ngày -->
         <div class="date-header">
           <div class="date-picker-wrapper">
             <i class="fas fa-calendar-day" style="color:#b15170;"></i>
@@ -163,17 +177,51 @@
           </div>
         </div>
 
-        <!-- Nội dung Tab -->
         <div class="diary-tab-content" id="diaryTabContent">
           <!-- Render bằng JS -->
         </div>
       </div>
 
-      <!-- TAB KHÁC (Giữ nguyên placeholder) -->
+      <!-- TAB ALBUM ẢNH -->
       <div class="view-section" id="view-photos">
-        <h2 style="font-family: 'Dancing Script'; font-size: 2rem; color: #b15170; margin-bottom: 15px;">Kỷ niệm ảnh</h2>
-        <p style="text-align: center; color: #b38392;">Tính năng đang phát triển...</p>
+        <h2 style="font-family: 'Dancing Script'; font-size: 2rem; color: #b15170; margin-bottom: 15px; text-align: center;">Kỷ niệm ảnh</h2>
+        
+        <!-- Tabs chọn cách thêm ảnh -->
+        <div class="photo-tabs">
+          <div class="ptab active" data-ptab="url"><i class="fas fa-link"></i> Link ảnh</div>
+          <div class="ptab" data-ptab="upload"><i class="fas fa-upload"></i> Tải ảnh lên</div>
+        </div>
+
+        <!-- Form: Dán URL -->
+        <div class="photo-form active" id="form-url">
+          <input type="url" id="photoUrlInput" placeholder="Dán link ảnh (https://...)">
+        </div>
+
+        <!-- Form: Upload File -->
+        <div class="photo-form" id="form-upload">
+          <div class="file-upload-wrapper">
+            <input type="file" id="photoFileInput" accept="image/*">
+            <div class="file-upload-label">
+              <i class="fas fa-cloud-upload-alt"></i> Bấm để chọn ảnh từ thiết bị
+            </div>
+          </div>
+          <div class="file-name-display" id="fileNameDisplay"></div>
+          <div class="image-preview-container" id="imagePreviewContainer">
+            <img id="imagePreview" src="" alt="Preview">
+          </div>
+        </div>
+
+        <!-- Chú thích & Nút Thêm (Dùng chung) -->
+        <input type="text" id="photoCaptionInput" placeholder="Lời chú thích cho ảnh...">
+        <button class="btn-primary" id="addPhotoBtn" style="margin-top: 10px; margin-bottom: 20px;"><i class="fas fa-plus"></i> Thêm vào Album</button>
+
+        <!-- Lưới ảnh -->
+        <div class="photo-grid" id="photoGrid">
+          <!-- Ảnh sẽ load ở đây -->
+        </div>
       </div>
+
+      <!-- TAB GIAO ƯỚC -->
       <div class="view-section" id="view-promise">
         <h2 style="font-family: 'Dancing Script'; font-size: 2rem; color: #b15170; margin-bottom: 15px;">Giao ước</h2>
         <p style="text-align: center; color: #b38392;">Tính năng đang phát triển...</p>
@@ -206,18 +254,12 @@
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Elements
-    const loginScreen = document.getElementById('loginScreen');
-    const appScreen = document.getElementById('appScreen');
-    const displayUser = document.getElementById('displayUser');
-    const dateInput = document.getElementById('diaryDate');
-    const diaryTabContent = document.getElementById('diaryTabContent');
-    
     // State
     let currentUser = '';
     let partnerUser = '';
-    let currentDiaryTab = 'self'; // 'self', 'partner', 'couple'
-    let currentEntryId = null; // ID của bản ghi đang xem (nếu có)
+    let currentDiaryTab = 'self';
+    let currentEntryId = null;
+    let currentPhotoTab = 'url';
 
     function getTodayString() {
       const today = new Date();
@@ -236,11 +278,14 @@
 
     function enterApp() {
       partnerUser = currentUser === 'diemmy' ? 'tienloi' : 'diemmy';
-      displayUser.innerHTML = `<i class="fas fa-user-heart"></i> ${currentUser.charAt(0).toUpperCase() + currentUser.slice(1)}`;
-      loginScreen.classList.add('hidden');
-      appScreen.classList.remove('hidden');
-      dateInput.value = getTodayString();
+      document.getElementById('displayUser').innerHTML = `<i class="fas fa-user-heart"></i> ${currentUser.charAt(0).toUpperCase() + currentUser.slice(1)}`;
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('appScreen').classList.remove('hidden');
+      
+      document.getElementById('diaryDate').value = getTodayString();
+      
       renderDiaryTab();
+      loadPhotos();
     }
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
@@ -274,7 +319,7 @@
     document.getElementById('openSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').classList.add('open'));
     document.getElementById('closeSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').classList.remove('open'));
 
-    // Chuyển tab chính (Nhật ký, Ảnh, Giao ước)
+    // Chuyển tab chính
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -284,7 +329,7 @@
       });
     });
 
-    // Chuyển tab con (Self, Partner, Couple)
+    // ====== LOGIC NHẬT KÝ ======
     document.querySelectorAll('.dtab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
@@ -294,55 +339,38 @@
       });
     });
 
-    dateInput.addEventListener('change', renderDiaryTab);
+    document.getElementById('diaryDate').addEventListener('change', renderDiaryTab);
 
-    // ====== LOGIC RENDER NHẬT KÝ ======
     async function renderDiaryTab() {
-      const selectedDate = dateInput.value;
+      const selectedDate = document.getElementById('diaryDate').value;
       if (!selectedDate) return;
 
-      // Hiển thị trạng thái đang tải
-      diaryTabContent.innerHTML = '<div style="text-align:center; padding: 40px; color:#b38392;"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+      document.getElementById('diaryTabContent').innerHTML = '<div style="text-align:center; padding: 40px; color:#b38392;"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
 
-      // Lấy mốc thời gian đầu ngày và cuối ngày (giờ VN)
       const startOfDay = new Date(`${selectedDate}T00:00:00+07:00`).toISOString();
       const endOfDay = new Date(`${selectedDate}T23:59:59.999+07:00`).toISOString();
 
       try {
-        if (currentDiaryTab === 'self') {
-          await renderSelfTab(startOfDay, endOfDay);
-        } else if (currentDiaryTab === 'partner') {
-          await renderPartnerTab(startOfDay, endOfDay);
-        } else if (currentDiaryTab === 'couple') {
-          await renderCoupleTab(startOfDay, endOfDay);
-        }
+        if (currentDiaryTab === 'self') await renderSelfTab(startOfDay, endOfDay);
+        else if (currentDiaryTab === 'partner') await renderPartnerTab(startOfDay, endOfDay);
+        else if (currentDiaryTab === 'couple') await renderCoupleTab(startOfDay, endOfDay);
       } catch (err) {
-        diaryTabContent.innerHTML = `<div style="color:#c0392b; text-align:center; padding:20px;">Lỗi tải dữ liệu: ${err.message}</div>`;
+        document.getElementById('diaryTabContent').innerHTML = `<div style="color:#c0392b; text-align:center; padding:20px;">Lỗi tải dữ liệu: ${err.message}</div>`;
       }
     }
 
-    // Hàm lấy dữ liệu 1 người trong 1 ngày
     async function fetchEntry(author, startOfDay, endOfDay) {
-      const { data, error } = await supabaseClient
-        .from('diary_entries')
-        .select('*')
-        .eq('author', author)
-        .gte('created_at', startOfDay)
-        .lte('created_at', endOfDay)
-        .limit(1)
-        .maybeSingle();
+      const { data, error } = await supabaseClient.from('diary_entries').select('*').eq('author', author).gte('created_at', startOfDay).lte('created_at', endOfDay).limit(1).maybeSingle();
       if (error) throw error;
       return data;
     }
 
-    // 1. TAB BẢN THÂN
     async function renderSelfTab(startOfDay, endOfDay) {
       const entry = await fetchEntry(currentUser, startOfDay, endOfDay);
       currentEntryId = entry ? entry.id : null;
-
       let html = '';
+
       if (entry) {
-        // Đã có dữ liệu -> hiển thị để sửa/xóa
         html = `
           <textarea class="lined-textarea" id="selfTextarea" placeholder="Viết gì đó...">${escapeHtml(entry.content)}</textarea>
           <div class="action-buttons">
@@ -351,7 +379,6 @@
           </div>
         `;
       } else {
-        // Chưa có -> hiển thị ô trống để viết
         html = `
           <textarea class="lined-textarea" id="selfTextarea" placeholder="Hôm nay bạn muốn viết gì?"></textarea>
           <div class="action-buttons">
@@ -359,9 +386,8 @@
           </div>
         `;
       }
-      diaryTabContent.innerHTML = html;
+      document.getElementById('diaryTabContent').innerHTML = html;
 
-      // Gắn sự kiện
       document.getElementById('btnSaveSelf').addEventListener('click', saveSelfDiary);
       const delBtn = document.getElementById('btnDeleteSelf');
       if (delBtn) delBtn.addEventListener('click', deleteSelfDiary);
@@ -370,70 +396,55 @@
     async function saveSelfDiary() {
       const content = document.getElementById('selfTextarea').value.trim();
       if (!content) return alert('Chưa viết gì mà!');
-
       const btn = document.getElementById('btnSaveSelf');
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
       btn.disabled = true;
 
       try {
         if (currentEntryId) {
-          // Cập nhật
           const { error } = await supabaseClient.from('diary_entries').update({ content }).eq('id', currentEntryId);
           if (error) throw error;
-          alert('Đã cập nhật nhật ký!');
         } else {
-          // Thêm mới
           const { error } = await supabaseClient.from('diary_entries').insert([{ content, author: currentUser }]);
           if (error) throw error;
-          alert('Đã lưu nhật ký mới!');
         }
         renderDiaryTab();
       } catch (err) {
         alert('Lỗi khi lưu: ' + err.message);
-        btn.innerHTML = originalText;
+        btn.innerHTML = '<i class="fas fa-save"></i> Lưu lại';
         btn.disabled = false;
       }
     }
 
     async function deleteSelfDiary() {
       if (!confirm('Bạn có chắc muốn xóa nhật ký ngày này không?')) return;
-      
       try {
         const { error } = await supabaseClient.from('diary_entries').delete().eq('id', currentEntryId);
         if (error) throw error;
-        alert('Đã xóa!');
         renderDiaryTab();
       } catch (err) {
         alert('Lỗi khi xóa: ' + err.message);
       }
     }
 
-    // 2. TAB NGƯỜI ẤY
     async function renderPartnerTab(startOfDay, endOfDay) {
       const entry = await fetchEntry(partnerUser, startOfDay, endOfDay);
-      
       if (!entry) {
-        diaryTabContent.innerHTML = `<div class="empty-state"><i class="fas fa-heart-broken fa-2x" style="color:#f8c8d8; margin-bottom:15px;"></i><br>Người ấy chưa viết gì vào ngày này...</div>`;
+        document.getElementById('diaryTabContent').innerHTML = `<div class="empty-state"><i class="fas fa-heart-broken fa-2x" style="color:#f8c8d8; margin-bottom:15px;"></i><br>Người ấy chưa viết gì vào ngày này...</div>`;
         return;
       }
-
-      diaryTabContent.innerHTML = `
-        <div class="lined-paper">${escapeHtml(entry.content)}</div>
-      `;
+      document.getElementById('diaryTabContent').innerHTML = `<div class="lined-paper">${escapeHtml(entry.content)}</div>`;
     }
 
-    // 3. TAB CẶP ĐÔI
     async function renderCoupleTab(startOfDay, endOfDay) {
       const [entrySelf, entryPartner] = await Promise.all([
         fetchEntry(currentUser, startOfDay, endOfDay),
         fetchEntry(partnerUser, startOfDay, endOfDay)
       ]);
+      const htmlSelf = entrySelf ? `<div class="lined-paper" style="font-size:0.9rem;">${escapeHtml(entrySelf.content)}</div>` : `<div class="lined-paper empty-state" style="font-size:0.9rem; min-height:200px;">Chưa viết gì...</div>`;
+      const htmlPartner = entryPartner ? `<div class="lined-paper" style="font-size:0.9rem;">${escapeHtml(entryPartner.content)}</div>` : `<div class="lined-paper empty-state" style="font-size:0.9rem; min-height:200px;">Chưa viết gì...</div>`;
 
-      const htmlSelf = entrySelf ? `<div class="lined-paper">${escapeHtml(entrySelf.content)}</div>` : `<div class="lined-paper empty-state" style="font-size:0.9rem;">Chưa viết gì...</div>`;
-      const htmlPartner = entryPartner ? `<div class="lined-paper">${escapeHtml(entryPartner.content)}</div>` : `<div class="lined-paper empty-state" style="font-size:0.9rem;">Chưa viết gì...</div>`;
-
-      diaryTabContent.innerHTML = `
+      document.getElementById('diaryTabContent').innerHTML = `
         <div class="couple-grid">
           <div class="couple-col">
             <div class="couple-col-header"><i class="fas fa-heart" style="color:#f48fb1;"></i> ${currentUser.charAt(0).toUpperCase() + currentUser.slice(1)}</div>
@@ -447,13 +458,135 @@
       `;
     }
 
+    // ====== LOGIC ALBUM ẢNH ======
+    
+    // Chuyển đổi tab URL / Upload
+    document.querySelectorAll('.ptab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.photo-form').forEach(f => f.classList.remove('active'));
+        
+        tab.classList.add('active');
+        currentPhotoTab = tab.getAttribute('data-ptab');
+        document.getElementById(`form-${currentPhotoTab}`).classList.add('active');
+      });
+    });
+
+    // Xem trước ảnh khi chọn file
+    document.getElementById('photoFileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      const previewContainer = document.getElementById('imagePreviewContainer');
+      const previewImg = document.getElementById('imagePreview');
+      const nameDisplay = document.getElementById('fileNameDisplay');
+
+      if (file) {
+        nameDisplay.textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          previewImg.src = e.target.result;
+          previewContainer.style.display = 'block';
+        }
+        reader.readAsDataURL(file);
+      } else {
+        nameDisplay.textContent = '';
+        previewContainer.style.display = 'none';
+        previewImg.src = '';
+      }
+    });
+
+    // Hàm load ảnh từ Database
+    async function loadPhotos() {
+      const grid = document.getElementById('photoGrid');
+      grid.innerHTML = '<div style="text-align:center; grid-column: 1/-1; color:#b38392;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
+
+      const { data, error } = await supabaseClient.from('photo_album').select('*').order('created_at', { ascending: false });
+
+      if (error) {
+        grid.innerHTML = `<div style="color:#c0392b; grid-column: 1/-1; text-align: center;">Lỗi: ${error.message}</div>`;
+        return;
+      }
+      if (data.length === 0) {
+        grid.innerHTML = '<div style="text-align:center; grid-column: 1/-1; color:#b38392; font-style:italic;">Chưa có ảnh nào...</div>';
+        return;
+      }
+
+      grid.innerHTML = data.map(photo => `
+        <div class="photo-card">
+          <img src="${escapeHtml(photo.image_url)}" alt="Kỷ niệm" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
+          <p>${escapeHtml(photo.caption || 'Kỷ niệm')}</p>
+        </div>
+      `).join('');
+    }
+
+    // Xử lý thêm ảnh
+    document.getElementById('addPhotoBtn').addEventListener('click', async () => {
+      const caption = document.getElementById('photoCaptionInput').value.trim();
+      const btn = document.getElementById('addPhotoBtn');
+      
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+      btn.disabled = true;
+
+      try {
+        let finalImageUrl = '';
+
+        if (currentPhotoTab === 'url') {
+          // Lấy từ URL
+          const url = document.getElementById('photoUrlInput').value.trim();
+          if (!url) throw new Error('Vui lòng dán link ảnh!');
+          finalImageUrl = url;
+        } else {
+          // Upload File lên Supabase Storage
+          const fileInput = document.getElementById('photoFileInput');
+          const file = fileInput.files[0];
+          if (!file) throw new Error('Vui lòng chọn 1 bức ảnh!');
+
+          // Tạo tên file ngẫu nhiên để không bị trùng
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const filePath = `${currentUser}/${fileName}`;
+
+          // Upload lên bucket 'photos'
+          const { error: uploadError } = await supabaseClient.storage.from('photos').upload(filePath, file);
+          if (uploadError) throw new Error('Lỗi upload ảnh: ' + uploadError.message);
+
+          // Lấy link public
+          const { data: publicUrlData } = supabaseClient.storage.from('photos').getPublicUrl(filePath);
+          finalImageUrl = publicUrlData.publicUrl;
+        }
+
+        // Lưu link vào database
+        const { error: dbError } = await supabaseClient.from('photo_album').insert([{ 
+          image_url: finalImageUrl, 
+          caption: caption, 
+          uploaded_by: currentUser 
+        }]);
+        
+        if (dbError) throw new Error('Lỗi lưu database: ' + dbError.message);
+
+        // Reset form
+        document.getElementById('photoUrlInput').value = '';
+        document.getElementById('photoCaptionInput').value = '';
+        document.getElementById('photoFileInput').value = '';
+        document.getElementById('fileNameDisplay').textContent = '';
+        document.getElementById('imagePreviewContainer').style.display = 'none';
+        
+        // Tải lại danh sách
+        await loadPhotos();
+
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.innerHTML = '<i class="fas fa-plus"></i> Thêm vào Album';
+        btn.disabled = false;
+      }
+    });
+
     // Hàm chống XSS
     function escapeHtml(str) {
       if (!str) return '';
       return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
-    // Khởi chạy
     checkSession();
   </script>
 </body>
