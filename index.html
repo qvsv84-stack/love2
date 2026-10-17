@@ -31,7 +31,7 @@
     .btn-primary { background: var(--primary); border: none; width: 100%; padding: 16px; border-radius: 30px; font-size: 1.2rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 10px 20px -8px #e5a5b9; transition: 0.2s; border: 2px solid #fff; margin-top: 10px; font-family: inherit; }
     .btn-primary:hover { background: #ffdae5; transform: translateY(-2px); }
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-    .login-error { color: #c0392b; font-size: 0.9rem; margin-top: 15px; min-height: 20px; font-weight: 500; }
+    .login-error { color: #c0392b; font-size: 0.9rem; margin-top: 15px; min-height: 20px; font-weight: 500; line-height: 1.4; }
 
     /* ================= MÀN HÌNH CHÍNH (APP SHELL) ================= */
     .app-screen { max-width: 1000px; width: 100%; height: 90vh; background: var(--bg-glass); backdrop-filter: blur(10px); border-radius: 40px; box-shadow: 0 25px 50px -15px rgba(230, 120, 150, 0.4); border: 1px solid rgba(255, 210, 220, 0.7); display: flex; flex-direction: column; overflow: hidden; position: relative; }
@@ -344,12 +344,23 @@
           email: `${username}@daomeo.local`,
           password: password
         });
-        if (error) throw error;
+        
+        if (error) {
+          // In ra lỗi chi tiết để dễ debug
+          console.error("Lỗi Auth:", error);
+          if (error.message.includes('Invalid login credentials')) {
+            throw new Error('Sai tên hoặc mật khẩu! (Hoặc tài khoản chưa được tạo trên Supabase)');
+          } else if (error.message.includes('Email not confirmed')) {
+            throw new Error('Tài khoản chưa được xác nhận Email. Hãy vào Supabase bật "Auto Confirm" hoặc xác nhận thủ công.');
+          } else {
+            throw new Error(error.message);
+          }
+        }
         
         currentUser = username;
         enterApp();
       } catch (err) {
-        loginError.textContent = 'Sai tên hoặc sai mật khẩu rồi bạn ơi!';
+        loginError.textContent = err.message;
       } finally {
         loginBtn.innerHTML = 'Đăng nhập';
         loginBtn.disabled = false;
@@ -449,7 +460,7 @@
         .order('created_at', { ascending: false });
 
       if (error || !data) {
-        grid.innerHTML = '<div style="color:#c0392b; grid-column: 1/-1;">Lỗi tải ảnh. (Bạn đã tạo bảng photo_album chưa?)</div>';
+        grid.innerHTML = '<div style="color:#c0392b; grid-column: 1/-1; text-align: center;">Lỗi tải ảnh. (Bạn đã tạo bảng photo_album chưa?)</div>';
         return;
       }
 
@@ -481,4 +492,54 @@
 
       if (error) {
         alert('Lỗi thêm ảnh: ' + error.message);
-      } else
+      } else {
+        document.getElementById('photoUrlInput').value = '';
+        document.getElementById('photoCaptionInput').value = '';
+        await loadPhotos();
+      }
+      
+      btn.innerHTML = '<i class="fas fa-plus"></i> Thêm';
+      btn.disabled = false;
+    });
+
+    // ====== SETTINGS & DEBUG ======
+    const settingsModal = document.getElementById('settingsModal');
+    document.getElementById('openSettingsBtn').addEventListener('click', () => { settingsModal.classList.add('open'); checkConnection(); });
+    document.getElementById('closeSettingsBtn').addEventListener('click', () => settingsModal.classList.remove('open'));
+
+    async function checkConnection() {
+      const dbgStatus = document.getElementById('dbgStatus');
+      const dbgDetail = document.getElementById('dbgDetail');
+      const dbgUrl = document.getElementById('dbgUrl');
+      
+      dbgUrl.textContent = SUPABASE_URL;
+      dbgStatus.className = 'status-badge';
+      dbgStatus.style.background = '#fff3cd'; dbgStatus.style.color = '#856404';
+      dbgStatus.textContent = 'Đang kiểm tra...';
+      dbgDetail.textContent = '';
+
+      try {
+        const { error } = await supabaseClient.from('diary_entries').select('id').limit(1);
+        if (error) throw error;
+        
+        dbgStatus.className = 'status-badge status-ok';
+        dbgStatus.textContent = '✅ Kết nối thành công';
+      } catch (err) {
+        dbgStatus.className = 'status-badge status-err';
+        dbgStatus.textContent = '❌ Lỗi kết nối';
+        dbgDetail.textContent = err.message;
+      }
+    }
+    document.getElementById('retryDbBtn').addEventListener('click', checkConnection);
+
+    // Hàm chống XSS
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // Khởi chạy
+    checkSession();
+  </script>
+</body>
+</html>
