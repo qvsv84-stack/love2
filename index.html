@@ -14,7 +14,6 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Quicksand', sans-serif; background: linear-gradient(145deg, #fff0f5 0%, #ffe4ec 100%); min-height: 100vh; color: #5a3e4b; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; overflow: hidden; }
     
-    /* Biến CSS dùng chung */
     :root {
       --primary: #fbc4d0; --primary-dark: #e9a6b8; --text-main: #5f2e42; --text-light: #b38392;
       --bg-glass: rgba(255, 240, 245, 0.85); --shadow: 0 15px 25px -5px rgba(200, 100, 130, 0.3);
@@ -51,15 +50,35 @@
     /* Tiêu đề các mục */
     .section-title { font-family: 'Dancing Script', cursive; font-size: 2rem; color: #b15170; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
 
-    /* ================= NHẬT KÝ ================= */
-    .diary-paper { background: #fffbfd; border-radius: 20px; box-shadow: 0 10px 30px -10px #dba5b8; padding: 30px; margin-bottom: 30px; border: 1px solid #ffe2ec; }
-    .diary-input { width: 100%; min-height: 120px; border: none; outline: none; font-family: inherit; font-size: 1.1rem; color: #5a3e4b; resize: vertical; background: transparent; line-height: 1.8; margin-bottom: 15px; }
-    .diary-input::placeholder { color: #d8a7b6; font-style: italic; }
-    .diary-actions { display: flex; justify-content: flex-end; gap: 10px; }
-    .diary-history { display: flex; flex-direction: column; gap: 15px; }
-    .diary-card { background: #fff; padding: 20px; border-radius: 15px; border-left: 4px solid #fbc4d0; box-shadow: 0 4px 10px -5px #e5bccb; }
-    .diary-card .meta { font-size: 0.85rem; color: #c98ba0; margin-bottom: 8px; display: flex; justify-content: space-between; font-weight: 600; }
-    .diary-card .text { font-size: 1.05rem; line-height: 1.6; white-space: pre-wrap; }
+    /* ================= NHẬT KÝ ĐÔI (2 CỘT) ================= */
+    .diary-split-container { display: flex; gap: 20px; flex-wrap: wrap; }
+    .diary-column { flex: 1; min-width: 300px; background: #fffbfd; border-radius: 20px; box-shadow: 0 10px 30px -10px #dba5b8; padding: 25px; border: 1px solid #ffe2ec; position: relative; }
+    
+    /* Phân biệt màu 2 bên nhẹ nhàng */
+    .diary-column.my-side { border-top: 5px solid #fbc4d0; }
+    .diary-column.partner-side { border-top: 5px solid #b3d4f5; background: #f8fbff; } /* Tone xanh nhạt cho người kia để dễ phân biệt */
+
+    .column-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-weight: 700; font-size: 1.2rem; color: #b15170; border-bottom: 1px dashed #f8c8d8; padding-bottom: 10px; }
+    .partner-side .column-header { color: #4a7ab5; border-bottom-color: #cce0f7; }
+    .column-header i { font-size: 1.4rem; }
+    
+    /* Phần nhập liệu */
+    .diary-input-box { margin-bottom: 20px; }
+    .diary-textarea { width: 100%; min-height: 100px; border: 2px solid #f8c8d8; border-radius: 15px; padding: 15px; font-family: inherit; font-size: 1rem; color: #5a3e4b; resize: vertical; outline: none; transition: 0.2s; background: #fff; line-height: 1.6; }
+    .diary-textarea:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
+    .diary-textarea:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; border-color: #e0e0e0; }
+    
+    .btn-save-small { background: var(--primary); border: none; padding: 10px 20px; border-radius: 20px; font-size: 0.95rem; font-weight: 700; color: #5a2c3e; cursor: pointer; transition: 0.2s; float: right; margin-top: 10px; border: 1px solid #fff; }
+    .btn-save-small:hover { background: #ffdae5; transform: translateY(-2px); }
+    .btn-save-small:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Lịch sử nhật ký 2 bên */
+    .diary-history-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; max-height: 350px; overflow-y: auto; padding-right: 5px; }
+    .diary-note { padding: 12px 15px; border-radius: 12px; background: #fff; font-size: 0.95rem; line-height: 1.5; box-shadow: 0 3px 8px -3px #e5bccb; white-space: pre-wrap; }
+    .my-side .diary-note { border-left: 3px solid #fbc4d0; }
+    .partner-side .diary-note { border-left: 3px solid #b3d4f5; }
+    .diary-note .time { font-size: 0.75rem; color: #b38392; margin-top: 5px; display: block; text-align: right; }
+    .empty-notice { text-align: center; color: #b38392; font-style: italic; font-size: 0.9rem; padding: 20px 0; }
 
     /* ================= ALBUM ẢNH ================= */
     .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
@@ -95,6 +114,9 @@
     .status-err { background: #ffe0e0; color: #c0392b; }
     .btn-logout { background: #ffe2eb; color: #c0392b; border: 1px solid #f8c8d8; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: 600; margin-top: 20px; width: 100%; font-family: inherit; }
 
+    @media (max-width: 768px) {
+      .diary-split-container { flex-direction: column; }
+    }
     @media (max-width: 600px) {
       .app-screen { height: 100vh; border-radius: 0; }
       .app-header { padding: 15px 20px; }
@@ -138,17 +160,40 @@
     <!-- Vùng nội dung chính (Chứa các Tab) -->
     <div class="app-content">
       
-      <!-- TAB 1: NHẬT KÝ -->
+      <!-- TAB 1: NHẬT KÝ (CHIA 2 BÊN) -->
       <div class="view-section active" id="view-diary">
         <h2 class="section-title"><i class="fas fa-pen-fancy"></i> Nhật ký đôi</h2>
-        <div class="diary-paper">
-          <textarea class="diary-input" id="diaryInput" placeholder="Hôm nay hai đứa đã làm gì? Viết gì đó thật dễ thương đi... 💕"></textarea>
-          <div class="diary-actions">
-            <button class="btn-primary" id="saveDiaryBtn" style="width: auto; padding: 10px 25px; font-size: 1rem;"><i class="fas fa-save"></i> Lưu nhật ký</button>
+        
+        <div class="diary-split-container">
+          <!-- BÊN TRÁI: DIỄM MY -->
+          <div class="diary-column my-side" id="column-diemmy">
+            <div class="column-header">
+              <i class="fas fa-heart" style="color: #f48fb1;"></i> Trang của Diễm My
+            </div>
+            <div class="diary-input-box">
+              <textarea class="diary-textarea" id="input-diemmy" placeholder="Diễm My viết gì đó cho Tiến Lợi đi..."></textarea>
+              <button class="btn-save-small" id="save-diemmy">Lưu lại</button>
+              <div style="clear:both;"></div>
+            </div>
+            <div class="diary-history-list" id="history-diemmy">
+              <!-- Lịch sử của My -->
+            </div>
           </div>
-        </div>
-        <div class="diary-history" id="diaryHistory">
-          <!-- Lịch sử nhật ký sẽ load ở đây -->
+
+          <!-- BÊN PHẢI: TIẾN LỢI -->
+          <div class="diary-column partner-side" id="column-tienloi">
+            <div class="column-header">
+              <i class="fas fa-heart" style="color: #64b5f6;"></i> Trang của Tiến Lợi
+            </div>
+            <div class="diary-input-box">
+              <textarea class="diary-textarea" id="input-tienloi" placeholder="Tiến Lợi viết gì đó cho Diễm My đi..."></textarea>
+              <button class="btn-save-small" id="save-tienloi">Lưu lại</button>
+              <div style="clear:both;"></div>
+            </div>
+            <div class="diary-history-list" id="history-tienloi">
+              <!-- Lịch sử của Lợi -->
+            </div>
+          </div>
         </div>
       </div>
 
@@ -220,11 +265,7 @@
     const loginScreen = document.getElementById('loginScreen');
     const appScreen = document.getElementById('appScreen');
     const displayUser = document.getElementById('displayUser');
-    const loginBtn = document.getElementById('loginBtn');
-    const usernameInput = document.getElementById('usernameInput');
-    const passwordInput = document.getElementById('passwordInput');
-    const loginError = document.getElementById('loginError');
-
+    
     // Global State
     let currentUser = '';
 
@@ -242,13 +283,41 @@
       displayUser.innerHTML = `<i class="fas fa-user-heart"></i> ${currentUser.charAt(0).toUpperCase() + currentUser.slice(1)}`;
       loginScreen.classList.add('hidden');
       appScreen.classList.remove('hidden');
-      loadDiary();
+      
+      // Cài đặt khóa/mở khóa ô nhập liệu dựa trên user hiện tại
+      setupDiaryPermissions();
+      
+      // Tải dữ liệu
+      loadDiary('diemmy');
+      loadDiary('tienloi');
       loadPhotos();
     }
 
-    loginBtn.addEventListener('click', async () => {
-      const username = usernameInput.value.trim().toLowerCase();
-      const password = passwordInput.value;
+    // Khóa ô nhập của người kia
+    function setupDiaryPermissions() {
+      if (currentUser === 'diemmy') {
+        document.getElementById('input-diemmy').disabled = false;
+        document.getElementById('save-diemmy').disabled = false;
+        
+        document.getElementById('input-tienloi').disabled = true;
+        document.getElementById('input-tienloi').placeholder = "Chỉ Tiến Lợi mới có thể viết ở đây.";
+        document.getElementById('save-tienloi').style.display = 'none';
+      } else if (currentUser === 'tienloi') {
+        document.getElementById('input-tienloi').disabled = false;
+        document.getElementById('save-tienloi').disabled = false;
+        
+        document.getElementById('input-diemmy').disabled = true;
+        document.getElementById('input-diemmy').placeholder = "Chỉ Diễm My mới có thể viết ở đây.";
+        document.getElementById('save-diemmy').style.display = 'none';
+      }
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const username = document.getElementById('usernameInput').value.trim().toLowerCase();
+      const password = document.getElementById('passwordInput').value;
+      const loginError = document.getElementById('loginError');
+      const loginBtn = document.getElementById('loginBtn');
+      
       loginError.textContent = '';
 
       if (!username || !password) {
@@ -264,7 +333,7 @@
       loginBtn.disabled = true;
 
       try {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
+        const { error } = await supabaseClient.auth.signInWithPassword({
           email: `${username}@daomeo.local`,
           password: password
         });
@@ -280,7 +349,7 @@
       }
     });
     
-    passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loginBtn.click(); });
+    document.getElementById('passwordInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('loginBtn').click(); });
 
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       await supabaseClient.auth.signOut();
@@ -290,27 +359,25 @@
     // ====== CHUYỂN TAB (SPA) ======
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
-        // Xóa active cũ
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
         
-        // Thêm active mới
         item.classList.add('active');
         const targetId = item.getAttribute('data-target');
         document.getElementById(targetId).classList.add('active');
       });
     });
 
-    // ====== TÍNH NĂNG NHẬT KÝ ======
-    async function loadDiary() {
-      const historyList = document.getElementById('diaryHistory');
-      historyList.innerHTML = '<div style="text-align:center; color:#b38392;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
+    // ====== TÍNH NĂNG NHẬT KÝ (2 BÊN) ======
+    async function loadDiary(authorName) {
+      const historyList = document.getElementById(`history-${authorName}`);
       
       const { data, error } = await supabaseClient
         .from('diary_entries')
         .select('*')
+        .eq('author', authorName) // Chỉ lấy của người này
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(15);
 
       if (error || !data) {
         historyList.innerHTML = '<div style="color:#c0392b;">Lỗi tải nhật ký.</div>';
@@ -318,46 +385,50 @@
       }
 
       if (data.length === 0) {
-        historyList.innerHTML = '<div style="text-align:center; color:#b38392; font-style:italic;">Chưa có dòng nhật ký nào. Viết dòng đầu tiên nhé!</div>';
+        historyList.innerHTML = '<div class="empty-notice">Chưa có dòng nào...</div>';
         return;
       }
 
       historyList.innerHTML = data.map(item => {
-        const date = new Date(item.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' });
-        const authorName = item.author ? item.author.charAt(0).toUpperCase() + item.author.slice(1) : 'Ẩn danh';
+        const date = new Date(item.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' });
         return `
-          <div class="diary-card">
-            <div class="meta">
-              <span><i class="fas fa-user-edit"></i> ${authorName}</span>
-              <span><i class="fas fa-clock"></i> ${date}</span>
-            </div>
-            <div class="text">${escapeHtml(item.content)}</div>
+          <div class="diary-note">
+            ${escapeHtml(item.content)}
+            <span class="time"><i class="far fa-clock"></i> ${date}</span>
           </div>
         `;
       }).join('');
     }
 
-    document.getElementById('saveDiaryBtn').addEventListener('click', async () => {
-      const content = document.getElementById('diaryInput').value.trim();
+    // Hàm xử lý lưu chung cho cả 2 bên
+    async function saveDiary(authorName, inputId) {
+      const inputEl = document.getElementById(inputId);
+      const content = inputEl.value.trim();
       if (!content) return alert('Viết gì đó đã rồi mới lưu được chứ!');
 
-      const btn = document.getElementById('saveDiaryBtn');
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+      const btn = document.getElementById(`save-${authorName}`);
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
       btn.disabled = true;
 
       const { error } = await supabaseClient
         .from('diary_entries')
-        .insert([{ content: content, author: currentUser }]);
+        .insert([{ content: content, author: authorName }]);
 
       if (error) {
         alert('Lỗi khi lưu: ' + error.message);
       } else {
-        document.getElementById('diaryInput').value = '';
-        await loadDiary();
+        inputEl.value = '';
+        await loadDiary(authorName);
       }
-      btn.innerHTML = '<i class="fas fa-save"></i> Lưu nhật ký';
+      
+      btn.innerHTML = originalText;
       btn.disabled = false;
-    });
+    }
+
+    // Gắn sự kiện click cho 2 nút lưu
+    document.getElementById('save-diemmy').addEventListener('click', () => saveDiary('diemmy', 'input-diemmy'));
+    document.getElementById('save-tienloi').addEventListener('click', () => saveDiary('tienloi', 'input-tienloi'));
 
     // ====== TÍNH NĂNG ALBUM ẢNH ======
     async function loadPhotos() {
@@ -416,39 +487,4 @@
     document.getElementById('openSettingsBtn').addEventListener('click', () => { settingsModal.classList.add('open'); checkConnection(); });
     document.getElementById('closeSettingsBtn').addEventListener('click', () => settingsModal.classList.remove('open'));
 
-    async function checkConnection() {
-      const dbgStatus = document.getElementById('dbgStatus');
-      const dbgDetail = document.getElementById('dbgDetail');
-      const dbgUrl = document.getElementById('dbgUrl');
-      
-      dbgUrl.textContent = SUPABASE_URL;
-      dbgStatus.className = 'status-badge';
-      dbgStatus.style.background = '#fff3cd'; dbgStatus.style.color = '#856404';
-      dbgStatus.textContent = 'Đang kiểm tra...';
-      dbgDetail.textContent = '';
-
-      try {
-        const { error } = await supabaseClient.from('diary_entries').select('id').limit(1);
-        if (error) throw error;
-        
-        dbgStatus.className = 'status-badge status-ok';
-        dbgStatus.textContent = '✅ Kết nối thành công';
-      } catch (err) {
-        dbgStatus.className = 'status-badge status-err';
-        dbgStatus.textContent = '❌ Lỗi kết nối';
-        dbgDetail.textContent = err.message;
-      }
-    }
-    document.getElementById('retryDbBtn').addEventListener('click', checkConnection);
-
-    // Hàm chống XSS
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
-    // Khởi chạy
-    checkSession();
-  </script>
-</body>
-</html>
+    async
