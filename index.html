@@ -72,7 +72,6 @@
     .view-section.active { display: flex; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Tiêu đề chung */
     .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; margin-top: 5px; }
     .section-title { font-family: 'Dancing Script', cursive; font-size: 1.8rem; color: #b15170; margin: 0; }
     .btn-add-small { background: #fbc4d0; border: none; padding: 8px 15px; border-radius: 20px; color: #5a2c3e; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 4px 10px rgba(200,100,130,0.2); transition: 0.2s; font-size: 0.85rem; }
@@ -288,7 +287,6 @@
       </div>
     </div>
 
-    <!-- Banner Đếm Ngày -->
     <div class="love-counter" id="loveCounterBanner">
       <div id="loveCounterContent">
         <h3>Đã yêu nhau được</h3>
@@ -297,7 +295,6 @@
     </div>
     
     <div class="app-content">
-      <!-- TAB NHẬT KÝ -->
       <div class="view-section active" id="view-diary">
         <div class="diary-tabs-container">
           <div class="dtab active" data-dtab="self">Nhật ký bản thân</div>
@@ -315,7 +312,6 @@
         <div class="diary-tab-content" id="diaryTabContent"></div>
       </div>
 
-      <!-- TAB MỤC TIÊU -->
       <div class="view-section" id="view-goals">
         <div class="section-header"><h2 class="section-title">Mục tiêu hôm nay</h2></div>
         <div class="date-header">
@@ -331,7 +327,6 @@
         <div class="goal-list" id="goalList"></div>
       </div>
 
-      <!-- TAB ALBUM ẢNH -->
       <div class="view-section" id="view-photos">
         <div class="section-header">
           <h2 class="section-title">Kỷ niệm ảnh</h2>
@@ -341,7 +336,6 @@
         <button class="load-more-btn" id="loadMorePhotosBtn">Xem thêm ảnh cũ hơn <i class="fas fa-chevron-down"></i></button>
       </div>
 
-      <!-- TAB GIAO ƯỚC -->
       <div class="view-section" id="view-promise">
         <div class="section-header">
           <h2 class="section-title">Giao ước cặp đôi</h2>
@@ -358,7 +352,6 @@
       <div class="nav-item" data-target="view-promise"><i class="fas fa-handshake"></i> Giao ước</div>
     </div>
 
-    <!-- Modal Themes -->
     <div class="modal-overlay" id="diarySettingsModal">
       <div class="modal-sheet">
         <div class="modal-handle"></div>
@@ -380,7 +373,6 @@
       </div>
     </div>
 
-    <!-- Modal Photo -->
     <div class="modal-overlay" id="photoModal">
       <div class="modal-sheet">
         <div class="modal-handle"></div>
@@ -403,7 +395,6 @@
       </div>
     </div>
 
-    <!-- Modal Promise -->
     <div class="modal-overlay" id="promiseModal">
       <div class="modal-sheet">
         <div class="modal-handle"></div>
@@ -414,7 +405,6 @@
       </div>
     </div>
 
-    <!-- Modal Settings -->
     <div class="settings-modal" id="settingsModal">
       <div class="settings-box">
         <h3 style="font-family: 'Dancing Script'; font-size: 1.8rem; color: #b15170; margin-bottom: 15px; text-align: center;">Cài đặt</h3>
@@ -425,7 +415,7 @@
   </div>
 
   <script>
-    // ====== CẤU HÌNH ======
+        // ====== CẤU HÌNH ======
     const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
     const { createClient } = supabase;
@@ -597,26 +587,21 @@
       });
     });
 
-    // ====== LOVE COUNTER (FIX LỖI TREO) ======
+    // ====== LOVE COUNTER ======
     async function initLoveCounter() {
-      const contentEl = document.getElementById('loveCounterContent');
       try {
         const { data, error } = await supabaseClient.from('couple_settings').select('love_start_date').limit(1).maybeSingle();
-        
         if (error) {
-          // Bảng chưa tồn tại hoặc RLS chặn
           console.error('Lỗi đọc couple_settings:', error);
           showLoveCounterSetup('Chưa có bảng dữ liệu. Hãy chạy SQL tạo bảng!');
           return;
         }
-
         if (data && data.love_start_date) {
           loveStartDate = new Date(data.love_start_date + 'T00:00:00+07:00');
           updateLoveCounterDisplay();
           if (loveCounterInterval) clearInterval(loveCounterInterval);
           loveCounterInterval = setInterval(updateLoveCounterDisplay, 1000);
         } else {
-          // Bảng tồn tại nhưng chưa có dữ liệu -> Hiện nút thiết lập
           showLoveCounterSetup();
         }
       } catch (err) {
@@ -630,7 +615,6 @@
       if (isEditingLoveDate) return;
 
       if (loveStartDate) {
-        // Đã có dữ liệu -> Cho phép sửa
         contentEl.innerHTML = `
           <h3>Đã yêu nhau được</h3>
           <p id="loveTimeDisplay"></p>
@@ -638,7 +622,6 @@
         `;
         document.getElementById('editLoveDateBtn').addEventListener('click', showLoveDateEditor);
       } else {
-        // Chưa có dữ liệu
         contentEl.innerHTML = `
           <h3>Kỷ niệm tình yêu</h3>
           <p style="font-size: 0.8rem; margin-bottom: 5px;">${errorMsg || 'Hãy thiết lập ngày bắt đầu yêu nhé!'}</p>
@@ -663,29 +646,23 @@
       document.getElementById('saveLoveDateBtn').addEventListener('click', saveLoveDate);
       document.getElementById('cancelLoveDateBtn').addEventListener('click', () => {
         isEditingLoveDate = false;
-        if (loveStartDate) { updateLoveCounterDisplay(); showLoveCounterSetup(); }
-        else showLoveCounterSetup();
+        showLoveCounterSetup();
+        if (loveStartDate) updateLoveCounterDisplay();
       });
     }
 
     async function saveLoveDate() {
       const dateVal = document.getElementById('loveDateInput').value;
       if (!dateVal) return showToast('Vui lòng chọn ngày!', 'error');
-
       try {
-        // Kiểm tra đã có bản ghi chưa
         const { data } = await supabaseClient.from('couple_settings').select('id').limit(1).maybeSingle();
-        
         if (data && data.id) {
-          // Update
           const { error } = await supabaseClient.from('couple_settings').update({ love_start_date: dateVal }).eq('id', data.id);
           if (error) throw error;
         } else {
-          // Insert
           const { error } = await supabaseClient.from('couple_settings').insert([{ love_start_date: dateVal }]);
           if (error) throw error;
         }
-
         loveStartDate = new Date(dateVal + 'T00:00:00+07:00');
         isEditingLoveDate = false;
         updateLoveCounterDisplay();
@@ -693,7 +670,6 @@
         loveCounterInterval = setInterval(updateLoveCounterDisplay, 1000);
         showToast('Đã lưu ngày kỷ niệm!');
         showLoveCounterSetup();
-
       } catch (err) {
         showToast('Lỗi: ' + err.message, 'error');
       }
@@ -703,19 +679,14 @@
       if (!loveStartDate) return;
       const now = new Date();
       const diff = now - loveStartDate;
-      if (diff < 0) {
-        const el = document.getElementById('loveTimeDisplay');
-        if (el) el.innerHTML = 'Sắp bắt đầu...';
-        return;
-      }
+      const el = document.getElementById('loveTimeDisplay');
+      if (!el) return;
+      if (diff < 0) { el.innerHTML = 'Sắp bắt đầu...'; return; }
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
       const minutes = Math.floor((diff / 1000 / 60) % 60);
       const seconds = Math.floor((diff / 1000) % 60);
-      const el = document.getElementById('loveTimeDisplay');
-      if (el) {
-        el.innerHTML = `<span class="time-highlight">${days}</span> ngày <span class="time-highlight">${hours}</span> giờ <span class="time-highlight">${minutes}</span> phút <span class="time-highlight">${seconds}</span> giây`;
-      }
+      el.innerHTML = `<span class="time-highlight">${days}</span> ngày <span class="time-highlight">${hours}</span> giờ <span class="time-highlight">${minutes}</span> phút <span class="time-highlight">${seconds}</span> giây`;
     }
 
     // ====== MỤC TIÊU ======
@@ -724,9 +695,7 @@
     async function loadGoalsForDate(dateString) {
       const list = document.getElementById('goalList');
       list.innerHTML = `<div style="padding: 20px;">${skeletonCard}</div>`;
-
       const { data, error } = await supabaseClient.from('daily_goals').select('*').eq('goal_date', dateString).order('created_at', { ascending: true });
-
       if (error) {
         list.innerHTML = `<div style="color:#c0392b; text-align:center; padding:20px;">Lỗi: ${error.message}</div>`;
         return;
@@ -735,7 +704,6 @@
         list.innerHTML = '<div style="text-align:center; color:#b38392; font-style:italic; padding: 20px;">Chưa có mục tiêu nào. Thêm mục tiêu cho ngày này nhé!</div>';
         return;
       }
-
       list.innerHTML = data.map(goal => `
         <div class="goal-item ${goal.is_completed ? 'completed' : ''}" id="goal-${goal.id}">
           <div class="goal-checkbox" onclick="toggleGoal('${goal.id}', ${goal.is_completed})"><i class="fas fa-check"></i></div>
