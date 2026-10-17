@@ -80,15 +80,14 @@
     .btn-save { background: #fbc4d0; color: #5a2c3e; box-shadow: 0 4px 10px rgba(200,100,130,0.2); }
     .btn-delete { background: #fff0f0; color: #c0392b; border: 2px solid #ffcccc; }
 
-    /* ================= ALBUM ẢNH MỚI ================= */
+    /* ================= ALBUM ẢNH ================= */
     .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding-bottom: 20px; }
     .photo-card { background: #fff; padding: 6px; border-radius: 16px; box-shadow: 0 8px 20px -8px #dba5b8; display: flex; flex-direction: column; transition: 0.3s; position: relative; overflow: hidden; }
     .photo-card:hover { transform: translateY(-5px); box-shadow: 0 12px 25px -8px #dba5b8; }
-    
     .photo-img-wrapper { position: relative; width: 100%; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden; }
     .photo-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
     
-    /* Nút Sửa/Xóa trên ảnh (Chỉ hiện với người đăng) */
+    /* Nút Sửa/Xóa trên ảnh */
     .photo-actions { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
     .photo-actions button { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.9); color: #b15170; font-size: 0.8rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); transition: 0.2s; }
     .photo-actions button:hover { transform: scale(1.1); }
@@ -98,18 +97,24 @@
     .photo-caption { font-size: 0.85rem; font-weight: 700; color: #5a3e4b; line-height: 1.3; }
     .photo-author { font-size: 0.7rem; color: #b38392; display: flex; align-items: center; gap: 4px; }
 
-    /* ================= GIAO ƯỚC MỚI ================= */
+    /* ================= GIAO ƯỚC (THIẾT KẾ LẠI) ================= */
     .promise-list { display: flex; flex-direction: column; gap: 15px; padding-bottom: 20px; }
-    .promise-card { background: #fff; border-radius: 20px; padding: 20px; box-shadow: 0 8px 25px -10px #e5bccb; border-left: 5px solid #fbc4d0; position: relative; transition: 0.2s; }
-    .promise-card.partner-side { border-left-color: #b3d4f5; background: #f8fbff; }
-    .promise-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .promise-author { font-size: 0.85rem; font-weight: 700; color: #b15170; display: flex; align-items: center; gap: 6px; }
-    .partner-side .promise-author { color: #4a7ab5; }
-    .promise-actions { display: flex; gap: 8px; }
-    .btn-icon { background: transparent; border: none; font-size: 1rem; cursor: pointer; color: #b38392; transition: 0.2s; padding: 5px; }
-    .btn-icon:hover { color: #c0392b; transform: scale(1.1); }
-    .btn-icon.edit:hover { color: #1e8449; }
-    .promise-text { font-size: 1.05rem; line-height: 1.6; color: #4b2e39; font-weight: 500; }
+    .promise-card { position: relative; padding: 22px 20px; border-radius: 20px; box-shadow: 0 8px 25px -10px rgba(0,0,0,0.06); transition: 0.3s; display: flex; align-items: center; }
+    .promise-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px -10px rgba(0,0,0,0.1); }
+    
+    /* Màu của Diễm My */
+    .promise-card.diemmy-promise { background: #fffafc; border: 2px solid #fbc4d0; border-left: 6px solid #fbc4d0; }
+    /* Màu của Tiến Lợi */
+    .promise-card.tienloi-promise { background: #f5f9ff; border: 2px solid #b3d4f5; border-left: 6px solid #b3d4f5; }
+    
+    .promise-text { font-size: 1.05rem; line-height: 1.6; color: #4b2e39; font-weight: 500; flex: 1; padding-right: 35px; word-break: break-word; white-space: pre-wrap; }
+    
+    /* Nút Sửa/Xóa tinh tế */
+    .promise-actions { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; opacity: 0.6; transition: 0.2s; }
+    .promise-card:hover .promise-actions { opacity: 1; }
+    .btn-icon { background: #fff; border: 1px solid #eee; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; cursor: pointer; color: #b38392; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .btn-icon.edit:hover { color: #1e8449; border-color: #1e8449; }
+    .btn-icon.delete:hover { color: #c0392b; border-color: #c0392b; }
 
     /* ================= MODAL (BOTTOM SHEET) ================= */
     .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; opacity: 0; pointer-events: none; transition: 0.3s; display: flex; align-items: flex-end; }
@@ -138,7 +143,7 @@
     .image-preview-container { text-align: center; margin-top: 10px; display: none; }
     .image-preview-container img { max-width: 100%; max-height: 150px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 
-    /* Ô nhập chú thích mới (Có icon) */
+    /* Ô nhập chú thích */
     .caption-input-wrapper { position: relative; margin-bottom: 15px; }
     .caption-input-wrapper i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #fbc4d0; font-size: 1.1rem; }
     .caption-input-wrapper input { width: 100%; padding: 14px 15px 14px 40px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem; background: #fff; transition: 0.2s; }
@@ -275,7 +280,6 @@
           </div>
         </div>
 
-        <!-- Chú thích (Thiết kế lại) -->
         <div class="caption-input-wrapper">
           <i class="fas fa-pen"></i>
           <input type="text" id="photoCaptionInput" placeholder="Viết chú thích dễ thương cho ảnh...">
@@ -527,7 +531,6 @@
     // ====== LOGIC ALBUM ẢNH ======
     const photoModal = document.getElementById('photoModal');
 
-    // Mở modal thêm ảnh mới
     document.getElementById('openAddPhotoModal').addEventListener('click', () => {
       editingPhotoId = null;
       document.getElementById('photoModalTitle').textContent = 'Thêm ảnh kỷ niệm';
@@ -535,7 +538,6 @@
       document.getElementById('form-url').classList.add('active');
       document.getElementById('form-upload').classList.remove('active');
       
-      // Reset form
       document.getElementById('photoUrlInput').value = '';
       document.getElementById('photoCaptionInput').value = '';
       document.getElementById('photoFileInput').value = '';
@@ -590,7 +592,6 @@
 
       grid.innerHTML = data.map(photo => {
         const isMine = photo.uploaded_by === currentUser;
-        // Nút Sửa/Xóa chỉ hiện với người đăng
         const actionsHtml = isMine ? `
           <div class="photo-actions">
             <button onclick="editPhoto('${photo.id}', '${escapeHtml(photo.caption || '').replace(/'/g, "\\'")}')"><i class="fas fa-pen"></i></button>
@@ -613,7 +614,6 @@
       }).join('');
     }
 
-    // Xử lý lưu (Thêm mới hoặc Cập nhật)
     document.getElementById('savePhotoBtn').addEventListener('click', async () => {
       const caption = document.getElementById('photoCaptionInput').value.trim();
       const btn = document.getElementById('savePhotoBtn');
@@ -623,11 +623,9 @@
 
       try {
         if (editingPhotoId) {
-          // Cập nhật chú thích
           const { error } = await supabaseClient.from('photo_album').update({ caption }).eq('id', editingPhotoId);
           if (error) throw error;
         } else {
-          // Thêm mới
           let finalImageUrl = '';
 
           if (currentPhotoTab === 'url') {
@@ -670,19 +668,16 @@
       }
     });
 
-    // Hàm toàn cục Sửa ảnh
     window.editPhoto = function(id, caption) {
       editingPhotoId = id;
       document.getElementById('photoModalTitle').textContent = 'Sửa chú thích ảnh';
-      document.getElementById('photoTabsContainer').style.display = 'none'; // Ẩn phần chọn ảnh
+      document.getElementById('photoTabsContainer').style.display = 'none';
       document.getElementById('form-url').classList.remove('active');
       document.getElementById('form-upload').classList.remove('active');
-      
       document.getElementById('photoCaptionInput').value = caption;
       photoModal.classList.add('open');
     };
 
-    // Hàm toàn cục Xóa ảnh
     window.deletePhoto = async function(id) {
       if (!confirm('Bạn có chắc muốn xóa bức ảnh này không?')) return;
       try {
@@ -694,7 +689,7 @@
       }
     };
 
-    // ====== LOGIC GIAO ƯỚC ======
+    // ====== LOGIC GIAO ƯỚC (THIẾT KẾ LẠI) ======
     const promiseModal = document.getElementById('promiseModal');
 
     document.getElementById('openAddPromiseModal').addEventListener('click', () => {
@@ -723,24 +718,23 @@
 
       list.innerHTML = data.map(promise => {
         const isMine = promise.author === currentUser;
-        const authorName = promise.author.charAt(0).toUpperCase() + promise.author.slice(1);
-        const sideClass = isMine ? 'my-side' : 'partner-side';
         
+        // Xác định màu thẻ dựa trên người viết
+        let colorClass = '';
+        if (promise.author === 'diemmy') colorClass = 'diemmy-promise';
+        else if (promise.author === 'tienloi') colorClass = 'tienloi-promise';
+        
+        // Nút Sửa/Xóa
         const actionButtons = isMine ? `
           <div class="promise-actions">
             <button class="btn-icon edit" onclick="editPromise('${promise.id}', '${escapeHtml(promise.content).replace(/'/g, "\\'")}')"><i class="fas fa-pen"></i></button>
-            <button class="btn-icon" onclick="deletePromise('${promise.id}')"><i class="fas fa-trash"></i></button>
+            <button class="btn-icon delete" onclick="deletePromise('${promise.id}')"><i class="fas fa-trash"></i></button>
           </div>
         ` : '';
 
         return `
-          <div class="promise-card ${sideClass}">
-            <div class="promise-header">
-              <div class="promise-author">
-                <i class="fas fa-heart"></i> ${authorName}
-              </div>
-              ${actionButtons}
-            </div>
+          <div class="promise-card ${colorClass}">
+            ${actionButtons}
             <div class="promise-text">${escapeHtml(promise.content)}</div>
           </div>
         `;
