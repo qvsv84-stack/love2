@@ -13,6 +13,20 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Quicksand', sans-serif; background: linear-gradient(145deg, #fff0f5 0%, #ffe4ec 100%); min-height: 100vh; color: #5a3e4b; display: flex; align-items: center; justify-content: center; padding: 16px; transition: all 0.3s ease; }
     
+    /* Màn hình Đăng nhập */
+    .login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff0f5; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; transition: opacity 0.5s ease, visibility 0.5s; }
+    .login-screen.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
+    .login-box { background: #fffbfd; max-width: 400px; width: 100%; padding: 40px 30px; border-radius: 40px; box-shadow: 0 20px 40px -15px #e5a5b9, 0 0 0 10px #ffeef4 inset; text-align: center; border: 1px solid #f8c8d8; }
+    .login-box h2 { font-family: 'Dancing Script', cursive; font-size: 3rem; color: #b15170; margin-bottom: 10px; }
+    .login-box p { font-size: 1rem; color: #b38392; margin-bottom: 25px; }
+    .login-input-group { position: relative; margin-bottom: 20px; }
+    .login-input-group input { width: 100%; padding: 16px 20px; border-radius: 30px; border: 2px solid #f8c8d8; background: #fff; font-size: 1.1rem; font-family: 'Quicksand', sans-serif; color: #5a3e4b; outline: none; transition: 0.2s; }
+    .login-input-group input:focus { border-color: #fbc4d0; box-shadow: 0 0 0 4px #fff0f5; }
+    .login-input-group span { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); color: #b38392; font-weight: 600; font-size: 1.1rem; pointer-events: none; }
+    .login-btn { background: #fbc4d0; border: none; width: 100%; padding: 16px; border-radius: 30px; font-size: 1.2rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 10px 20px -8px #e5a5b9; transition: 0.2s; border: 2px solid #fff; }
+    .login-btn:hover { background: #ffdae5; transform: translateY(-2px); }
+    .login-error { color: #c0392b; font-size: 0.9rem; margin-top: 15px; min-height: 20px; font-weight: 500; }
+
     /* Màn hình chính */
     .main-screen { max-width: 1100px; width: 100%; text-align: center; padding: 24px; background: rgba(255, 240, 245, 0.6); backdrop-filter: blur(2px); border-radius: 64px 64px 48px 48px; box-shadow: 0 25px 40px -15px rgba(230, 120, 150, 0.3); border: 1px solid rgba(255, 210, 220, 0.7); transition: opacity 0.4s ease, transform 0.4s ease; }
     .main-screen.hidden { opacity: 0; pointer-events: none; transform: scale(0.98); position: absolute; visibility: hidden; }
@@ -26,26 +40,31 @@
     .menu-toggle:hover { background: #ffdae4; transform: translateY(-5px); box-shadow: 0 25px 30px -8px rgba(200, 100, 130, 0.5), inset 0 -4px 0 #e9a6b8; }
     
     /* Menu Full Trang */
-    .full-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff0f5ee; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; padding: 30px 20px; opacity: 0; pointer-events: none; transition: opacity 0.5s cubic-bezier(0.2, 0.9, 0.3, 1), backdrop-filter 0.4s; visibility: hidden; overflow-y: auto; }
+    .full-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff0f5ee; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 20px; opacity: 0; pointer-events: none; transition: opacity 0.5s cubic-bezier(0.2, 0.9, 0.3, 1), backdrop-filter 0.4s; visibility: hidden; overflow-y: auto; }
     .full-menu.open { opacity: 1; pointer-events: all; visibility: visible; }
     .close-menu { position: absolute; top: 30px; right: 35px; background: #ffe2eb; border: none; width: 60px; height: 60px; border-radius: 50%; font-size: 2.2rem; color: #b45773; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 8px 18px #ecc0ce; transition: all 0.2s; border: 2px solid #fff; z-index: 10; }
     .close-menu:hover { background: #ffd0de; transform: rotate(90deg) scale(1.05); color: #8e3e59; }
     
-    .menu-items { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 450px; animation: fadeSlideUp 0.5s 0.1s both; }
+    .menu-items { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 450px; margin-bottom: 20px; animation: fadeSlideUp 0.5s 0.1s both; }
     @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
     .menu-item { background: #ffffffcc; backdrop-filter: blur(6px); padding: 20px 30px; border-radius: 80px; font-size: 1.5rem; font-weight: 600; color: #723d52; display: flex; align-items: center; gap: 25px; box-shadow: 0 12px 25px -8px #e7b7c6, 0 0 0 2px #fff inset; cursor: pointer; transition: all 0.2s ease; border: 1px solid #ffe6ee; text-decoration: none; justify-content: center; letter-spacing: 1px; }
     .menu-item i { font-size: 1.8rem; color: #d4688a; width: 40px; text-align: center; }
     .menu-item:hover { background: #ffecf2; transform: scale(1.03); box-shadow: 0 20px 30px -10px #d987a3, 0 0 0 2px #fff inset; color: #a14564; }
 
-    /* Bảng Debug trên Menu */
-    .menu-debug-box { max-width: 450px; width: 100%; background: rgba(255, 255, 255, 0.85); border: 2px dashed #e5a5b9; border-radius: 20px; padding: 20px; font-size: 0.9rem; color: #6d364b; line-height: 1.6; box-shadow: 0 10px 20px -10px #ecc0ce; animation: fadeSlideUp 0.5s 0.2s both; text-align: left; }
-    .menu-debug-box h3 { font-size: 1.1rem; margin-bottom: 10px; color: #b33e63; display: flex; align-items: center; gap: 8px; }
+    /* Nút Debug & Bảng Debug */
+    .debug-toggle-btn { background: transparent; border: 1px dashed #d8a7b6; color: #b38392; padding: 10px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .debug-toggle-btn:hover { background: #fff0f5; color: #b33e63; border-color: #b33e63; }
+    .menu-debug-box { display: none; max-width: 450px; width: 100%; background: rgba(255, 255, 255, 0.9); border: 2px dashed #e5a5b9; border-radius: 20px; padding: 20px; font-size: 0.85rem; color: #6d364b; line-height: 1.6; box-shadow: 0 10px 20px -10px #ecc0ce; text-align: left; margin-top: 15px; animation: fadeSlideUp 0.3s both; }
+    .menu-debug-box.open { display: block; }
+    .menu-debug-box h3 { font-size: 1rem; margin-bottom: 10px; color: #b33e63; display: flex; align-items: center; gap: 8px; }
     .menu-debug-box p { margin-bottom: 6px; word-break: break-all; }
-    .menu-debug-box code { background: #ffe2eb; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
-    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; margin-top: 5px; }
+    .menu-debug-box code { background: #ffe2eb; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.8rem; margin-top: 5px; }
     .status-ok { background: #d4f5dd; color: #1e8449; }
     .status-err { background: #ffe0e0; color: #c0392b; }
     .status-loading { background: #fff3cd; color: #856404; }
+    .retry-btn { margin-top: 10px; padding: 8px; border-radius: 20px; border: 1px solid #e5a5b9; background: #fff; color: #b33e63; font-weight: 600; cursor: pointer; width: 100%; transition: 0.2s; font-family: inherit; }
+    .retry-btn:hover { background: #fff0f5; }
 
     /* Màn hình Nhật ký */
     .diary-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fce9f0; z-index: 1100; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px 20px 0; overflow-y: auto; opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; }
@@ -82,13 +101,27 @@
     .history-item .hist-time { font-size: 0.85rem; color: #c98ba0; margin-bottom: 6px; font-weight: 600; }
     .history-item .hist-content { font-size: 1.05rem; color: #5a3e4b; white-space: pre-wrap; line-height: 1.7rem; }
 
-    @media (max-width: 600px) { h1 { font-size: 3.5rem; } .menu-toggle { font-size: 1.3rem; padding: 14px 28px; } .menu-item { font-size: 1.3rem; padding: 18px 25px; } .diary-paper { padding: 30px 20px; } .paper-header h2 { font-size: 2rem; } .date-badge { font-size: 0.9rem; padding: 7px 16px; } .close-menu { top: 20px; right: 20px; width: 50px; height: 50px; font-size: 1.8rem; } }
+    @media (max-width: 600px) { h1 { font-size: 3.5rem; } .menu-toggle { font-size: 1.3rem; padding: 14px 28px; } .menu-item { font-size: 1.3rem; padding: 18px 25px; } .diary-paper { padding: 30px 20px; } .paper-header h2 { font-size: 2rem; } .date-badge { font-size: 0.9rem; padding: 7px 16px; } .close-menu { top: 20px; right: 20px; width: 50px; height: 50px; font-size: 1.8rem; } .login-box { padding: 30px 20px; } }
   </style>
 </head>
 <body>
 
-  <!-- Màn hình chính -->
-  <div class="main-screen" id="mainScreen">
+  <!-- MÀN HÌNH ĐĂNG NHẬP -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-box">
+      <h2>Love Story</h2>
+      <p>Nhập tên của bạn để vào nhà của chúng ta 💕</p>
+      <div class="login-input-group">
+        <input type="text" id="usernameInput" placeholder="Ví dụ: diemmy" autocomplete="off" spellcheck="false">
+        <span>@daomeo.local</span>
+      </div>
+      <button class="login-btn" id="loginBtn">Đăng nhập</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- MÀN HÌNH CHÍNH -->
+  <div class="main-screen hidden" id="mainScreen">
     <h1>Love Story</h1>
     <div class="sub-love">
       <i class="fas fa-heart"></i>
@@ -103,24 +136,12 @@
     </div>
   </div>
 
-  <!-- Menu Full Trang -->
+  <!-- MENU FULL TRANG -->
   <div class="full-menu" id="fullMenu">
     <button class="close-menu" id="closeMenuBtn">
       <i class="fas fa-times"></i>
     </button>
     
-    <!-- Bảng Debug nằm ngay trong Menu -->
-    <div class="menu-debug-box" id="menuDebugBox">
-      <h3><i class="fas fa-network-wired"></i> Trạng thái Supabase</h3>
-      <p><strong>URL:</strong> <code id="dbgUrl">—</code></p>
-      <p><strong>Thời gian:</strong> <span id="dbgTime">—</span></p>
-      <div id="dbgStatusContainer">
-        <span class="status-badge status-loading" id="dbgStatus">⏳ Đang kiểm tra kết nối...</span>
-      </div>
-      <p id="dbgDetail" style="margin-top: 10px; font-size: 0.85rem; color: #856404;"></p>
-      <button id="retryBtn" style="margin-top: 10px; padding: 8px 16px; border-radius: 20px; border: 1px solid #e5a5b9; background: #fff; color: #b33e63; font-weight: 600; cursor: pointer; width: 100%; transition: 0.2s;"><i class="fas fa-redo"></i> Thử kết nối lại</button>
-    </div>
-
     <div class="menu-items">
       <div class="menu-item" id="diaryMenuItem">
         <i class="fas fa-book-heart"></i>
@@ -135,9 +156,25 @@
         Bài hát của chúng ta
       </div>
     </div>
+
+    <!-- Nút Debug & Bảng Debug (Nằm dưới cùng) -->
+    <button class="debug-toggle-btn" id="debugToggleBtn">
+      <i class="fas fa-bug"></i> Hệ thống & Debug
+    </button>
+    
+    <div class="menu-debug-box" id="menuDebugBox">
+      <h3><i class="fas fa-network-wired"></i> Trạng thái Supabase</h3>
+      <p><strong>URL:</strong> <code id="dbgUrl">—</code></p>
+      <p><strong>Thời gian:</strong> <span id="dbgTime">—</span></p>
+      <div>
+        <span class="status-badge status-loading" id="dbgStatus">⏳ Đang kiểm tra...</span>
+      </div>
+      <p id="dbgDetail" style="margin-top: 10px; color: #856404;"></p>
+      <button class="retry-btn" id="retryBtn"><i class="fas fa-redo"></i> Thử kết nối lại</button>
+    </div>
   </div>
 
-  <!-- Màn hình Nhật ký -->
+  <!-- MÀN HÌNH NHẬT KÝ -->
   <div class="diary-screen" id="diaryScreen">
     <button class="back-btn" id="backToMainBtn">
       <i class="fas fa-arrow-left"></i> Quay lại
@@ -194,6 +231,11 @@
       const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       // DOM Elements
+      const loginScreen = document.getElementById('loginScreen');
+      const usernameInput = document.getElementById('usernameInput');
+      const loginBtn = document.getElementById('loginBtn');
+      const loginError = document.getElementById('loginError');
+      
       const mainScreen = document.getElementById('mainScreen');
       const menuToggle = document.getElementById('menuToggle');
       const fullMenu = document.getElementById('fullMenu');
@@ -203,6 +245,8 @@
       const backToMainBtn = document.getElementById('backToMainBtn');
       
       // Debug Elements
+      const debugToggleBtn = document.getElementById('debugToggleBtn');
+      const menuDebugBox = document.getElementById('menuDebugBox');
       const dbgUrl = document.getElementById('dbgUrl');
       const dbgTime = document.getElementById('dbgTime');
       const dbgStatus = document.getElementById('dbgStatus');
@@ -258,6 +302,56 @@
         setTimeout(() => { if (statusMsg.textContent === msg) statusMsg.textContent = ''; }, 5000);
       }
 
+      // ====== CHỨC NĂNG ĐĂNG NHẬP ======
+      loginBtn.addEventListener('click', async () => {
+        const username = usernameInput.value.trim().toLowerCase();
+        loginError.textContent = '';
+        
+        if (!username) {
+          loginError.textContent = 'Vui lòng nhập tên của bạn!';
+          return;
+        }
+
+        // Ghép thành email chuẩn
+        const email = `${username}@daomeo.local`;
+
+        // Chỉ cho phép 2 user này (theo yêu cầu)
+        if (username !== 'diemmy' && username !== 'tienloi') {
+          loginError.textContent = 'Tên này không có trong danh sách. Chỉ dành cho Diễm My và Tiến Lợi thôi! 💕';
+          return;
+        }
+
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang vào...';
+        loginBtn.disabled = true;
+
+        try {
+          // Đăng nhập ẩn danh để lấy session (không cần mật khẩu thật)
+          // Lưu ý: Vì ta chỉ cần session để thoả mãn Auth, ta dùng signInAnonymously
+          const { data, error } = await supabaseClient.auth.signInAnonymously();
+
+          if (error) throw error;
+
+          // Lưu tên user vào localStorage để hiển thị nếu cần
+          localStorage.setItem('love_story_user', username);
+
+          // Chuyển màn hình
+          loginScreen.classList.add('hidden');
+          mainScreen.classList.remove('hidden');
+          
+        } catch (err) {
+          console.error('Lỗi đăng nhập:', err);
+          loginError.textContent = 'Lỗi kết nối Supabase. Hãy kiểm tra lại mạng hoặc project đang bị Paused.';
+        } finally {
+          loginBtn.innerHTML = 'Đăng nhập';
+          loginBtn.disabled = false;
+        }
+      });
+
+      // Nhấn Enter để đăng nhập
+      usernameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loginBtn.click();
+      });
+
       // ====== KIỂM TRA KẾT NỐI (DEBUG) ======
       async function checkConnection() {
         dbgTime.textContent = new Date().toLocaleTimeString('vi-VN');
@@ -266,7 +360,6 @@
         dbgDetail.textContent = '';
 
         try {
-          // Thử fetch một dòng dữ liệu để test kết nối
           const { data, error } = await supabaseClient
             .from('diary_entries')
             .select('id')
@@ -274,10 +367,9 @@
 
           if (error) throw error;
 
-          // Nếu thành công
           dbgStatus.className = 'status-badge status-ok';
           dbgStatus.innerHTML = '✅ Kết nối thành công';
-          dbgDetail.innerHTML = `<span style="color:#1e8449;">Bảng 'diary_entries' đã sẵn sàng. Bạn có thể lưu nhật ký.</span>`;
+          dbgDetail.innerHTML = `<span style="color:#1e8449;">Bảng 'diary_entries' đã sẵn sàng.</span>`;
           
         } catch (error) {
           console.error('Lỗi kết nối:', error);
@@ -286,11 +378,11 @@
           
           let detailMsg = error.message;
           if (error.message === 'Failed to fetch' || error.message.includes('fetch')) {
-            detailMsg = 'Không thể kết nối mạng đến Supabase. Nguyên nhân thường gặp:<br>1. Project Supabase đang bị tạm dừng (Paused).<br>2. Mạng của bạn chặn tên miền supabase.co (thử tắt Adblock hoặc dùng 4G).<br>3. Sai URL.';
+            detailMsg = 'Không thể kết nối mạng đến Supabase. Nguyên nhân thường gặp:<br>1. Project Supabase đang bị tạm dừng (Paused).<br>2. Mạng của bạn chặn tên miền supabase.co.<br>3. Sai URL.';
           } else if (error.message.includes('relation') || error.message.includes('does not exist')) {
-            detailMsg = 'Chưa tạo bảng "diary_entries". Hãy vào SQL Editor của Supabase và chạy lệnh tạo bảng.';
+            detailMsg = 'Chưa tạo bảng "diary_entries".';
           } else if (error.message.includes('Invalid API key')) {
-            detailMsg = 'Sai API Key. Kiểm tra lại Publishable Key trong phần Settings -> API Keys.';
+            detailMsg = 'Sai API Key. Kiểm tra lại Publishable Key.';
           }
 
           dbgDetail.innerHTML = `<span style="color:#c0392b;">${detailMsg}</span>`;
@@ -298,117 +390,14 @@
       }
 
       retryBtn.addEventListener('click', checkConnection);
-
-      // ====== LOAD DATA ======
-      async function loadDiaryFromSupabase() {
-        showStatus('Đang tải dữ liệu...');
-        try {
-          const { data, error } = await supabaseClient
-            .from('diary_entries')
-            .select('id, content, created_at')
-            .order('created_at', { ascending: false })
-            .limit(20);
-
-          if (error) throw error;
-
-          if (data && data.length > 0) {
-            diaryContent.innerText = data[0].content;
-            renderHistory(data.slice(1));
-            showStatus(`Đã tải ${data.length} dòng nhật ký`);
-          } else {
-            diaryContent.innerText = '';
-            historyList.innerHTML = '<div style="color:#b38392; font-style:italic; padding:10px;">Chưa có dòng nhật ký nào. Hãy viết dòng đầu tiên nhé! 💕</div>';
-            showStatus('Chưa có dữ liệu');
-          }
-        } catch (error) {
-          console.error('Lỗi tải:', error);
-          showStatus('Lỗi tải: ' + error.message, true);
-          historyList.innerHTML = `<div style="color:#c0392b; padding:10px;">Không thể tải lịch sử: ${error.message}</div>`;
-        }
-      }
-
-      function renderHistory(items) {
-        if (!items || items.length === 0) {
-          historyList.innerHTML = '<div style="color:#b38392; font-style:italic; padding:10px;">Chưa có dòng nào trước đó.</div>';
-          return;
-        }
-        historyList.innerHTML = items.map(item => `
-          <div class="history-item">
-            <div class="hist-time"><i class="fas fa-clock"></i> ${formatDateTime(item.created_at)}</div>
-            <div class="hist-content">${escapeHtml(item.content)}</div>
-          </div>
-        `).join('');
-      }
-
-      function escapeHtml(str) {
-        return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-      }
-
-      // ====== SAVE DATA ======
-      async function saveDiaryToSupabase() {
-        const content = diaryContent.innerText.trim();
-        if (!content) { showStatus('Nhật ký trống, không có gì để lưu!', true); return; }
-
-        saveDiaryBtn.disabled = true;
-        const oldHTML = saveDiaryBtn.innerHTML;
-        saveDiaryBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
-
-        try {
-          const { error } = await supabaseClient
-            .from('diary_entries')
-            .insert([{ content: content }]);
-          if (error) throw error;
-
-          showStatus('❤️ Đã lưu lên Supabase!');
-          await loadDiaryFromSupabase();
-        } catch (error) {
-          console.error('Lỗi lưu:', error);
-          showStatus('Lỗi lưu: ' + error.message, true);
-        } finally {
-          saveDiaryBtn.disabled = false;
-          saveDiaryBtn.innerHTML = oldHTML;
-        }
-      }
-
-      // ====== UI ======
-      function openFullMenu() { 
-        fullMenu.classList.add('open'); 
-        mainScreen.classList.add('hidden'); 
-        checkConnection(); // Tự động check lại mỗi khi mở menu
-      }
-      function closeFullMenu() { fullMenu.classList.remove('open'); mainScreen.classList.remove('hidden'); }
       
-      async function openDiary() {
-        fullMenu.classList.remove('open');
-        mainScreen.classList.add('hidden');
-        diaryScreen.classList.add('open');
-        updateCurrentDates();
-        updatePastDate();
-        await loadDiaryFromSupabase();
-      }
-      function backToMainFromDiary() {
-        diaryScreen.classList.remove('open');
-        mainScreen.classList.remove('hidden');
-        fullMenu.classList.remove('open');
-      }
-
-      menuToggle.addEventListener('click', openFullMenu);
-      closeMenuBtn.addEventListener('click', closeFullMenu);
-      diaryMenuItem.addEventListener('click', openDiary);
-      backToMainBtn.addEventListener('click', backToMainFromDiary);
-      saveDiaryBtn.addEventListener('click', saveDiaryToSupabase);
-      loadDiaryBtn.addEventListener('click', loadDiaryFromSupabase);
-
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-          if (fullMenu.classList.contains('open')) closeFullMenu();
-          else if (diaryScreen.classList.contains('open')) backToMainFromDiary();
+      // Ẩn/hiện bảng debug
+      debugToggleBtn.addEventListener('click', () => {
+        menuDebugBox.classList.toggle('open');
+        if (menuDebugBox.classList.contains('open')) {
+          checkConnection(); // Tự động check khi mở bảng
         }
       });
 
-      // Chạy check kết nối ngay khi tải trang
-      checkConnection();
-    })();
-  </script>
-</body>
-</html>
+      // ====== LOAD DATA ======
+      async function loadDiaryFromSupabase()
