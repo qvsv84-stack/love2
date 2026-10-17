@@ -40,7 +40,7 @@
     /* Header */
     .app-header { padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.5); border-bottom: 1px solid #f8c8d8; }
     .app-header h1 { font-family: 'Dancing Script', cursive; font-size: 2.5rem; color: #c96b8b; line-height: 1; }
-    .user-info { font-weight: 600; color: #b15170; background: #fff; padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 10px #f3cedb; font-size: 0.9rem; }
+    .user-info { font-weight: 600; color: #b15170; background: #fff; padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 10px #f3cedb; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
 
     /* Main Content Area */
     .app-content { flex: 1; overflow-y: auto; padding: 20px 30px 100px; position: relative; scroll-behavior: smooth; }
@@ -48,21 +48,21 @@
     .view-section.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Tiêu đề các mục */
-    .section-title { font-family: 'Dancing Script', cursive; font-size: 2rem; color: #b15170; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-
-    /* ================= BỘ LỌC NGÀY THÁNG ================= */
-    .date-picker-container { background: #fff; padding: 15px 20px; border-radius: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 5px 15px -5px #e5bccb; border: 1px solid #f8c8d8; flex-wrap: wrap; }
-    .date-picker-container label { font-weight: 700; color: #b15170; font-size: 1rem; }
-    .date-picker-container input[type="date"] { padding: 10px 15px; border-radius: 15px; border: 2px solid #f8c8d8; font-family: inherit; color: #5a3e4b; font-weight: 600; outline: none; cursor: pointer; font-size: 1rem; }
-    .date-picker-container input[type="date"]:focus { border-color: #fbc4d0; }
-    .date-notice { font-size: 0.85rem; color: #b38392; font-style: italic; flex: 1; text-align: right; }
+    /* Tiêu đề các mục & Thanh chọn ngày */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    .section-title { font-family: 'Dancing Script', cursive; font-size: 2rem; color: #b15170; display: flex; align-items: center; gap: 10px; margin: 0; }
+    
+    .date-picker-wrapper { display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px 15px; border-radius: 20px; box-shadow: 0 5px 15px -5px #e5bccb; border: 1px solid #f8c8d8; }
+    .date-picker-wrapper label { font-weight: 700; color: #b15170; font-size: 0.9rem; }
+    .date-picker-wrapper input[type="date"] { padding: 5px 10px; border-radius: 10px; border: 1px solid #f8c8d8; font-family: inherit; color: #5a3e4b; font-weight: 600; outline: none; cursor: pointer; font-size: 0.95rem; }
+    .date-picker-wrapper input[type="date"]:focus { border-color: #fbc4d0; }
+    
+    .date-notice { font-size: 0.85rem; color: #b38392; font-style: italic; text-align: center; margin-bottom: 15px; display: block; }
 
     /* ================= NHẬT KÝ ĐÔI (2 CỘT) ================= */
     .diary-split-container { display: flex; gap: 20px; flex-wrap: wrap; }
-    .diary-column { flex: 1; min-width: 280px; background: #fffbfd; border-radius: 20px; box-shadow: 0 10px 30px -10px #dba5b8; padding: 25px; border: 1px solid #ffe2ec; position: relative; }
+    .diary-column { flex: 1; min-width: 280px; background: #fffbfd; border-radius: 20px; box-shadow: 0 10px 30px -10px #dba5b8; padding: 25px; border: 1px solid #ffe2ec; position: relative; display: flex; flex-direction: column; }
     
-    /* Phân biệt màu 2 bên nhẹ nhàng */
     .diary-column.my-side { border-top: 5px solid #fbc4d0; }
     .diary-column.partner-side { border-top: 5px solid #b3d4f5; background: #f8fbff; }
 
@@ -70,18 +70,18 @@
     .partner-side .column-header { color: #4a7ab5; border-bottom-color: #cce0f7; }
     .column-header i { font-size: 1.4rem; }
     
-    /* Phần nhập liệu */
+    /* Phần nhập liệu - Tăng chiều cao */
     .diary-input-box { margin-bottom: 20px; }
-    .diary-textarea { width: 100%; min-height: 100px; border: 2px solid #f8c8d8; border-radius: 15px; padding: 15px; font-family: inherit; font-size: 1rem; color: #5a3e4b; resize: vertical; outline: none; transition: 0.2s; background: #fff; line-height: 1.6; }
+    .diary-textarea { width: 100%; min-height: 180px; border: 2px solid #f8c8d8; border-radius: 15px; padding: 15px; font-family: inherit; font-size: 1rem; color: #5a3e4b; resize: vertical; outline: none; transition: 0.2s; background: #fff; line-height: 1.6; }
     .diary-textarea:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
     .diary-textarea:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; border-color: #e0e0e0; }
     
-    .btn-save-small { background: var(--primary); border: none; padding: 10px 20px; border-radius: 20px; font-size: 0.95rem; font-weight: 700; color: #5a2c3e; cursor: pointer; transition: 0.2s; float: right; margin-top: 10px; border: 1px solid #fff; }
+    .btn-save-small { background: var(--primary); border: none; padding: 12px 25px; border-radius: 20px; font-size: 1rem; font-weight: 700; color: #5a2c3e; cursor: pointer; transition: 0.2s; float: right; margin-top: 10px; border: 1px solid #fff; }
     .btn-save-small:hover { background: #ffdae5; transform: translateY(-2px); }
     .btn-save-small:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-    /* Lịch sử nhật ký 2 bên */
-    .diary-history-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; max-height: 350px; overflow-y: auto; padding-right: 5px; }
+    /* Lịch sử nhật ký 2 bên - Tăng chiều cao */
+    .diary-history-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; max-height: 450px; overflow-y: auto; padding-right: 5px; flex: 1; }
     .diary-note { padding: 12px 15px; border-radius: 12px; background: #fff; font-size: 0.95rem; line-height: 1.5; box-shadow: 0 3px 8px -3px #e5bccb; white-space: pre-wrap; }
     .my-side .diary-note { border-left: 3px solid #fbc4d0; }
     .partner-side .diary-note { border-left: 3px solid #b3d4f5; }
@@ -111,7 +111,7 @@
     .nav-item:hover, .nav-item.active { color: #b15170; background: #fff0f5; }
 
     /* ================= DEBUG & SETTINGS ================= */
-    .settings-btn { position: absolute; top: 25px; right: 30px; background: transparent; border: none; color: #b38392; font-size: 1.5rem; cursor: pointer; transition: 0.2s; z-index: 101; }
+    .settings-btn { background: transparent; border: none; color: #b38392; font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
     .settings-btn:hover { color: #b15170; transform: rotate(90deg); }
     .settings-modal { position: absolute; inset: 0; background: rgba(255,255,255,0.95); z-index: 500; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: 0.3s; padding: 20px; }
     .settings-modal.open { opacity: 1; pointer-events: all; }
@@ -130,17 +130,15 @@
 
     @media (max-width: 768px) {
       .diary-split-container { flex-direction: column; }
+      .section-header { flex-direction: column; align-items: flex-start; }
     }
     @media (max-width: 600px) {
       .app-screen { height: 100vh; border-radius: 0; }
       .app-header { padding: 15px 20px; }
       .app-header h1 { font-size: 2rem; }
       .app-content { padding: 15px 15px 90px; }
-      .settings-btn { top: 18px; right: 20px; }
       .photo-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
       .photo-card img { height: 140px; }
-      .date-picker-container { flex-direction: column; align-items: flex-start; }
-      .date-notice { text-align: left; }
     }
   </style>
 </head>
@@ -167,25 +165,27 @@
     <!-- Header -->
     <div class="app-header">
       <h1>Love Story</h1>
-      <div class="user-info" id="displayUser">—</div>
+      <div class="user-info">
+        <span id="displayUser">—</span>
+        <button class="settings-btn" id="openSettingsBtn"><i class="fas fa-cog"></i></button>
+      </div>
     </div>
     
-    <!-- Nút Settings (Bánh răng) -->
-    <button class="settings-btn" id="openSettingsBtn"><i class="fas fa-cog"></i></button>
-
     <!-- Vùng nội dung chính (Chứa các Tab) -->
     <div class="app-content">
       
-      <!-- TAB 1: NHẬT KÝ CẶP ĐÔI (CHIA 2 BÊN + LỌC NGÀY) -->
+      <!-- TAB 1: NHẬT KÝ CẶP ĐÔI -->
       <div class="view-section active" id="view-diary">
-        <h2 class="section-title"><i class="fas fa-pen-fancy"></i> Nhật ký cặp đôi</h2>
-        
-        <!-- Bộ lọc ngày -->
-        <div class="date-picker-container">
-          <label for="diaryDate"><i class="fas fa-calendar-day"></i> Chọn ngày:</label>
-          <input type="date" id="diaryDate">
-          <span class="date-notice" id="dateNotice"></span>
+        <!-- Tiêu đề + Chọn ngày cùng hàng -->
+        <div class="section-header">
+          <h2 class="section-title"><i class="fas fa-pen-fancy"></i> Nhật ký cặp đôi</h2>
+          <div class="date-picker-wrapper">
+            <label for="diaryDate"><i class="fas fa-calendar-day"></i> Ngày:</label>
+            <input type="date" id="diaryDate">
+          </div>
         </div>
+        
+        <span class="date-notice" id="dateNotice"></span>
 
         <div class="diary-split-container">
           <!-- BÊN TRÁI: DIỄM MY -->
@@ -443,178 +443,10 @@
     async function loadDiaryForDate() {
       const selectedDate = dateInput.value; // Định dạng YYYY-MM-DD
       if (!selectedDate) return;
+      
+      // Cập nhật trạng thái cho phép nhập liệu
+      updateInputPermissions();
 
       // Tạo khoảng thời gian từ 00:00:00 đến 23:59:59 của ngày được chọn (theo giờ VN)
       const startOfDay = new Date(`${selectedDate}T00:00:00+07:00`).toISOString();
-      const endOfDay = new Date(`${selectedDate}T23:59:59.999+07:00`).toISOString();
-
-      // Tải cho Diễm My
-      loadDiaryColumn('diemmy', startOfDay, endOfDay);
-      
-      // Tải cho Tiến Lợi
-      loadDiaryColumn('tienloi', startOfDay, endOfDay);
-    }
-
-    async function loadDiaryColumn(authorName, startOfDay, endOfDay) {
-      const historyList = document.getElementById(`history-${authorName}`);
-      historyList.innerHTML = '<div style="text-align:center; color:#b38392; font-size:0.9rem;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
-      
-      const { data, error } = await supabaseClient
-        .from('diary_entries')
-        .select('*')
-        .eq('author', authorName) 
-        .gte('created_at', startOfDay)
-        .lte('created_at', endOfDay)
-        .order('created_at', { ascending: false });
-
-      if (error || !data) {
-        historyList.innerHTML = '<div style="color:#c0392b; text-align:center; font-size: 0.9rem;">Lỗi tải nhật ký.</div>';
-        return;
-      }
-
-      if (data.length === 0) {
-        historyList.innerHTML = '<div class="empty-notice">Chưa có dòng nào trong ngày này...</div>';
-        return;
-      }
-
-      historyList.innerHTML = data.map(item => {
-        const time = new Date(item.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute:'2-digit' });
-        return `
-          <div class="diary-note">
-            ${escapeHtml(item.content)}
-            <span class="time"><i class="far fa-clock"></i> ${time}</span>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // Hàm xử lý lưu
-    async function saveDiary(authorName, inputId) {
-      if (!isTodaySelected()) {
-        alert('Chỉ có thể viết nhật ký cho ngày hôm nay thôi nhé!');
-        return;
-      }
-
-      const inputEl = document.getElementById(inputId);
-      const content = inputEl.value.trim();
-      if (!content) return alert('Viết gì đó đã rồi mới lưu được chứ!');
-
-      const btn = document.getElementById(`save-${authorName}`);
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-      btn.disabled = true;
-
-      const { error } = await supabaseClient
-        .from('diary_entries')
-        .insert([{ content: content, author: authorName }]);
-
-      if (error) {
-        alert('Lỗi khi lưu: ' + error.message);
-      } else {
-        inputEl.value = '';
-        // Tải lại danh sách cho ngày hôm nay
-        loadDiaryForDate();
-      }
-      
-      btn.innerHTML = originalText;
-      btn.disabled = false;
-    }
-
-    // Gắn sự kiện click cho 2 nút lưu
-    document.getElementById('save-diemmy').addEventListener('click', () => saveDiary('diemmy', 'input-diemmy'));
-    document.getElementById('save-tienloi').addEventListener('click', () => saveDiary('tienloi', 'input-tienloi'));
-
-    // ====== TÍNH NĂNG ALBUM ẢNH ======
-    async function loadPhotos() {
-      const grid = document.getElementById('photoGrid');
-      grid.innerHTML = '<div style="text-align:center; color:#b38392; grid-column: 1/-1;"><i class="fas fa-spinner fa-spin"></i> Đang tải ảnh...</div>';
-
-      const { data, error } = await supabaseClient
-        .from('photo_album')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error || !data) {
-        grid.innerHTML = '<div style="color:#c0392b; grid-column: 1/-1; text-align: center;">Lỗi tải ảnh. (Bạn đã tạo bảng photo_album chưa?)</div>';
-        return;
-      }
-
-      if (data.length === 0) {
-        grid.innerHTML = '<div style="text-align:center; color:#b38392; grid-column: 1/-1; font-style:italic;">Chưa có tấm ảnh nào. Thêm ảnh kỷ niệm đầu tiên đi!</div>';
-        return;
-      }
-
-      grid.innerHTML = data.map(photo => `
-        <div class="photo-card">
-          <img src="${escapeHtml(photo.image_url)}" alt="Kỷ niệm" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
-          <p>${escapeHtml(photo.caption || 'Kỷ niệm đẹp')}</p>
-        </div>
-      `).join('');
-    }
-
-    document.getElementById('addPhotoBtn').addEventListener('click', async () => {
-      const url = document.getElementById('photoUrlInput').value.trim();
-      const caption = document.getElementById('photoCaptionInput').value.trim();
-      if (!url) return alert('Dán link ảnh vào đã nào!');
-
-      const btn = document.getElementById('addPhotoBtn');
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-      btn.disabled = true;
-
-      const { error } = await supabaseClient
-        .from('photo_album')
-        .insert([{ image_url: url, caption: caption, uploaded_by: currentUser }]);
-
-      if (error) {
-        alert('Lỗi thêm ảnh: ' + error.message);
-      } else {
-        document.getElementById('photoUrlInput').value = '';
-        document.getElementById('photoCaptionInput').value = '';
-        await loadPhotos();
-      }
-      
-      btn.innerHTML = '<i class="fas fa-plus"></i> Thêm';
-      btn.disabled = false;
-    });
-
-    // ====== SETTINGS & DEBUG ======
-    const settingsModal = document.getElementById('settingsModal');
-    document.getElementById('openSettingsBtn').addEventListener('click', () => { settingsModal.classList.add('open'); checkConnection(); });
-    document.getElementById('closeSettingsBtn').addEventListener('click', () => settingsModal.classList.remove('open'));
-
-    async function checkConnection() {
-      const dbgStatus = document.getElementById('dbgStatus');
-      const dbgDetail = document.getElementById('dbgDetail');
-      const dbgUrl = document.getElementById('dbgUrl');
-      
-      dbgUrl.textContent = SUPABASE_URL;
-      dbgStatus.className = 'status-badge';
-      dbgStatus.style.background = '#fff3cd'; dbgStatus.style.color = '#856404';
-      dbgStatus.textContent = 'Đang kiểm tra...';
-      dbgDetail.textContent = '';
-
-      try {
-        const { error } = await supabaseClient.from('diary_entries').select('id').limit(1);
-        if (error) throw error;
-        
-        dbgStatus.className = 'status-badge status-ok';
-        dbgStatus.textContent = '✅ Kết nối thành công';
-      } catch (err) {
-        dbgStatus.className = 'status-badge status-err';
-        dbgStatus.textContent = '❌ Lỗi kết nối';
-        dbgDetail.textContent = err.message;
-      }
-    }
-    document.getElementById('retryDbBtn').addEventListener('click', checkConnection);
-
-    // Hàm chống XSS
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
-    // Khởi chạy
-    checkSession();
-  </script>
-</body>
-</html>
+      const endOfDay = new Date(`${selectedDate}T
