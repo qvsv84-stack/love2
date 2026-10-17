@@ -6,11 +6,13 @@
   <title>Love Story · Nhật ký cặp đôi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Import 3 font: Quicksand (chung), Dancing Script (tiêu đề), Mali (nội dung giao ước) -->
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Dancing+Script:wght@400;600;700&family=Mali:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
+    /* Ép buộc tải font Mali bằng @import để chắc chắn 100% thành công */
+    @import url('https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600&display=swap');
+
     /* ================= CSS TOÀN CỤC ================= */
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { font-family: 'Quicksand', sans-serif; background: linear-gradient(145deg, #fff0f5 0%, #ffe4ec 100%); min-height: 100vh; color: #5a3e4b; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -38,18 +40,18 @@
     .app-screen.hidden { display: none; }
     
     /* Header */
-    .app-header { padding: 20px 20px 15px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+    .app-header { padding: 25px 20px 10px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
     .app-header h1 { font-family: 'Dancing Script', cursive; font-size: 2.2rem; color: #c96b8b; line-height: 1; }
     .user-info { font-weight: 600; color: #b15170; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 4px 10px #f3cedb; font-size: 0.85rem; display: flex; align-items: center; gap: 10px; }
 
-    /* Main Content Area */
-    .app-content { flex: 1; overflow-y: auto; padding: 0 15px 80px; position: relative; display: flex; flex-direction: column; }
+    /* Main Content Area - Thêm padding-top để tách khỏi Header */
+    .app-content { flex: 1; overflow-y: auto; padding: 15px 15px 80px; position: relative; display: flex; flex-direction: column; }
     .view-section { display: none; flex: 1; flex-direction: column; animation: fadeIn 0.3s ease; }
     .view-section.active { display: flex; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
     /* Tiêu đề chung */
-    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; margin-top: 10px; }
     .section-title { font-family: 'Dancing Script', cursive; font-size: 2rem; color: #b15170; margin: 0; }
     .btn-add-small { background: #fbc4d0; border: none; padding: 8px 15px; border-radius: 20px; color: #5a2c3e; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 4px 10px rgba(200,100,130,0.2); transition: 0.2s; font-size: 0.9rem; }
     .btn-add-small:hover { background: #ffdae5; transform: translateY(-2px); }
@@ -131,7 +133,7 @@
 
     /* Nội dung giao ước dùng font Mali */
     .promise-text { 
-      font-family: 'Mali', cursive; 
+      font-family: 'Mali', cursive, sans-serif !important; 
       font-size: 1.15rem; 
       line-height: 1.8; 
       color: #5a3e4b; 
@@ -327,8 +329,7 @@
         <div class="modal-handle"></div>
         <h3 class="modal-title" id="promiseModalTitle">Giao ước mới</h3>
         
-        <!-- Textarea dùng font Mali cho đồng bộ -->
-        <textarea class="promise-input" id="promiseInput" placeholder="Viết lời hứa hoặc giao ước của bạn..." rows="4" style="resize: none; margin-bottom: 15px; width: 100%; padding: 14px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: 'Mali', cursive; font-size: 1.1rem; color: #5a3e4b;"></textarea>
+        <textarea class="promise-input" id="promiseInput" placeholder="Viết lời hứa hoặc giao ước của bạn..." rows="4" style="resize: none; margin-bottom: 15px; width: 100%; padding: 14px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: 'Mali', cursive, sans-serif; font-size: 1.1rem; color: #5a3e4b;"></textarea>
         
         <button class="btn-modal-save" id="savePromiseBtn"><i class="fas fa-save"></i> Lưu giao ước</button>
         <button class="btn-modal-close" id="closePromiseModal">Hủy bỏ</button>
@@ -721,7 +722,7 @@
       }
     };
 
-    // ====== LOGIC GIAO ƯỚC (ĐÁNH SỐ THỨ TỰ) ======
+    // ====== LOGIC GIAO ƯỚC (FONT CHUẨN) ======
     const promiseModal = document.getElementById('promiseModal');
 
     document.getElementById('openAddPromiseModal').addEventListener('click', () => {
@@ -737,7 +738,6 @@
       const list = document.getElementById('promiseList');
       list.innerHTML = '<div style="text-align:center; padding: 20px; color:#b38392;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
 
-      // Sắp xếp cũ nhất lên đầu để đánh số 1, 2, 3... theo thời gian
       const { data, error } = await supabaseClient.from('couple_promises').select('*').order('created_at', { ascending: true });
 
       if (error) {
@@ -751,11 +751,8 @@
 
       list.innerHTML = data.map((promise, index) => {
         const isMine = promise.author === currentUser;
-        
-        // Xác định màu thẻ dựa trên người viết
         let colorClass = promise.author === 'diemmy' ? 'diemmy-p' : 'tienloi-p';
         
-        // Nút Sửa/Xóa
         const actionButtons = isMine ? `
           <div class="promise-actions">
             <button class="btn-icon edit" onclick="editPromise('${promise.id}', '${escapeHtml(promise.content).replace(/'/g, "\\'")}')"><i class="fas fa-pen"></i></button>
