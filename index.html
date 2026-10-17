@@ -1,4 +1,408 @@
-    const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Love Story · Nhật ký cặp đôi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Dancing+Script:wght@400;600;700&family=Mali:wght@400;500;600&family=Patrick+Hand&family=Indie+Flower&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Quicksand', sans-serif; background: linear-gradient(145deg, #fff0f5 0%, #ffe4ec 100%); min-height: 100vh; color: #5a3e4b; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    :root { --primary: #fbc4d0; --text-main: #5f2e42; --bg-glass: rgba(255, 240, 245, 0.95); --paper-bg: #fffbfd; --line-color: #fce4ec; --font-diary: 'Mali', cursive, sans-serif; }
+
+    /* TOAST & SKELETON */
+    .toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+    .toast { background: #fff; color: #5a3e4b; padding: 12px 20px; border-radius: 30px; box-shadow: 0 10px 30px rgba(200, 100, 130, 0.2); font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 10px; animation: toastIn 0.3s ease forwards; border-left: 5px solid #1e8449; pointer-events: auto; }
+    .toast.error { border-left-color: #c0392b; }
+    .toast.info { border-left-color: #fbc4d0; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    .skeleton { background: #f0e6e9; background-image: linear-gradient(90deg, #f0e6e9 0px, #f8f0f3 40px, #f0e6e9 80px); background-size: 200% 100%; animation: shimmer 1.5s infinite linear; border-radius: 10px; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    .skeleton-card { height: 120px; margin-bottom: 15px; border-radius: 15px; }
+
+    /* LOGIN */
+    .login-screen { position: fixed; inset: 0; background: #fff0f5; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; transition: opacity 0.4s ease, visibility 0.4s; }
+    .login-screen.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
+    .login-box { background: #fffbfd; max-width: 400px; width: 100%; padding: 40px 30px; border-radius: 40px; box-shadow: 0 20px 40px -15px #e5a5b9; text-align: center; border: 1px solid #f8c8d8; }
+    .login-box h2 { font-family: 'Dancing Script', cursive; font-size: 3rem; color: #b15170; margin-bottom: 10px; }
+    .input-group { position: relative; margin-bottom: 15px; }
+    .input-group input { width: 100%; padding: 16px 20px; border-radius: 30px; border: 2px solid #f8c8d8; background: #fff; font-size: 1.1rem; font-family: inherit; color: #5a3e4b; outline: none; }
+    .input-group input:focus { border-color: #fbc4d0; }
+    .btn-primary { background: var(--primary); border: none; width: 100%; padding: 16px; border-radius: 30px; font-size: 1.2rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 10px 20px -8px #e5a5b9; transition: 0.2s; border: 2px solid #fff; margin-top: 10px; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .login-error { color: #c0392b; font-size: 0.9rem; margin-top: 15px; min-height: 20px; font-weight: 500; }
+
+    /* APP SHELL */
+    .app-screen { max-width: 500px; width: 100%; height: 100vh; max-height: 932px; background: var(--bg-glass); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    @media (min-width: 500px) { .app-screen { border-radius: 40px; height: 90vh; box-shadow: 0 25px 50px -15px rgba(230, 120, 150, 0.4); } }
+    .app-screen.hidden { display: none; }
+    .app-header { padding: 20px 20px 8px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+    .app-header h1 { font-family: 'Dancing Script', cursive; font-size: 2rem; color: #c96b8b; line-height: 1; }
+    .user-info { font-weight: 600; color: #b15170; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 4px 10px #f3cedb; font-size: 0.85rem; display: flex; align-items: center; gap: 10px; }
+
+    /* LOVE COUNTER */
+    .love-counter { background: linear-gradient(135deg, #fff0f5, #ffe4ec); border: 1.5px solid #f8c8d8; border-radius: 20px; margin: 0 15px 10px; padding: 10px 14px; box-shadow: 0 4px 15px -5px rgba(200,100,130,0.15); flex-shrink: 0; }
+    .love-counter-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .love-counter-title { font-family: 'Dancing Script', cursive; font-size: 1.25rem; color: #b15170; font-weight: 700; }
+    .btn-edit-counter { background: #fff; border: 1px solid #f8c8d8; width: 28px; height: 28px; border-radius: 10px; cursor: pointer; color: #b15170; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; transition: 0.2s; }
+    .btn-edit-counter:hover { background: #fff0f5; transform: rotate(90deg); }
+    .love-counter-main { text-align: center; padding: 2px 0 6px; font-size: 0.9rem; color: #5a3e4b; font-weight: 600; min-height: 26px; }
+    .love-counter-main .love-days { font-family: 'Dancing Script', cursive; font-size: 1.7rem; color: #d65f8a; font-weight: 700; line-height: 1; vertical-align: middle; }
+    .love-counter-main .love-time { font-family: 'Courier New', monospace; color: #b38392; font-size: 0.8rem; margin-left: 5px; }
+    .love-counter-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+    .love-counter-scroll::-webkit-scrollbar { display: none; }
+    .counter-card { flex: 0 0 82px; background: #fff; border-radius: 12px; padding: 8px 5px; text-align: center; border: 1px solid #f8c8d8; cursor: pointer; transition: 0.2s; }
+    .counter-card:hover { border-color: #fbc4d0; transform: translateY(-2px); }
+    .counter-icon { font-size: 1.15rem; display: block; margin-bottom: 2px; }
+    .counter-label { font-size: 0.55rem; color: #b38392; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2px; display: block; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .counter-value { font-size: 1.05rem; font-weight: 800; color: #d65f8a; font-family: 'Dancing Script', cursive; display: block; line-height: 1; }
+    .counter-value small { font-size: 0.55rem; color: #b38392; font-family: 'Quicksand', sans-serif; font-weight: 600; margin-left: 1px; }
+    .counter-today { font-size: 0.8rem !important; color: #1e8449 !important; font-family: 'Quicksand' !important; }
+    .love-setup-prompt { text-align: center; padding: 12px 10px; }
+    .love-setup-prompt h3 { font-family: 'Dancing Script', cursive; font-size: 1.3rem; color: #b15170; margin-bottom: 4px; }
+    .love-setup-prompt p { font-size: 0.85rem; color: #b38392; margin-bottom: 10px; line-height: 1.4; }
+    .btn-setup-love { background: linear-gradient(135deg, #fbc4d0, #ff8eb5); border: none; padding: 10px 20px; border-radius: 20px; color: #fff; font-weight: 700; cursor: pointer; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(200,100,130,0.3); transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-setup-love:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(200,100,130,0.4); }
+
+    /* CONTENT */
+    .app-content { flex: 1; overflow-y: auto; padding: 5px 15px 80px; position: relative; display: flex; flex-direction: column; }
+    .view-section { display: none; flex: 1; flex-direction: column; animation: fadeIn 0.3s ease; }
+    .view-section.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; margin-top: 5px; }
+    .section-title { font-family: 'Dancing Script', cursive; font-size: 1.8rem; color: #b15170; margin: 0; }
+    .btn-add-small { background: #fbc4d0; border: none; padding: 8px 15px; border-radius: 20px; color: #5a2c3e; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 4px 10px rgba(200,100,130,0.2); transition: 0.2s; font-size: 0.85rem; }
+    .btn-add-small:hover { background: #ffdae5; transform: translateY(-2px); }
+
+    /* DIARY */
+    .diary-tabs-container { background: #fff; border-radius: 20px; padding: 5px; display: flex; gap: 5px; margin-bottom: 15px; box-shadow: 0 5px 15px -5px #e5bccb; flex-shrink: 0; }
+    .dtab { flex: 1; text-align: center; padding: 10px 5px; font-size: 0.8rem; font-weight: 700; color: #b38392; border-radius: 15px; cursor: pointer; transition: 0.2s; }
+    .dtab.active { background: #fbc4d0; color: #5a2c3e; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .date-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; gap: 10px; }
+    .date-picker-wrapper { display: flex; align-items: center; gap: 8px; background: #fff; padding: 6px 12px; border-radius: 15px; box-shadow: 0 3px 10px -3px #e5bccb; flex: 1; }
+    .date-picker-wrapper input[type="date"] { border: none; font-family: inherit; color: #5a3e4b; font-weight: 700; font-size: 0.95rem; outline: none; background: transparent; width: 100%; }
+    .btn-settings-diary { background: #fff; border: none; width: 36px; height: 36px; border-radius: 15px; box-shadow: 0 3px 10px -3px #e5bccb; cursor: pointer; color: #b15170; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0; }
+    .btn-settings-diary:hover { background: #fff0f5; }
+    .diary-tab-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .lined-textarea, .lined-paper { width: 100%; background-color: var(--paper-bg); background-image: repeating-linear-gradient(transparent, transparent 31px, var(--line-color) 31px, var(--line-color) 32px); background-attachment: local; line-height: 32px; padding: 8px 15px; border: 1px solid #f8c8d8; border-radius: 15px; font-family: var(--font-diary); font-size: 1.1rem; color: #4b2e39; outline: none; transition: all 0.3s ease; }
+    .lined-textarea { flex: 1; resize: none; min-height: 200px; }
+    .lined-textarea:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
+    .lined-paper { flex: 1; overflow-y: auto; white-space: pre-wrap; min-height: 200px; }
+    .empty-state { text-align: center; color: #b38392; font-style: italic; padding: 20px; line-height: 1.6; font-family: 'Quicksand'; font-size: 0.95rem; }
+    .theme-starry { --paper-bg: #1a1a2e; --line-color: #2d2d44; color: #e0e0e0; border-color: #2d2d44; }
+    .theme-sakura { --paper-bg: #fff0f5; --line-color: #ffd1dc; }
+    .theme-rain { --paper-bg: #f0f4f8; --line-color: #d0dbe8; }
+    .font-mali { --font-diary: 'Mali', cursive, sans-serif; }
+    .font-patrick { --font-diary: 'Patrick Hand', cursive, sans-serif; }
+    .font-indie { --font-diary: 'Indie Flower', cursive, sans-serif; }
+    .live-typing { border-color: #fbc4d0 !important; background-color: #fffafc !important; box-shadow: 0 0 15px rgba(251, 196, 208, 0.6) !important; }
+    .action-buttons { display: flex; gap: 10px; margin-top: 15px; flex-shrink: 0; }
+    .btn-action { flex: 1; padding: 12px; border-radius: 15px; border: none; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-save { background: #fbc4d0; color: #5a2c3e; box-shadow: 0 4px 10px rgba(200,100,130,0.2); }
+    .btn-delete { background: #fff0f0; color: #c0392b; border: 2px solid #ffcccc; }
+    .mood-selector { display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; flex-shrink: 0; scrollbar-width: none; }
+    .mood-selector::-webkit-scrollbar { display: none; }
+    .mood-btn { font-size: 1.4rem; background: #fff; border: 2px solid transparent; border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.05); flex-shrink: 0; }
+    .mood-btn.active { border-color: #fbc4d0; background: #fff0f5; transform: scale(1.1); }
+    .mood-display { font-size: 2rem; margin-bottom: 10px; text-align: center; }
+    .on-this-day-banner { background: linear-gradient(135deg, #fff0f5, #ffe4ec); border: 2px dashed #fbc4d0; border-radius: 15px; padding: 15px; margin-bottom: 15px; position: relative; overflow: hidden; flex-shrink: 0; }
+    .on-this-day-banner h4 { font-family: 'Dancing Script'; font-size: 1.3rem; color: #b15170; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
+    .on-this-day-banner p { font-size: 0.9rem; color: #5a3e4b; line-height: 1.4; font-style: italic; }
+    .on-this-day-banner .year { font-size: 0.75rem; color: #b38392; margin-top: 5px; display: block; text-align: right; }
+    .audio-section { margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
+    .record-btn { background: #fff; border: 2px dashed #fbc4d0; padding: 10px; border-radius: 15px; color: #b15170; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-size: 0.9rem; }
+    .record-btn:hover { background: #fff0f5; }
+    .record-btn.recording { background: #ffe2eb; border-color: #c0392b; color: #c0392b; animation: pulse 1s infinite; }
+    .audio-player { width: 100%; height: 36px; outline: none; border-radius: 20px; }
+    .reactions-container { display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
+    .reaction-btn { background: #fff; border: 1px solid #f8c8d8; padding: 6px 12px; border-radius: 20px; font-size: 0.9rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .reaction-btn.active { background: #ffe2eb; border-color: #fbc4d0; font-weight: 700; }
+    .couple-grid { display: flex; gap: 15px; flex: 1; overflow: hidden; }
+    .couple-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .couple-col-header { font-weight: 700; font-size: 0.95rem; color: #b15170; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+    .couple-col:nth-child(2) .couple-col-header { color: #4a7ab5; }
+    .couple-col .lined-paper { font-size: 0.95rem; }
+
+    /* GOALS */
+    .goal-input-container { display: flex; gap: 10px; margin-bottom: 15px; }
+    .goal-input-container input { flex: 1; padding: 12px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem; background: #fff; }
+    .goal-input-container input:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
+    .goal-input-container button { background: #fbc4d0; border: none; width: 45px; border-radius: 15px; color: #5a2c3e; font-size: 1.2rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+    .goal-list { display: flex; flex-direction: column; gap: 10px; }
+    .goal-item { background: #fff; padding: 15px; border-radius: 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 10px -4px rgba(200,100,130,0.15); transition: 0.2s; border-left: 4px solid #fbc4d0; }
+    .goal-item.completed { opacity: 0.6; background: #fdfbfb; border-left-color: #ccc; }
+    .goal-checkbox { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fbc4d0; display: flex; align-items: center; justify-content: center; cursor: pointer; color: transparent; transition: 0.2s; flex-shrink: 0; }
+    .goal-item.completed .goal-checkbox { background: #fbc4d0; color: #fff; border-color: #fbc4d0; }
+    .goal-text { flex: 1; font-size: 1rem; font-weight: 500; word-break: break-word; }
+    .goal-item.completed .goal-text { text-decoration: line-through; color: #999; }
+    .goal-delete { background: transparent; border: none; color: #ccc; cursor: pointer; font-size: 1rem; padding: 5px; transition: 0.2s; }
+    .goal-delete:hover { color: #c0392b; }
+
+    /* PHOTOS */
+    .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding-bottom: 20px; }
+    .photo-card { background: #fff; padding: 6px; border-radius: 16px; box-shadow: 0 8px 20px -8px #dba5b8; display: flex; flex-direction: column; transition: 0.3s; position: relative; overflow: hidden; }
+    .photo-img-wrapper { position: relative; width: 100%; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden; background: #f0e6e9; }
+    .photo-img-wrapper img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.3s; }
+    .photo-img-wrapper img.loaded { opacity: 1; }
+    .photo-actions { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
+    .photo-actions button { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.9); color: #b15170; font-size: 0.8rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); transition: 0.2s; }
+    .photo-actions button.delete { color: #c0392b; }
+    .photo-info { padding: 10px 5px 5px; display: flex; flex-direction: column; gap: 4px; }
+    .photo-caption { font-size: 0.85rem; font-weight: 700; color: #5a3e4b; line-height: 1.3; }
+    .photo-author { font-size: 0.7rem; color: #b38392; display: flex; align-items: center; gap: 4px; }
+    .load-more-btn { background: #fff; border: 2px dashed #fbc4d0; color: #b15170; padding: 12px; border-radius: 15px; font-weight: 700; cursor: pointer; margin-top: 10px; transition: 0.2s; display: none; }
+
+    /* PROMISE */
+    .promise-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px; }
+    .promise-item { display: flex; align-items: flex-start; gap: 15px; background: #ffffff; padding: 20px; border-radius: 20px; position: relative; overflow: hidden; transition: transform 0.3s ease; border: 1px solid #fff0f5; animation: promiseGlow 3s ease-in-out infinite; }
+    .promise-item.diemmy-p { border-left: 5px solid #fbc4d0; }
+    .promise-item.tienloi-p { border-left: 5px solid #b3d4f5; }
+    @keyframes promiseGlow { 0%, 100% { box-shadow: 0 4px 15px -5px rgba(200, 100, 130, 0.15); } 50% { box-shadow: 0 4px 25px -3px rgba(251, 196, 208, 0.8), 0 0 30px rgba(251, 196, 208, 0.45), inset 0 0 25px rgba(255, 240, 245, 0.4); } }
+    .sparkle-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    .sparkle { position: absolute; width: 14px; height: 14px; pointer-events: none; animation: sparkleAnim 2.5s ease-in-out infinite; opacity: 0; }
+    .sparkle::before { content: ''; position: absolute; width: 2px; height: 100%; top: 0; left: 50%; transform: translateX(-50%); background: linear-gradient(to bottom, transparent, #ff8eb5, transparent); border-radius: 50%; box-shadow: 0 0 8px #ffb6d0, 0 0 15px #fbc4d0; }
+    .sparkle::after { content: ''; position: absolute; width: 100%; height: 2px; top: 50%; left: 0; transform: translateY(-50%); background: linear-gradient(to right, transparent, #ff8eb5, transparent); border-radius: 50%; box-shadow: 0 0 8px #ffb6d0, 0 0 15px #fbc4d0; }
+    @keyframes sparkleAnim { 0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); } 30% { opacity: 1; transform: scale(1.2) rotate(90deg); } 50% { opacity: 1; transform: scale(1) rotate(180deg); } 70% { opacity: 0.6; transform: scale(0.8) rotate(270deg); } }
+    .promise-index { width: 35px; height: 35px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Dancing Script', cursive; font-size: 1.5rem; font-weight: 700; box-shadow: 0 2px 5px rgba(0,0,0,0.05); padding-top: 2px; position: relative; z-index: 3; }
+    .diemmy-p .promise-index { background: #fff0f5; color: #d65f8a; }
+    .tienloi-p .promise-index { background: #f0f8ff; color: #4a7ab5; }
+    .promise-text { font-family: 'Mali', cursive, sans-serif !important; font-size: 1.15rem; line-height: 1.8; color: #5a3e4b; font-weight: 500; flex: 1; padding-right: 35px; word-break: break-word; margin-top: 2px; position: relative; z-index: 3; }
+    .promise-actions { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; opacity: 0.3; transition: 0.2s; z-index: 4; }
+    .btn-icon { background: transparent; border: none; font-size: 0.9rem; cursor: pointer; color: #b38392; padding: 5px; }
+    .btn-icon.edit:hover { color: #1e8449; }
+    .btn-icon.delete:hover { color: #c0392b; }
+
+    /* MODALS */
+    .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; opacity: 0; pointer-events: none; transition: 0.3s; display: flex; align-items: flex-end; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-sheet { background: #fff; width: 100%; border-radius: 30px 30px 0 0; padding: 25px 20px 30px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); max-height: 90vh; overflow-y: auto; }
+    .modal-overlay.open .modal-sheet { transform: translateY(0); }
+    .modal-handle { width: 40px; height: 5px; background: #e0e0e0; border-radius: 5px; margin: 0 auto 15px; }
+    .modal-title { font-family: 'Dancing Script', cursive; font-size: 1.8rem; color: #b15170; text-align: center; margin-bottom: 20px; }
+    .settings-field { margin-bottom: 14px; }
+    .settings-field label { display: block; font-size: 0.9rem; font-weight: 700; color: #5a3e4b; margin-bottom: 6px; }
+    .settings-field input { width: 100%; padding: 12px 15px; border-radius: 15px; border: 1.5px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem; background: #fff; }
+    .settings-field input:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+    .settings-item { background: #fffbfd; border: 2px solid #f8c8d8; padding: 15px; border-radius: 15px; text-align: center; cursor: pointer; transition: 0.2s; }
+    .settings-item.active { border-color: #fbc4d0; background: #fff0f5; box-shadow: 0 0 0 3px #fce4ec; }
+    .settings-item h5 { font-size: 0.9rem; color: #5a3e4b; margin-bottom: 5px; }
+    .settings-item .preview { font-size: 1.2rem; }
+    .photo-tabs { display: flex; background: #f5f5f5; border-radius: 15px; padding: 4px; margin-bottom: 15px; }
+    .ptab { flex: 1; text-align: center; padding: 10px; font-weight: 700; font-size: 0.9rem; color: #999; cursor: pointer; border-radius: 12px; transition: 0.2s; }
+    .ptab.active { background: #fff; color: #b15170; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .photo-form { display: none; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+    .photo-form.active { display: flex; }
+    .photo-form input[type="url"], .photo-form input[type="text"] { width: 100%; padding: 14px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem; background: #fff; }
+    .file-upload-wrapper { position: relative; width: 100%; }
+    .file-upload-wrapper input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .file-upload-label { display: flex; flex-direction: column; align-items: center; gap: 10px; background: #fffafc; border: 2px dashed #f8c8d8; padding: 25px; border-radius: 15px; color: #b15170; font-weight: 700; cursor: pointer; }
+    .file-upload-label i { font-size: 2rem; color: #fbc4d0; }
+    .image-preview-container { text-align: center; margin-top: 10px; display: none; }
+    .image-preview-container img { max-width: 100%; max-height: 150px; border-radius: 10px; }
+    .caption-input-wrapper { position: relative; margin-bottom: 15px; }
+    .caption-input-wrapper i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #fbc4d0; font-size: 1.1rem; }
+    .caption-input-wrapper input { width: 100%; padding: 14px 15px 14px 40px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem; background: #fff; }
+    .btn-modal-save { background: #fbc4d0; border: none; width: 100%; padding: 16px; border-radius: 15px; font-size: 1.1rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 4px 10px rgba(200,100,130,0.2); margin-top: 10px; }
+    .btn-modal-save:hover { background: #ffdae5; }
+    .btn-modal-close { background: transparent; border: none; color: #b38392; font-weight: 600; width: 100%; padding: 12px; cursor: pointer; margin-top: 5px; font-family: inherit; font-size: 1rem; }
+
+    /* NAV */
+    .bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 10px 5px 15px; border-top: 1px solid #f8c8d8; border-radius: 20px 20px 0 0; z-index: 100; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #b38392; font-size: 0.7rem; font-weight: 700; cursor: pointer; flex: 1; }
+    .nav-item i { font-size: 1.3rem; }
+    .nav-item.active { color: #b15170; }
+
+    /* SETTINGS MODAL */
+    .settings-modal { position: absolute; inset: 0; background: rgba(255,255,255,0.95); z-index: 500; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: 0.3s; padding: 20px; }
+    .settings-modal.open { opacity: 1; pointer-events: all; }
+    .settings-box { background: #fff; border-radius: 20px; padding: 25px; width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(200,100,130,0.2); }
+    .btn-logout { background: #ffe2eb; color: #c0392b; border: 1px solid #f8c8d8; padding: 12px 20px; border-radius: 15px; cursor: pointer; font-weight: 700; margin-top: 20px; width: 100%; }
+    .settings-btn { background: transparent; border: none; color: #b38392; font-size: 1.3rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- LOGIN -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-box">
+      <h2>Love Story</h2>
+      <p style="color: #b38392; margin-bottom: 20px;">Nhập tên và mật khẩu để vào nhà 💕</p>
+      <div class="input-group"><input type="text" id="usernameInput" placeholder="Tên (vd: diemmy)" autocomplete="off"></div>
+      <div class="input-group"><input type="password" id="passwordInput" placeholder="Mật khẩu"></div>
+      <button class="btn-primary" id="loginBtn">Đăng nhập</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="app-screen hidden" id="appScreen">
+    <div class="app-header">
+      <h1>Love Story</h1>
+      <div class="user-info">
+        <span id="displayUser">—</span>
+        <button class="settings-btn" id="openSettingsBtn"><i class="fas fa-cog"></i></button>
+      </div>
+    </div>
+
+    <!-- LOVE COUNTER -->
+    <div class="love-counter" id="loveCounterBanner"></div>
+    
+    <div class="app-content">
+      <div class="view-section active" id="view-diary">
+        <div class="diary-tabs-container">
+          <div class="dtab active" data-dtab="self">Nhật ký bản thân</div>
+          <div class="dtab" data-dtab="partner">Nhật ký người ấy</div>
+          <div class="dtab" data-dtab="couple">Nhật ký cặp đôi</div>
+        </div>
+        <div class="date-header">
+          <div class="date-picker-wrapper">
+            <i class="fas fa-calendar-day" style="color:#b15170;"></i>
+            <input type="date" id="diaryDate">
+          </div>
+          <button class="btn-settings-diary" id="openDiarySettingsBtn"><i class="fas fa-palette"></i></button>
+        </div>
+        <div id="onThisDayContainer"></div>
+        <div class="diary-tab-content" id="diaryTabContent"></div>
+      </div>
+
+      <div class="view-section" id="view-goals">
+        <div class="section-header"><h2 class="section-title">Mục tiêu hôm nay</h2></div>
+        <div class="date-header">
+          <div class="date-picker-wrapper">
+            <i class="fas fa-calendar-check" style="color:#b15170;"></i>
+            <input type="date" id="goalDate">
+          </div>
+        </div>
+        <div class="goal-input-container">
+          <input type="text" id="newGoalInput" placeholder="Thêm mục tiêu mới...">
+          <button id="addGoalBtn"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="goal-list" id="goalList"></div>
+      </div>
+
+      <div class="view-section" id="view-photos">
+        <div class="section-header">
+          <h2 class="section-title">Kỷ niệm ảnh</h2>
+          <button class="btn-add-small" id="openAddPhotoModal"><i class="fas fa-plus"></i> Thêm ảnh</button>
+        </div>
+        <div class="photo-grid" id="photoGrid"></div>
+        <button class="load-more-btn" id="loadMorePhotosBtn">Xem thêm <i class="fas fa-chevron-down"></i></button>
+      </div>
+
+      <div class="view-section" id="view-promise">
+        <div class="section-header">
+          <h2 class="section-title">Giao ước cặp đôi</h2>
+          <button class="btn-add-small" id="openAddPromiseModal"><i class="fas fa-plus"></i> Viết</button>
+        </div>
+        <div class="promise-list" id="promiseList"></div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item active" data-target="view-diary"><i class="fas fa-book"></i> Nhật ký</div>
+      <div class="nav-item" data-target="view-goals"><i class="fas fa-bullseye"></i> Mục tiêu</div>
+      <div class="nav-item" data-target="view-photos"><i class="fas fa-images"></i> Ảnh</div>
+      <div class="nav-item" data-target="view-promise"><i class="fas fa-handshake"></i> Giao ước</div>
+    </div>
+
+    <!-- MODAL: Cài đặt ngày kỷ niệm -->
+    <div class="modal-overlay" id="counterSettingsModal">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h3 class="modal-title">Cài đặt ngày kỷ niệm</h3>
+        
+        <div class="settings-field">
+          <label>💕 Ngày bắt đầu yêu</label>
+          <input type="date" id="settingLoveDate">
+        </div>
+        <div class="settings-field">
+          <label>🎂 Sinh nhật Diễm My</label>
+          <input type="date" id="settingDiemmyBday">
+        </div>
+        <div class="settings-field">
+          <label>🎂 Sinh nhật Tiến Lợi</label>
+          <input type="date" id="settingTienloiBday">
+        </div>
+        
+        <button class="btn-modal-save" id="saveCounterSettings"><i class="fas fa-save"></i> Lưu cài đặt</button>
+        <button class="btn-modal-close" id="closeCounterSettings">Hủy bỏ</button>
+      </div>
+    </div>
+
+    <!-- MODAL: Themes -->
+    <div class="modal-overlay" id="diarySettingsModal">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h3 class="modal-title">Giao diện Nhật ký</h3>
+        <h4 style="margin-bottom: 10px; color: #b15170;">Mẫu giấy</h4>
+        <div class="settings-grid" id="themeOptions">
+          <div class="settings-item active" data-theme="default"><h5>Tiêu chuẩn</h5><div class="preview">📝</div></div>
+          <div class="settings-item" data-theme="theme-starry"><h5>Trời sao</h5><div class="preview">🌌</div></div>
+          <div class="settings-item" data-theme="theme-sakura"><h5>Hoa anh đào</h5><div class="preview">🌸</div></div>
+          <div class="settings-item" data-theme="theme-rain"><h5>Mưa rơi</h5><div class="preview">🌧️</div></div>
+        </div>
+        <h4 style="margin-bottom: 10px; color: #b15170;">Font chữ</h4>
+        <div class="settings-grid" id="fontOptions">
+          <div class="settings-item active" data-font="font-mali"><h5>Mali</h5><div class="preview" style="font-family: 'Mali';">Aa</div></div>
+          <div class="settings-item" data-font="font-patrick"><h5>Patrick</h5><div class="preview" style="font-family: 'Patrick Hand';">Aa</div></div>
+          <div class="settings-item" data-font="font-indie"><h5>Indie</h5><div class="preview" style="font-family: 'Indie Flower';">Aa</div></div>
+        </div>
+        <button class="btn-modal-close" id="closeDiarySettingsModal">Đóng</button>
+      </div>
+    </div>
+
+    <!-- MODAL: Photo -->
+    <div class="modal-overlay" id="photoModal">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h3 class="modal-title" id="photoModalTitle">Thêm ảnh kỷ niệm</h3>
+        <div class="photo-tabs" id="photoTabsContainer">
+          <div class="ptab active" data-ptab="url"><i class="fas fa-link"></i> Dán Link</div>
+          <div class="ptab" data-ptab="upload"><i class="fas fa-upload"></i> Tải lên</div>
+        </div>
+        <div class="photo-form active" id="form-url"><input type="url" id="photoUrlInput" placeholder="Dán link ảnh (https://...)"></div>
+        <div class="photo-form" id="form-upload">
+          <div class="file-upload-wrapper">
+            <input type="file" id="photoFileInput" accept="image/*">
+            <div class="file-upload-label"><i class="fas fa-cloud-upload-alt"></i><span>Bấm để chọn ảnh</span></div>
+          </div>
+          <div class="image-preview-container" id="imagePreviewContainer"><img id="imagePreview" src="" alt="Preview"></div>
+        </div>
+        <div class="caption-input-wrapper"><i class="fas fa-pen"></i><input type="text" id="photoCaptionInput" placeholder="Viết chú thích..."></div>
+        <button class="btn-modal-save" id="savePhotoBtn"><i class="fas fa-save"></i> Lưu vào Album</button>
+        <button class="btn-modal-close" id="closePhotoModal">Hủy bỏ</button>
+      </div>
+    </div>
+
+    <!-- MODAL: Promise -->
+    <div class="modal-overlay" id="promiseModal">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h3 class="modal-title" id="promiseModalTitle">Giao ước mới</h3>
+        <textarea class="promise-input" id="promiseInput" placeholder="Viết lời hứa..." rows="4" style="resize: none; margin-bottom: 15px; width: 100%; padding: 14px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: 'Mali', cursive; font-size: 1.1rem; color: #5a3e4b;"></textarea>
+        <button class="btn-modal-save" id="savePromiseBtn"><i class="fas fa-save"></i> Lưu giao ước</button>
+        <button class="btn-modal-close" id="closePromiseModal">Hủy bỏ</button>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="settings-modal" id="settingsModal">
+      <div class="settings-box">
+        <h3 style="font-family: 'Dancing Script'; font-size: 1.8rem; color: #b15170; margin-bottom: 15px; text-align: center;">Cài đặt</h3>
+        <button class="btn-logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        <button class="btn-primary" id="closeSettingsBtn" style="background: #e0c3d0; color: #5a3e4b; margin-top: 10px; padding: 12px;">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+          const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -10,6 +414,22 @@
     let currentTheme = localStorage.getItem('diaryTheme') || 'default';
     let currentFont = localStorage.getItem('diaryFont') || 'font-mali';
     let loveStartDate = null, diemmyBirthday = null, tienloiBirthday = null, loveCounterInterval = null;
+
+    // ====== HÀM TIỆN ÍCH FORMAT NGÀY ======
+    function formatDateForInput(dateInput) {
+      if (!dateInput) return '';
+      // Nếu là string đúng chuẩn YYYY-MM-DD, giữ nguyên
+      if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+        return dateInput;
+      }
+      // Nếu là Date object hoặc string khác, format lại theo giờ địa phương
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
 
     function showToast(message, type = 'success') {
       const container = document.getElementById('toastContainer');
@@ -42,8 +462,10 @@
 
     function getTodayString() {
       const today = new Date();
-      const vnTime = new Date(today.getTime() + (7 * 60 * 60 * 1000));
-      return vnTime.toISOString().split('T')[0];
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
 
     function escapeHtml(str) {
@@ -64,9 +486,11 @@
       document.getElementById('displayUser').innerHTML = `<i class="fas fa-user-heart"></i> ${currentUser.charAt(0).toUpperCase() + currentUser.slice(1)}`;
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('appScreen').classList.remove('hidden');
+      
       const today = getTodayString();
       document.getElementById('diaryDate').value = today;
       document.getElementById('goalDate').value = today;
+      
       applyDiaryTheme();
       setupRealtime();
       initLoveCounter();
@@ -145,25 +569,30 @@
 
     function daysUntilMonthDay(month, day) {
       const today = new Date();
-      const todayYMD = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      today.setHours(0, 0, 0, 0); // Chuẩn hóa về 00:00 local time
       let target = new Date(today.getFullYear(), month - 1, day);
-      if (target < todayYMD) target = new Date(today.getFullYear() + 1, month - 1, day);
-      return Math.round((target - todayYMD) / (1000 * 60 * 60 * 24));
+      if (target < today) {
+        target = new Date(today.getFullYear() + 1, month - 1, day);
+      }
+      return Math.round((target - today) / (1000 * 60 * 60 * 24));
     }
 
     function getUpcomingHolidays(count) {
       const today = new Date();
-      const todayYMD = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      today.setHours(0, 0, 0, 0);
       const results = [];
+      
       HOLIDAYS.forEach(h => results.push({ name: h.name, icon: h.icon, daysLeft: daysUntilMonthDay(h.month, h.day) }));
+      
       for (const [dateStr, name] of Object.entries(TET_DATES)) {
         const tetDate = new Date(dateStr + 'T00:00:00+07:00');
-        const tetYMD = new Date(tetDate.getFullYear(), tetDate.getMonth(), tetDate.getDate());
-        if (tetYMD >= todayYMD) {
-          results.push({ name: 'Tết Nguyên Đán', icon: '🧧', daysLeft: Math.round((tetYMD - todayYMD) / (1000 * 60 * 60 * 24)) });
+        const tetLocal = new Date(tetDate.getFullYear(), tetDate.getMonth(), tetDate.getDate());
+        if (tetLocal >= today) {
+          results.push({ name: 'Tết Nguyên Đán', icon: '🧧', daysLeft: Math.round((tetLocal - today) / (1000 * 60 * 60 * 24)) });
           break;
         }
       }
+      
       results.sort((a, b) => a.daysLeft - b.daysLeft);
       return results.slice(0, count);
     }
@@ -172,6 +601,7 @@
       try {
         const { data, error } = await supabaseClient.from('couple_settings').select('*').limit(1).maybeSingle();
         if (error) throw error;
+        
         if (data && data.love_start_date) {
           loveStartDate = new Date(data.love_start_date + 'T00:00:00+07:00');
           diemmyBirthday = data.diemmy_birthday || null;
@@ -183,12 +613,15 @@
           showLoveSetupPrompt();
         }
       } catch (err) {
-        console.error(err);
+        console.error('Lỗi init love counter:', err);
         showLoveSetupPrompt();
       }
     }
 
     function showLoveSetupPrompt() {
+      if (loveCounterInterval) clearInterval(loveCounterInterval);
+      loveCounterInterval = null;
+      
       document.getElementById('loveCounterBanner').innerHTML = `
         <div class="love-setup-prompt">
           <div style="font-size: 2rem;">🌹</div>
@@ -197,7 +630,8 @@
           <button class="btn-setup-love" id="setupLoveBtn"><i class="fas fa-heart"></i> Thiết lập ngay</button>
         </div>
       `;
-      document.getElementById('setupLoveBtn').addEventListener('click', openCounterSettingsModal);
+      const btn = document.getElementById('setupLoveBtn');
+      if (btn) btn.addEventListener('click', openCounterSettingsModal);
     }
 
     function renderLoveCounter() {
@@ -209,7 +643,9 @@
         <div class="love-counter-main" id="loveMainDisplay"></div>
         <div class="love-counter-scroll" id="loveCounterScroll"></div>
       `;
-      document.getElementById('editCounterBtn').addEventListener('click', openCounterSettingsModal);
+      const editBtn = document.getElementById('editCounterBtn');
+      if (editBtn) editBtn.addEventListener('click', openCounterSettingsModal);
+      
       updateLoveMainDisplay();
       renderCounterCards();
     }
@@ -228,16 +664,20 @@
 
     function renderCounterCards() {
       const scroll = document.getElementById('loveCounterScroll');
+      if (!scroll) return;
       const cards = [];
+      
       if (diemmyBirthday) {
-        const bd = new Date(diemmyBirthday);
+        const bd = new Date(diemmyBirthday + 'T00:00:00+07:00');
         cards.push(createCounterCard('🎂', 'SN Diễm My', daysUntilMonthDay(bd.getMonth() + 1, bd.getDate())));
       }
       if (tienloiBirthday) {
-        const bd = new Date(tienloiBirthday);
+        const bd = new Date(tienloiBirthday + 'T00:00:00+07:00');
         cards.push(createCounterCard('🎂', 'SN Tiến Lợi', daysUntilMonthDay(bd.getMonth() + 1, bd.getDate())));
       }
+      
       getUpcomingHolidays(3).forEach(h => cards.push(createCounterCard(h.icon, h.name, h.daysLeft)));
+      
       if (cards.length === 0) {
         scroll.innerHTML = '<div style="text-align:center; padding: 15px; color: #b38392; font-size: 0.85rem; font-style: italic;">Thêm sinh nhật để xem đếm ngược!</div>';
       } else {
@@ -254,9 +694,9 @@
     }
 
     function openCounterSettingsModal() {
-      document.getElementById('settingLoveDate').value = loveStartDate ? loveStartDate.toISOString().split('T')[0] : '';
-      document.getElementById('settingDiemmyBday').value = diemmyBirthday || '';
-      document.getElementById('settingTienloiBday').value = tienloiBirthday || '';
+      document.getElementById('settingLoveDate').value = formatDateForInput(loveStartDate);
+      document.getElementById('settingDiemmyBday').value = formatDateForInput(diemmyBirthday);
+      document.getElementById('settingTienloiBday').value = formatDateForInput(tienloiBirthday);
       document.getElementById('counterSettingsModal').classList.add('open');
     }
     document.getElementById('closeCounterSettings').addEventListener('click', () => document.getElementById('counterSettingsModal').classList.remove('open'));
@@ -266,11 +706,14 @@
       const diemmyBd = document.getElementById('settingDiemmyBday').value;
       const tienloiBd = document.getElementById('settingTienloiBday').value;
       if (!loveDate) return showToast('Vui lòng chọn ngày bắt đầu yêu!', 'error');
+      
       const btn = document.getElementById('saveCounterSettings');
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...'; btn.disabled = true;
+      
       try {
         const payload = { love_start_date: loveDate, diemmy_birthday: diemmyBd || null, tienloi_birthday: tienloiBd || null };
         const { data } = await supabaseClient.from('couple_settings').select('id').limit(1).maybeSingle();
+        
         if (data && data.id) {
           const { error } = await supabaseClient.from('couple_settings').update(payload).eq('id', data.id);
           if (error) throw error;
@@ -278,14 +721,18 @@
           const { error } = await supabaseClient.from('couple_settings').insert([payload]);
           if (error) throw error;
         }
+        
         loveStartDate = new Date(loveDate + 'T00:00:00+07:00');
         diemmyBirthday = diemmyBd || null;
         tienloiBirthday = tienloiBd || null;
+        
         document.getElementById('counterSettingsModal').classList.remove('open');
         showToast('Đã lưu cài đặt!');
         renderLoveCounter();
+        
         if (loveCounterInterval) clearInterval(loveCounterInterval);
         loveCounterInterval = setInterval(updateLoveMainDisplay, 1000);
+        
       } catch (err) { showToast('Lỗi: ' + err.message, 'error'); }
       finally { btn.innerHTML = '<i class="fas fa-save"></i> Lưu cài đặt'; btn.disabled = false; }
     });
