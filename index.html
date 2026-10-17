@@ -449,4 +449,175 @@
 
       // Tạo khoảng thời gian từ 00:00:00 đến 23:59:59 của ngày được chọn (theo giờ VN)
       const startOfDay = new Date(`${selectedDate}T00:00:00+07:00`).toISOString();
-      const endOfDay = new Date(`${selectedDate}T
+      const endOfDay = new Date(`${selectedDate}T23:59:59.999+07:00`).toISOString();
+
+      // Tải cho Diễm My
+      loadDiaryColumn('diemmy', startOfDay, endOfDay);
+      
+      // Tải cho Tiến Lợi
+      loadDiaryColumn('tienloi', startOfDay, endOfDay);
+    }
+
+    async function loadDiaryColumn(authorName, startOfDay, endOfDay) {
+      const historyList = document.getElementById(`history-${authorName}`);
+      historyList.innerHTML = '<div style="text-align:center; color:#b38392; font-size:0.9rem;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
+      
+      const { data, error } = await supabaseClient
+        .from('diary_entries')
+        .select('*')
+        .eq('author', authorName) 
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay)
+        .order('created_at', { ascending: false });
+
+      if (error || !data) {
+        historyList.innerHTML = '<div style="color:#c0392b; text-align:center; font-size: 0.9rem;">Lỗi tải nhật ký.</div>';
+        return;
+      }
+
+      if (data.length === 0) {
+        historyList.innerHTML = '<div class="empty-notice">Chưa có dòng nào trong ngày này...</div>';
+        return;
+      }
+
+      historyList.innerHTML = data.map(item => {
+        const time = new Date(item.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute:'2-digit' });
+        return `
+          <div class="diary-note">
+            ${escapeHtml(item.content)}
+            <span class="time"><i class="far fa-clock"></i> ${time}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Hàm xử lý lưu
+    async function saveDiary(authorName, inputId) {
+      if (!isTodaySelected()) {
+        alert('Chỉ có thể viết nhật ký cho ngày hôm nay thôi nhé!');
+        return;
+      }
+
+      const inputEl = document.getElementById(inputId);
+      const content = inputEl.value.trim();
+      if (!content) return alert('Viết gì đó đã rồi mới lưu được chứ!');
+
+      const btn = document.getElementById(`save-${authorName}`);
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      btn.disabled = true;
+
+      const { error } = await supabaseClient
+        .from('diary_entries')
+        .insert([{ content: content, author: authorName }]);
+
+      if (error) {
+        alert('Lỗi khi lưu: ' + error.message);
+      } else {
+        inputEl.value = '';
+        // Tải lại danh sách cho ngày hôm nay
+        loadDiaryForDate();
+      }
+      
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+
+    // Gắn sự kiện click cho 2 nút lưu
+    document.getElementById('save-diemmy').addEventListener('click', () => saveDiary('diemmy', 'input-diemmy'));
+    document.getElementById('save-tienloi').addEventListener('click', () => saveDiary('tienloi', 'input-tienloi'));
+
+    // ====== TÍNH NĂNG ALBUM ẢNH ======
+    async function loadPhotos() {
+      const grid = document.getElementById('photoGrid');
+      grid.innerHTML = '<div style="text-align:center; color:#b38392; grid-column: 1/-1;"><i class="fas fa-spinner fa-spin"></i> Đang tải ảnh...</div>';
+
+      const { data, error } = await supabaseClient
+        .from('photo_album')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error || !data) {
+        grid.innerHTML = '<div style="color:#c0392b; grid-column: 1/-1; text-align: center;">Lỗi tải ảnh. (Bạn đã tạo bảng photo_album chưa?)</div>';
+        return;
+      }
+
+      if (data.length === 0) {
+        grid.innerHTML = '<div style="text-align:center; color:#b38392; grid-column: 1/-1; font-style:italic;">Chưa có tấm ảnh nào. Thêm ảnh kỷ niệm đầu tiên đi!</div>';
+        return;
+      }
+
+      grid.innerHTML = data.map(photo => `
+        <div class="photo-card">
+          <img src="${escapeHtml(photo.image_url)}" alt="Kỷ niệm" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
+          <p>${escapeHtml(photo.caption || 'Kỷ niệm đẹp')}</p>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('addPhotoBtn').addEventListener('click', async () => {
+      const url = document.getElementById('photoUrlInput').value.trim();
+      const caption = document.getElementById('photoCaptionInput').value.trim();
+      if (!url) return alert('Dán link ảnh vào đã nào!');
+
+      const btn = document.getElementById('addPhotoBtn');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      btn.disabled = true;
+
+      const { error } = await supabaseClient
+        .from('photo_album')
+        .insert([{ image_url: url, caption: caption, uploaded_by: currentUser }]);
+
+      if (error) {
+        alert('Lỗi thêm ảnh: ' + error.message);
+      } else {
+        document.getElementById('photoUrlInput').value = '';
+        document.getElementById('photoCaptionInput').value = '';
+        await loadPhotos();
+      }
+      
+      btn.innerHTML = '<i class="fas fa-plus"></i> Thêm';
+      btn.disabled = false;
+    });
+
+    // ====== SETTINGS & DEBUG ======
+    const settingsModal = document.getElementById('settingsModal');
+    document.getElementById('openSettingsBtn').addEventListener('click', () => { settingsModal.classList.add('open'); checkConnection(); });
+    document.getElementById('closeSettingsBtn').addEventListener('click', () => settingsModal.classList.remove('open'));
+
+    async function checkConnection() {
+      const dbgStatus = document.getElementById('dbgStatus');
+      const dbgDetail = document.getElementById('dbgDetail');
+      const dbgUrl = document.getElementById('dbgUrl');
+      
+      dbgUrl.textContent = SUPABASE_URL;
+      dbgStatus.className = 'status-badge';
+      dbgStatus.style.background = '#fff3cd'; dbgStatus.style.color = '#856404';
+      dbgStatus.textContent = 'Đang kiểm tra...';
+      dbgDetail.textContent = '';
+
+      try {
+        const { error } = await supabaseClient.from('diary_entries').select('id').limit(1);
+        if (error) throw error;
+        
+        dbgStatus.className = 'status-badge status-ok';
+        dbgStatus.textContent = '✅ Kết nối thành công';
+      } catch (err) {
+        dbgStatus.className = 'status-badge status-err';
+        dbgStatus.textContent = '❌ Lỗi kết nối';
+        dbgDetail.textContent = err.message;
+      }
+    }
+    document.getElementById('retryDbBtn').addEventListener('click', checkConnection);
+
+    // Hàm chống XSS
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // Khởi chạy
+    checkSession();
+  </script>
+</body>
+</html>
