@@ -30,6 +30,7 @@
     .input-group input:focus { border-color: #fbc4d0; box-shadow: 0 0 0 4px #fff0f5; }
     .btn-primary { background: var(--primary); border: none; width: 100%; padding: 16px; border-radius: 30px; font-size: 1.2rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 10px 20px -8px #e5a5b9; transition: 0.2s; border: 2px solid #fff; margin-top: 10px; font-family: inherit; }
     .btn-primary:hover { background: #ffdae5; transform: translateY(-2px); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     .login-error { color: #c0392b; font-size: 0.9rem; margin-top: 15px; min-height: 20px; font-weight: 500; }
 
     /* ================= MÀN HÌNH CHÍNH (APP SHELL) ================= */
@@ -52,11 +53,11 @@
 
     /* ================= NHẬT KÝ ĐÔI (2 CỘT) ================= */
     .diary-split-container { display: flex; gap: 20px; flex-wrap: wrap; }
-    .diary-column { flex: 1; min-width: 300px; background: #fffbfd; border-radius: 20px; box-shadow: 0 10px 30px -10px #dba5b8; padding: 25px; border: 1px solid #ffe2ec; position: relative; }
+    .diary-column { flex: 1; min-width: 280px; background: #fffbfd; border-radius: 20px; box-shadow: 0 10px 30px -10px #dba5b8; padding: 25px; border: 1px solid #ffe2ec; position: relative; }
     
     /* Phân biệt màu 2 bên nhẹ nhàng */
     .diary-column.my-side { border-top: 5px solid #fbc4d0; }
-    .diary-column.partner-side { border-top: 5px solid #b3d4f5; background: #f8fbff; } /* Tone xanh nhạt cho người kia để dễ phân biệt */
+    .diary-column.partner-side { border-top: 5px solid #b3d4f5; background: #f8fbff; }
 
     .column-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-weight: 700; font-size: 1.2rem; color: #b15170; border-bottom: 1px dashed #f8c8d8; padding-bottom: 10px; }
     .partner-side .column-header { color: #4a7ab5; border-bottom-color: #cce0f7; }
@@ -113,6 +114,12 @@
     .status-ok { background: #d4f5dd; color: #1e8449; }
     .status-err { background: #ffe0e0; color: #c0392b; }
     .btn-logout { background: #ffe2eb; color: #c0392b; border: 1px solid #f8c8d8; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: 600; margin-top: 20px; width: 100%; font-family: inherit; }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #f8c8d8; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #fbc4d0; }
 
     @media (max-width: 768px) {
       .diary-split-container { flex-direction: column; }
@@ -372,15 +379,16 @@
     async function loadDiary(authorName) {
       const historyList = document.getElementById(`history-${authorName}`);
       
+      // Chỉ lấy của người này
       const { data, error } = await supabaseClient
         .from('diary_entries')
         .select('*')
-        .eq('author', authorName) // Chỉ lấy của người này
+        .eq('author', authorName) 
         .order('created_at', { ascending: false })
         .limit(15);
 
       if (error || !data) {
-        historyList.innerHTML = '<div style="color:#c0392b;">Lỗi tải nhật ký.</div>';
+        historyList.innerHTML = '<div style="color:#c0392b; text-align:center; font-size: 0.9rem;">Lỗi tải nhật ký.</div>';
         return;
       }
 
@@ -452,7 +460,7 @@
 
       grid.innerHTML = data.map(photo => `
         <div class="photo-card">
-          <img src="${photo.image_url}" alt="Kỷ niệm" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
+          <img src="${escapeHtml(photo.image_url)}" alt="Kỷ niệm" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
           <p>${escapeHtml(photo.caption || 'Kỷ niệm đẹp')}</p>
         </div>
       `).join('');
@@ -473,18 +481,4 @@
 
       if (error) {
         alert('Lỗi thêm ảnh: ' + error.message);
-      } else {
-        document.getElementById('photoUrlInput').value = '';
-        document.getElementById('photoCaptionInput').value = '';
-        await loadPhotos();
-      }
-      btn.innerHTML = '<i class="fas fa-plus"></i> Thêm';
-      btn.disabled = false;
-    });
-
-    // ====== SETTINGS & DEBUG ======
-    const settingsModal = document.getElementById('settingsModal');
-    document.getElementById('openSettingsBtn').addEventListener('click', () => { settingsModal.classList.add('open'); checkConnection(); });
-    document.getElementById('closeSettingsBtn').addEventListener('click', () => settingsModal.classList.remove('open'));
-
-    async
+      } else
