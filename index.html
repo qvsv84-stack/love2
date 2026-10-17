@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Love Story · App Cặp Đôi</title>
+  <title>Love Story · Nhật ký cặp đôi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Dancing+Script:wght@400;600;700&display=swap" rel="stylesheet">
@@ -50,6 +50,13 @@
 
     /* Tiêu đề các mục */
     .section-title { font-family: 'Dancing Script', cursive; font-size: 2rem; color: #b15170; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+
+    /* ================= BỘ LỌC NGÀY THÁNG ================= */
+    .date-picker-container { background: #fff; padding: 15px 20px; border-radius: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 5px 15px -5px #e5bccb; border: 1px solid #f8c8d8; flex-wrap: wrap; }
+    .date-picker-container label { font-weight: 700; color: #b15170; font-size: 1rem; }
+    .date-picker-container input[type="date"] { padding: 10px 15px; border-radius: 15px; border: 2px solid #f8c8d8; font-family: inherit; color: #5a3e4b; font-weight: 600; outline: none; cursor: pointer; font-size: 1rem; }
+    .date-picker-container input[type="date"]:focus { border-color: #fbc4d0; }
+    .date-notice { font-size: 0.85rem; color: #b38392; font-style: italic; flex: 1; text-align: right; }
 
     /* ================= NHẬT KÝ ĐÔI (2 CỘT) ================= */
     .diary-split-container { display: flex; gap: 20px; flex-wrap: wrap; }
@@ -132,6 +139,8 @@
       .settings-btn { top: 18px; right: 20px; }
       .photo-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
       .photo-card img { height: 140px; }
+      .date-picker-container { flex-direction: column; align-items: flex-start; }
+      .date-notice { text-align: left; }
     }
   </style>
 </head>
@@ -167,17 +176,24 @@
     <!-- Vùng nội dung chính (Chứa các Tab) -->
     <div class="app-content">
       
-      <!-- TAB 1: NHẬT KÝ (CHIA 2 BÊN) -->
+      <!-- TAB 1: NHẬT KÝ CẶP ĐÔI (CHIA 2 BÊN + LỌC NGÀY) -->
       <div class="view-section active" id="view-diary">
-        <h2 class="section-title"><i class="fas fa-pen-fancy"></i> Nhật ký đôi</h2>
+        <h2 class="section-title"><i class="fas fa-pen-fancy"></i> Nhật ký cặp đôi</h2>
         
+        <!-- Bộ lọc ngày -->
+        <div class="date-picker-container">
+          <label for="diaryDate"><i class="fas fa-calendar-day"></i> Chọn ngày:</label>
+          <input type="date" id="diaryDate">
+          <span class="date-notice" id="dateNotice"></span>
+        </div>
+
         <div class="diary-split-container">
           <!-- BÊN TRÁI: DIỄM MY -->
           <div class="diary-column my-side" id="column-diemmy">
             <div class="column-header">
               <i class="fas fa-heart" style="color: #f48fb1;"></i> Trang của Diễm My
             </div>
-            <div class="diary-input-box">
+            <div class="diary-input-box" id="input-box-diemmy">
               <textarea class="diary-textarea" id="input-diemmy" placeholder="Diễm My viết gì đó cho Tiến Lợi đi..."></textarea>
               <button class="btn-save-small" id="save-diemmy">Lưu lại</button>
               <div style="clear:both;"></div>
@@ -192,7 +208,7 @@
             <div class="column-header">
               <i class="fas fa-heart" style="color: #64b5f6;"></i> Trang của Tiến Lợi
             </div>
-            <div class="diary-input-box">
+            <div class="diary-input-box" id="input-box-tienloi">
               <textarea class="diary-textarea" id="input-tienloi" placeholder="Tiến Lợi viết gì đó cho Diễm My đi..."></textarea>
               <button class="btn-save-small" id="save-tienloi">Lưu lại</button>
               <div style="clear:both;"></div>
@@ -272,9 +288,19 @@
     const loginScreen = document.getElementById('loginScreen');
     const appScreen = document.getElementById('appScreen');
     const displayUser = document.getElementById('displayUser');
+    const dateInput = document.getElementById('diaryDate');
+    const dateNotice = document.getElementById('dateNotice');
     
     // Global State
     let currentUser = '';
+
+    // Lấy ngày hôm nay theo định dạng YYYY-MM-DD (múi giờ VN)
+    function getTodayString() {
+      const today = new Date();
+      // Điều chỉnh theo múi giờ VN (UTC+7)
+      const vnTime = new Date(today.getTime() + (7 * 60 * 60 * 1000));
+      return vnTime.toISOString().split('T')[0];
+    }
 
     // ====== XỬ LÝ ĐĂNG NHẬP & SESSION ======
     async function checkSession() {
@@ -291,12 +317,14 @@
       loginScreen.classList.add('hidden');
       appScreen.classList.remove('hidden');
       
+      // Setup ngày mặc định là hôm nay
+      dateInput.value = getTodayString();
+      
       // Cài đặt khóa/mở khóa ô nhập liệu dựa trên user hiện tại
       setupDiaryPermissions();
       
       // Tải dữ liệu
-      loadDiary('diemmy');
-      loadDiary('tienloi');
+      loadDiaryForDate();
       loadPhotos();
     }
 
@@ -316,6 +344,27 @@
         document.getElementById('input-diemmy').disabled = true;
         document.getElementById('input-diemmy').placeholder = "Chỉ Diễm My mới có thể viết ở đây.";
         document.getElementById('save-diemmy').style.display = 'none';
+      }
+    }
+
+    // Kiểm tra xem ngày đang chọn có phải hôm nay không
+    function isTodaySelected() {
+      return dateInput.value === getTodayString();
+    }
+
+    // Cập nhật trạng thái cho phép nhập liệu dựa trên ngày
+    function updateInputPermissions() {
+      const isToday = isTodaySelected();
+      
+      // Nếu không phải hôm nay, khóa ô nhập và ẩn nút lưu
+      if (!isToday) {
+        dateNotice.innerHTML = '<i class="fas fa-lock"></i> Đang xem lại kỷ niệm. Chỉ có thể viết vào ngày hôm nay.';
+        document.getElementById('input-box-diemmy').style.display = 'none';
+        document.getElementById('input-box-tienloi').style.display = 'none';
+      } else {
+        dateNotice.innerHTML = '<i class="fas fa-pen"></i> Hôm nay. Hãy viết gì đó nhé!';
+        document.getElementById('input-box-diemmy').style.display = 'block';
+        document.getElementById('input-box-tienloi').style.display = 'block';
       }
     }
 
@@ -346,12 +395,10 @@
         });
         
         if (error) {
-          // In ra lỗi chi tiết để dễ debug
-          console.error("Lỗi Auth:", error);
           if (error.message.includes('Invalid login credentials')) {
             throw new Error('Sai tên hoặc mật khẩu! (Hoặc tài khoản chưa được tạo trên Supabase)');
           } else if (error.message.includes('Email not confirmed')) {
-            throw new Error('Tài khoản chưa được xác nhận Email. Hãy vào Supabase bật "Auto Confirm" hoặc xác nhận thủ công.');
+            throw new Error('Tài khoản chưa xác nhận Email. Hãy vào Supabase bật Auto Confirm.');
           } else {
             throw new Error(error.message);
           }
@@ -386,17 +433,39 @@
       });
     });
 
-    // ====== TÍNH NĂNG NHẬT KÝ (2 BÊN) ======
-    async function loadDiary(authorName) {
-      const historyList = document.getElementById(`history-${authorName}`);
+    // ====== LẮNG NGHE SỰ KIỆN CHỌN NGÀY ======
+    dateInput.addEventListener('change', () => {
+      updateInputPermissions();
+      loadDiaryForDate();
+    });
+
+    // ====== TÍNH NĂNG NHẬT KÝ THEO NGÀY ======
+    async function loadDiaryForDate() {
+      const selectedDate = dateInput.value; // Định dạng YYYY-MM-DD
+      if (!selectedDate) return;
+
+      // Tạo khoảng thời gian từ 00:00:00 đến 23:59:59 của ngày được chọn (theo giờ VN)
+      const startOfDay = new Date(`${selectedDate}T00:00:00+07:00`).toISOString();
+      const endOfDay = new Date(`${selectedDate}T23:59:59.999+07:00`).toISOString();
+
+      // Tải cho Diễm My
+      loadDiaryColumn('diemmy', startOfDay, endOfDay);
       
-      // Chỉ lấy của người này
+      // Tải cho Tiến Lợi
+      loadDiaryColumn('tienloi', startOfDay, endOfDay);
+    }
+
+    async function loadDiaryColumn(authorName, startOfDay, endOfDay) {
+      const historyList = document.getElementById(`history-${authorName}`);
+      historyList.innerHTML = '<div style="text-align:center; color:#b38392; font-size:0.9rem;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
+      
       const { data, error } = await supabaseClient
         .from('diary_entries')
         .select('*')
         .eq('author', authorName) 
-        .order('created_at', { ascending: false })
-        .limit(15);
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay)
+        .order('created_at', { ascending: false });
 
       if (error || !data) {
         historyList.innerHTML = '<div style="color:#c0392b; text-align:center; font-size: 0.9rem;">Lỗi tải nhật ký.</div>';
@@ -404,23 +473,28 @@
       }
 
       if (data.length === 0) {
-        historyList.innerHTML = '<div class="empty-notice">Chưa có dòng nào...</div>';
+        historyList.innerHTML = '<div class="empty-notice">Chưa có dòng nào trong ngày này...</div>';
         return;
       }
 
       historyList.innerHTML = data.map(item => {
-        const date = new Date(item.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' });
+        const time = new Date(item.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute:'2-digit' });
         return `
           <div class="diary-note">
             ${escapeHtml(item.content)}
-            <span class="time"><i class="far fa-clock"></i> ${date}</span>
+            <span class="time"><i class="far fa-clock"></i> ${time}</span>
           </div>
         `;
       }).join('');
     }
 
-    // Hàm xử lý lưu chung cho cả 2 bên
+    // Hàm xử lý lưu
     async function saveDiary(authorName, inputId) {
+      if (!isTodaySelected()) {
+        alert('Chỉ có thể viết nhật ký cho ngày hôm nay thôi nhé!');
+        return;
+      }
+
       const inputEl = document.getElementById(inputId);
       const content = inputEl.value.trim();
       if (!content) return alert('Viết gì đó đã rồi mới lưu được chứ!');
@@ -438,7 +512,8 @@
         alert('Lỗi khi lưu: ' + error.message);
       } else {
         inputEl.value = '';
-        await loadDiary(authorName);
+        // Tải lại danh sách cho ngày hôm nay
+        loadDiaryForDate();
       }
       
       btn.innerHTML = originalText;
