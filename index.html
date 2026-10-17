@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Story · Nhật ký đôi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Dancing+Script:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Quicksand', sans-serif; background: linear-gradient(145deg, #fff0f5 0%, #ffe4ec 100%); min-height: 100vh; color: #5a3e4b; display: flex; align-items: center; justify-content: center; padding: 16px; transition: all 0.3s ease; }
+    .main-screen { max-width: 1100px; width: 100%; text-align: center; padding: 24px; background: rgba(255, 240, 245, 0.6); backdrop-filter: blur(2px); border-radius: 64px 64px 48px 48px; box-shadow: 0 25px 40px -15px rgba(230, 120, 150, 0.3); border: 1px solid rgba(255, 210, 220, 0.7); transition: opacity 0.4s ease, transform 0.4s ease; }
+    .main-screen.hidden { opacity: 0; pointer-events: none; transform: scale(0.98); position: absolute; visibility: hidden; }
+    h1 { font-family: 'Dancing Script', cursive; font-size: 5rem; font-weight: 700; color: #c96b8b; text-shadow: 4px 4px 0 #ffd9e4, 6px 6px 0 rgba(255, 190, 200, 0.5); margin-bottom: 8px; letter-spacing: 2px; word-break: break-word; }
+    .sub-love { font-size: 1.4rem; font-weight: 500; color: #b35d7a; margin-bottom: 32px; display: flex; justify-content: center; align-items: center; gap: 16px; }
+    .sub-love i { color: #e48aa8; font-size: 1.9rem; animation: pulse 1.5s infinite alternate; }
+    @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.15); opacity: 1; } }
+    .menu-toggle { background: #fbc4d0; border: none; padding: 18px 42px; border-radius: 60px; font-size: 1.6rem; font-weight: 600; color: #5f2e42; display: inline-flex; align-items: center; gap: 18px; box-shadow: 0 15px 25px -5px rgba(200, 100, 130, 0.3), inset 0 -4px 0 #e9a6b8; cursor: pointer; transition: all 0.25s ease; margin-top: 30px; letter-spacing: 1px; border: 2px solid #fff5f9; }
+    .menu-toggle i { font-size: 2rem; color: #a34e6b; }
+    .menu-toggle:hover { background: #ffdae4; transform: translateY(-5px); box-shadow: 0 25px 30px -8px rgba(200, 100, 130, 0.5), inset 0 -4px 0 #e9a6b8; }
+    .menu-toggle:active { transform: translateY(2px); box-shadow: 0 8px 15px -5px rgba(200, 100, 130, 0.4), inset 0 -2px 0 #e9a6b8; }
+    .full-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff0f5ee; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; padding: 30px 20px; opacity: 0; pointer-events: none; transition: opacity 0.5s cubic-bezier(0.2, 0.9, 0.3, 1), backdrop-filter 0.4s; visibility: hidden; }
+    .full-menu.open { opacity: 1; pointer-events: all; visibility: visible; }
+    .close-menu { position: absolute; top: 30px; right: 35px; background: #ffe2eb; border: none; width: 60px; height: 60px; border-radius: 50%; font-size: 2.2rem; color: #b45773; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 8px 18px #ecc0ce; transition: all 0.2s; border: 2px solid #fff; }
+    .close-menu:hover { background: #ffd0de; transform: rotate(90deg) scale(1.05); color: #8e3e59; }
+    .menu-items { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 400px; animation: fadeSlideUp 0.5s 0.1s both; }
+    @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .menu-item { background: #ffffffcc; backdrop-filter: blur(6px); padding: 24px 30px; border-radius: 80px; font-size: 1.7rem; font-weight: 600; color: #723d52; display: flex; align-items: center; gap: 25px; box-shadow: 0 12px 25px -8px #e7b7c6, 0 0 0 2px #fff inset; cursor: pointer; transition: all 0.2s ease; border: 1px solid #ffe6ee; text-decoration: none; justify-content: center; letter-spacing: 1px; }
+    .menu-item i { font-size: 2rem; color: #d4688a; width: 40px; text-align: center; }
+    .menu-item:hover { background: #ffecf2; transform: scale(1.03); box-shadow: 0 20px 30px -10px #d987a3, 0 0 0 2px #fff inset; color: #a14564; }
+    .diary-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fce9f0; z-index: 1100; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px 20px 0; overflow-y: auto; opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; }
+    .diary-screen.open { opacity: 1; pointer-events: all; visibility: visible; }
+    .back-btn { position: sticky; top: 15px; align-self: flex-start; background: #fff0f5; border: 2px solid #f7c7d6; padding: 14px 28px; border-radius: 50px; font-size: 1.2rem; font-weight: 600; color: #8e4b64; display: flex; align-items: center; gap: 10px; cursor: pointer; box-shadow: 0 8px 15px #edcbd7; transition: 0.2s; margin-bottom: 20px; backdrop-filter: blur(4px); z-index: 2; }
+    .back-btn i { font-size: 1.3rem; }
+    .back-btn:hover { background: #ffe2eb; transform: translateX(-5px); }
+    .diary-paper { max-width: 850px; width: 100%; background: #fffbfd; border-radius: 30px 30px 20px 20px; box-shadow: 0 30px 40px -20px #dba5b8, 0 0 0 1px #fff inset, 0 0 0 10px #ffeef4 inset; padding: 40px 35px 50px; margin-bottom: 40px; position: relative; border: 1px solid #ffe2ec; background-image: linear-gradient(#f9eef2 1px, transparent 1px); background-size: 100% 2.5rem; line-height: 2.5rem; transition: all 0.2s; }
+    .diary-paper::before { content: "❤️"; position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 2.8rem; filter: drop-shadow(0 6px 6px #f0b8cb); opacity: 0.8; }
+    .paper-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 10px; border-bottom: 2px dashed #f8c8d8; flex-wrap: wrap; gap: 10px; }
+    .paper-header h2 { font-family: 'Dancing Script', cursive; font-size: 2.7rem; color: #b15170; font-weight: 700; display: flex; align-items: center; gap: 12px; }
+    .paper-header h2 i { font-size: 2.2rem; color: #e27e9e; }
+    .date-badge { background: #ffdee9; padding: 10px 22px; border-radius: 40px; font-weight: 600; color: #6d364b; font-size: 1.1rem; box-shadow: 0 4px 8px #f3cedb; border: 1px solid #fff; display: flex; align-items: center; gap: 8px; }
+    .date-badge i { color: #ca6685; }
+    .diary-content { min-height: 200px; margin: 20px 0 30px; font-size: 1.25rem; font-weight: 500; color: #4b2e39; outline: none; padding: 8px 5px; line-height: 2.5rem; letter-spacing: 0.2px; word-break: break-word; white-space: pre-wrap; border-radius: 20px; transition: background 0.2s; }
+    .diary-content:focus { background: #fff4f8; }
+    .diary-content:empty::before { content: "Hãy viết điều gì đó thật dễ thương... 💕"; color: #d8a7b6; font-style: italic; }
+    .diary-meta { display: flex; justify-content: space-between; margin-top: 35px; font-size: 1rem; color: #b38392; border-top: 1px dashed #f3bfd0; padding-top: 25px; flex-wrap: wrap; gap: 15px; }
+    .diary-meta span i { margin-right: 8px; color: #d97090; }
+    .save-diary { background: #fbc4d0; border: none; padding: 16px 38px; border-radius: 50px; font-size: 1.3rem; font-weight: 700; color: #5a2c3e; display: inline-flex; align-items: center; gap: 12px; cursor: pointer; box-shadow: 0 12px 20px -8px #e5a5b9; transition: all 0.2s; border: 2px solid #fff7fa; margin-top: 5px; }
+    .save-diary i { color: #b34c6d; }
+    .save-diary:hover { background: #ffdae5; transform: scale(1.02); }
+    .save-diary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .past-date { font-style: italic; color: #bb7a8e; display: flex; align-items: center; gap: 10px; font-size: 1rem; background: #fff0f5; padding: 5px 15px; border-radius: 30px; }
+    .status-msg { text-align: center; font-size: 0.95rem; margin-top: 10px; min-height: 20px; color: #b35d7a; font-weight: 500; }
+    .history-section { max-width: 850px; width: 100%; margin-bottom: 40px; }
+    .history-title { font-family: 'Dancing Script', cursive; font-size: 1.8rem; color: #b15170; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+    .history-item { background: #fffafc; border-radius: 18px; padding: 16px 22px; margin-bottom: 12px; box-shadow: 0 4px 12px -6px #e5bccb; border-left: 4px solid #f8c8d8; }
+    .history-item .hist-time { font-size: 0.85rem; color: #c98ba0; margin-bottom: 6px; font-weight: 600; }
+    .history-item .hist-content { font-size: 1.05rem; color: #5a3e4b; white-space: pre-wrap; line-height: 1.7rem; }
+    .debug-box { max-width: 850px; width: 100%; background: #fff5f7; border: 2px dashed #f0a8bd; border-radius: 20px; padding: 20px; margin-bottom: 30px; font-size: 0.9rem; color: #6d364b; line-height: 1.6; }
+    .debug-box strong { color: #b33e63; }
+    .debug-box code { background: #ffe2eb; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+    @media (max-width: 600px) { h1 { font-size: 3.5rem; } .menu-toggle { font-size: 1.3rem; padding: 14px 28px; } .menu-item { font-size: 1.3rem; padding: 18px 25px; } .diary-paper { padding: 30px 20px; } .paper-header h2 { font-size: 2rem; } .date-badge { font-size: 0.9rem; padding: 7px 16px; } .close-menu { top: 20px; right: 20px; width: 50px; height: 50px; font-size: 1.8rem; } }
+  </style>
+</head>
+<body>
+
+  <div class="main-screen" id="mainScreen">
+    <h1>Love Story</h1>
+    <div class="sub-love">
+      <i class="fas fa-heart"></i>
+      <span>hai ta viết tiếp chuyện tình</span>
+      <i class="fas fa-heart"></i>
+    </div>
+    <button class="menu-toggle" id="menuToggle">
+      <i class="fas fa-bars"></i> Menu
+    </button>
+    <div style="margin-top: 45px; font-size: 1rem; color: #b5758b;">
+      <i class="fas fa-feather-alt"></i> nơi lưu giữ kỷ niệm
+    </div>
+  </div>
+
+  <div class="full-menu" id="fullMenu">
+    <button class="close-menu" id="closeMenuBtn">
+      <i class="fas fa-times"></i>
+    </button>
+    <div class="menu-items">
+      <div class="menu-item" id="diaryMenuItem">
+        <i class="fas fa-book-heart"></i>
+        Nhật ký cặp đôi
+      </div>
+      <div class="menu-item" style="opacity: 0.8;">
+        <i class="fas fa-camera"></i>
+        Kỷ niệm ảnh
+      </div>
+      <div class="menu-item" style="opacity: 0.8;">
+        <i class="fas fa-music"></i>
+        Bài hát của chúng ta
+      </div>
+    </div>
+  </div>
+
+  <div class="diary-screen" id="diaryScreen">
+    <button class="back-btn" id="backToMainBtn">
+      <i class="fas fa-arrow-left"></i> Quay lại
+    </button>
+
+    <!-- Khung debug: hiển thị thông tin kết nối -->
+    <div class="debug-box" id="debugBox">
+      <strong><i class="fas fa-plug"></i> Thông tin kết nối Supabase:</strong><br>
+      URL: <code id="debugUrl">—</code><br>
+      Trạng thái: <span id="debugStatus">Đang kiểm tra...</span>
+    </div>
+
+    <div class="diary-paper" id="diaryPaper">
+      <div class="paper-header">
+        <h2>
+          <i class="fas fa-pen-fancy"></i> Nhật ký đôi
+        </h2>
+        <div class="date-badge" id="currentDateBadge">
+          <i class="fas fa-calendar-alt"></i>
+          <span id="currentDateText">Hôm nay</span>
+        </div>
+      </div>
+
+      <div class="diary-content" id="diaryContent" contenteditable="true" spellcheck="false"></div>
+
+      <div class="diary-meta">
+        <span>
+          <i class="fas fa-clock"></i> Hiện tại: <span id="liveCurrentDate"></span>
+        </span>
+        <span class="past-date">
+          <i class="fas fa-history"></i> Ngày đã qua: <span id="pastDateText"></span>
+        </span>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+        <button class="save-diary" id="loadDiaryBtn" style="background: #e0c3d0;">
+          <i class="fas fa-sync-alt"></i> Tải lại
+        </button>
+        <button class="save-diary" id="saveDiaryBtn">
+          <i class="fas fa-save"></i> Lưu nhật ký
+        </button>
+      </div>
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+
+    <div class="history-section">
+      <div class="history-title">
+        <i class="fas fa-scroll"></i> Các dòng nhật ký trước đó
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // ====== CẤU HÌNH SUPABASE ======
+      // ⚠️ URL bạn vừa gửi: https://cjswxglxyyqrcfbyyjer.supabase.co
+      // Từ JWT payload:      https://cjswxglxyyrcfbyyjer.supabase.co
+      // Hai URL khác nhau ở đoạn "qrc" vs "rc" → chỉ 1 cái đúng!
+      const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co'; // ← ĐANG DÙNG URL BẠN GỬI
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqc3d4Z2x4eXlyY2ZieXlqZXIiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc5MjIyNDM5MywiZXhwIjoyMTA3ODAwMzkzfQ.Zw4RrjMOjJ9CvcK6IAQvhewemqo2D4_g3cTXPe95dsA';
+
+      const { createClient } = supabase;
+      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      // DOM refs
+      const mainScreen = document.getElementById('mainScreen');
+      const menuToggle = document.getElementById('menuToggle');
+      const fullMenu = document.getElementById('fullMenu');
+      const closeMenuBtn = document.getElementById('closeMenuBtn');
+      const diaryMenuItem = document.getElementById('diaryMenuItem');
+      const diaryScreen = document.getElementById('diaryScreen');
+      const backToMainBtn = document.getElementById('backToMainBtn');
+      const currentDateText = document.getElementById('currentDateText');
+      const diaryContent = document.getElementById('diaryContent');
+      const liveCurrentDate = document.getElementById('liveCurrentDate');
+      const pastDateText = document.getElementById('pastDateText');
+      const saveDiaryBtn = document.getElementById('saveDiaryBtn');
+      const loadDiaryBtn = document.getElementById('loadDiaryBtn');
+      const statusMsg = document.getElementById('statusMsg');
+      const historyList = document.getElementById('historyList');
+      const debugUrl = document.getElementById('debugUrl');
+      const debugStatus = document.getElementById('debugStatus');
+
+      debugUrl.textContent = SUPABASE_URL;
+
+      function formatDate(date) {
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+        return `${d}/${m}/${y}`;
+      }
+      function formatDateTime(iso) {
+        const date = new Date(iso);
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+        const hh = date.getHours().toString().padStart(2, '0');
+        const mm = date.getMinutes().toString().padStart(2, '0');
+        return `${hh}:${mm} - ${d}/${m}/${y}`;
+      }
+
+      function updateCurrentDates() {
+        const today = new Date();
+        const formattedToday = formatDate(today);
+        if (currentDateText) currentDateText.textContent = formattedToday;
+        if (liveCurrentDate) liveCurrentDate.textContent = formattedToday;
+      }
+      function updatePastDate() {
+        const past = new Date();
+        past.setDate(past.getDate() - 30);
+        if (pastDateText) pastDateText.textContent = formatDate(past);
+      }
+      updateCurrentDates();
+      updatePastDate();
+
+      function showStatus(msg, isError = false) {
+        statusMsg.textContent = msg;
+        statusMsg.style.color = isError ? '#c0392b' : '#b35d7a';
+        setTimeout(() => { if (statusMsg.textContent === msg) statusMsg.textContent = ''; }, 5000);
+      }
+
+      // ====== KIỂM TRA KẾT NỐI NGAY KHI LOAD ======
+      async function checkConnection() {
+        try {
+          const { data, error } = await supabaseClient
+            .from('diary_entries')
+            .select('id')
+            .limit(1);
+
+          if (error) throw error;
+
+          debugStatus.innerHTML = '<span style="color:#1e8449; font-weight:700;">✅ Kết nối thành công — bảng diary_entries tồn tại</span>';
+          debugBox.style.background = '#f0fff5';
+          debugBox.style.borderColor = '#8fd4a5';
+        } catch (error) {
+          console.error('Lỗi kết nối:', error);
+          debugStatus.innerHTML = `<span style="color:#c0392b; font-weight:700;">❌ Lỗi: ${error.message}</span>`;
+          debugBox.style.background = '#fff5f5';
+          debugBox.style.borderColor = '#f0a8bd';
+        }
+      }
+
+      // ====== SUPABASE: LOAD ======
+      async function loadDiaryFromSupabase() {
+        showStatus('Đang tải...');
+        try {
+          const { data, error } = await supabaseClient
+            .from('diary_entries')
+            .select('id, content, created_at')
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            diaryContent.innerText = data[0].content;
+            renderHistory(data.slice(1));
+            showStatus(`Đã tải ${data.length} dòng nhật ký`);
+          } else {
+            diaryContent.innerText = '';
+            historyList.innerHTML = '<div style="color:#b38392; font-style:italic; padding:10px;">Chưa có dòng nhật ký nào. Hãy viết dòng đầu tiên nhé! 💕</div>';
+            showStatus('Chưa có dữ liệu');
+          }
+        } catch (error) {
+          console.error('Lỗi tải:', error);
+          showStatus('Lỗi tải: ' + error.message, true);
+          historyList.innerHTML = `<div style="color:#c0392b; padding:10px;">Không thể tải lịch sử: ${error.message}</div>`;
+        }
+      }
+
+      function renderHistory(items) {
+        if (!items || items.length === 0) {
+          historyList.innerHTML = '<div style="color:#b38392; font-style:italic; padding:10px;">Chưa có dòng nào trước đó.</div>';
+          return;
+        }
+        historyList.innerHTML = items.map(item => `
+          <div class="history-item">
+            <div class="hist-time"><i class="fas fa-clock"></i> ${formatDateTime(item.created_at)}</div>
+            <div class="hist-content">${escapeHtml(item.content)}</div>
+          </div>
+        `).join('');
+      }
+
+      function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      }
+
+      // ====== SUPABASE: SAVE ======
+      async function saveDiaryToSupabase() {
+        const content = diaryContent.innerText.trim();
+        if (!content) { showStatus('Nhật ký trống, không có gì để lưu!', true); return; }
+
+        saveDiaryBtn.disabled = true;
+        const oldHTML = saveDiaryBtn.innerHTML;
+        saveDiaryBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+
+        try {
+          const { error } = await supabaseClient
+            .from('diary_entries')
+            .insert([{ content: content }]);
+          if (error) throw error;
+
+          showStatus('❤️ Đã lưu lên Supabase!');
+          await loadDiaryFromSupabase();
+        } catch (error) {
+          console.error('Lỗi lưu:', error);
+          showStatus('Lỗi lưu: ' + error.message, true);
+        } finally {
+          saveDiaryBtn.disabled = false;
+          saveDiaryBtn.innerHTML = oldHTML;
+        }
+      }
+
+      // ====== UI ======
+      function openFullMenu() { fullMenu.classList.add('open'); mainScreen.classList.add('hidden'); }
+      function closeFullMenu() { fullMenu.classList.remove('open'); mainScreen.classList.remove('hidden'); }
+      async function openDiary() {
+        fullMenu.classList.remove('open');
+        mainScreen.classList.add('hidden');
+        diaryScreen.classList.add('open');
+        updateCurrentDates();
+        updatePastDate();
+        await loadDiaryFromSupabase();
+      }
+      function backToMainFromDiary() {
+        diaryScreen.classList.remove('open');
+        mainScreen.classList.remove('hidden');
+        fullMenu.classList.remove('open');
+      }
+
+      menuToggle.addEventListener('click', openFullMenu);
+      closeMenuBtn.addEventListener('click', closeFullMenu);
+      diaryMenuItem.addEventListener('click', openDiary);
+      backToMainBtn.addEventListener('click', backToMainFromDiary);
+      saveDiaryBtn.addEventListener('click', saveDiaryToSupabase);
+      loadDiaryBtn.addEventListener('click', loadDiaryFromSupabase);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (fullMenu.classList.contains('open')) closeFullMenu();
+          else if (diaryScreen.classList.contains('open')) backToMainFromDiary();
+        }
+      });
+
+      // Kiểm tra kết nối ngay khi tải trang
+      checkConnection();
+    })();
+  </script>
+</body>
+</html>
