@@ -19,12 +19,12 @@
     .login-box { background: #fffbfd; max-width: 400px; width: 100%; padding: 40px 30px; border-radius: 40px; box-shadow: 0 20px 40px -15px #e5a5b9, 0 0 0 10px #ffeef4 inset; text-align: center; border: 1px solid #f8c8d8; }
     .login-box h2 { font-family: 'Dancing Script', cursive; font-size: 3rem; color: #b15170; margin-bottom: 10px; }
     .login-box p { font-size: 1rem; color: #b38392; margin-bottom: 25px; }
-    .login-input-group { position: relative; margin-bottom: 20px; }
+    .login-input-group { position: relative; margin-bottom: 15px; }
     .login-input-group input { width: 100%; padding: 16px 20px; border-radius: 30px; border: 2px solid #f8c8d8; background: #fff; font-size: 1.1rem; font-family: 'Quicksand', sans-serif; color: #5a3e4b; outline: none; transition: 0.2s; }
     .login-input-group input:focus { border-color: #fbc4d0; box-shadow: 0 0 0 4px #fff0f5; }
-    .login-input-group span { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); color: #b38392; font-weight: 600; font-size: 1.1rem; pointer-events: none; }
-    .login-btn { background: #fbc4d0; border: none; width: 100%; padding: 16px; border-radius: 30px; font-size: 1.2rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 10px 20px -8px #e5a5b9; transition: 0.2s; border: 2px solid #fff; }
+    .login-btn { background: #fbc4d0; border: none; width: 100%; padding: 16px; border-radius: 30px; font-size: 1.2rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 10px 20px -8px #e5a5b9; transition: 0.2s; border: 2px solid #fff; margin-top: 10px; }
     .login-btn:hover { background: #ffdae5; transform: translateY(-2px); }
+    .login-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
     .login-error { color: #c0392b; font-size: 0.9rem; margin-top: 15px; min-height: 20px; font-weight: 500; }
 
     /* Màn hình chính */
@@ -52,7 +52,7 @@
     .menu-item:hover { background: #ffecf2; transform: scale(1.03); box-shadow: 0 20px 30px -10px #d987a3, 0 0 0 2px #fff inset; color: #a14564; }
 
     /* Nút Debug & Bảng Debug */
-    .debug-toggle-btn { background: transparent; border: 1px dashed #d8a7b6; color: #b38392; padding: 10px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .debug-toggle-btn { background: transparent; border: 1px dashed #d8a7b6; color: #b38392; padding: 10px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; margin-top: 10px; font-family: inherit; }
     .debug-toggle-btn:hover { background: #fff0f5; color: #b33e63; border-color: #b33e63; }
     .menu-debug-box { display: none; max-width: 450px; width: 100%; background: rgba(255, 255, 255, 0.9); border: 2px dashed #e5a5b9; border-radius: 20px; padding: 20px; font-size: 0.85rem; color: #6d364b; line-height: 1.6; box-shadow: 0 10px 20px -10px #ecc0ce; text-align: left; margin-top: 15px; animation: fadeSlideUp 0.3s both; }
     .menu-debug-box.open { display: block; }
@@ -110,10 +110,12 @@
   <div class="login-screen" id="loginScreen">
     <div class="login-box">
       <h2>Love Story</h2>
-      <p>Nhập tên của bạn để vào nhà của chúng ta 💕</p>
+      <p>Nhập tên và mật khẩu để vào nhà của chúng ta 💕</p>
       <div class="login-input-group">
-        <input type="text" id="usernameInput" placeholder="Ví dụ: diemmy" autocomplete="off" spellcheck="false">
-        <span>@daomeo.local</span>
+        <input type="text" id="usernameInput" placeholder="Tên (vd: diemmy)" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="login-input-group">
+        <input type="password" id="passwordInput" placeholder="Mật khẩu của bạn" autocomplete="off">
       </div>
       <button class="login-btn" id="loginBtn">Đăng nhập</button>
       <div class="login-error" id="loginError"></div>
@@ -233,6 +235,7 @@
       // DOM Elements
       const loginScreen = document.getElementById('loginScreen');
       const usernameInput = document.getElementById('usernameInput');
+      const passwordInput = document.getElementById('passwordInput');
       const loginBtn = document.getElementById('loginBtn');
       const loginError = document.getElementById('loginError');
       
@@ -305,17 +308,19 @@
       // ====== CHỨC NĂNG ĐĂNG NHẬP ======
       loginBtn.addEventListener('click', async () => {
         const username = usernameInput.value.trim().toLowerCase();
+        const password = passwordInput.value;
+        
         loginError.textContent = '';
         
-        if (!username) {
-          loginError.textContent = 'Vui lòng nhập tên của bạn!';
+        if (!username || !password) {
+          loginError.textContent = 'Vui lòng nhập đầy đủ Tên và Mật khẩu!';
           return;
         }
 
-        // Ghép thành email chuẩn
+        // Ghép thành email chuẩn để gửi lên Supabase
         const email = `${username}@daomeo.local`;
 
-        // Chỉ cho phép 2 user này (theo yêu cầu)
+        // Chỉ cho phép 2 user này
         if (username !== 'diemmy' && username !== 'tienloi') {
           loginError.textContent = 'Tên này không có trong danh sách. Chỉ dành cho Diễm My và Tiến Lợi thôi! 💕';
           return;
@@ -325,9 +330,11 @@
         loginBtn.disabled = true;
 
         try {
-          // Đăng nhập ẩn danh để lấy session (không cần mật khẩu thật)
-          // Lưu ý: Vì ta chỉ cần session để thoả mãn Auth, ta dùng signInAnonymously
-          const { data, error } = await supabaseClient.auth.signInAnonymously();
+          // Đăng nhập bằng Email và Mật khẩu người dùng tự nhập
+          const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+          });
 
           if (error) throw error;
 
@@ -340,7 +347,11 @@
           
         } catch (err) {
           console.error('Lỗi đăng nhập:', err);
-          loginError.textContent = 'Lỗi kết nối Supabase. Hãy kiểm tra lại mạng hoặc project đang bị Paused.';
+          if (err.message.includes('Invalid login credentials')) {
+            loginError.textContent = 'Sai tên hoặc sai mật khẩu. Vui lòng thử lại!';
+          } else {
+            loginError.textContent = 'Lỗi: ' + err.message;
+          }
         } finally {
           loginBtn.innerHTML = 'Đăng nhập';
           loginBtn.disabled = false;
@@ -348,7 +359,7 @@
       });
 
       // Nhấn Enter để đăng nhập
-      usernameInput.addEventListener('keypress', (e) => {
+      passwordInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') loginBtn.click();
       });
 
@@ -382,22 +393,7 @@
           } else if (error.message.includes('relation') || error.message.includes('does not exist')) {
             detailMsg = 'Chưa tạo bảng "diary_entries".';
           } else if (error.message.includes('Invalid API key')) {
-            detailMsg = 'Sai API Key. Kiểm tra lại Publishable Key.';
+            detailMsg = 'Sai API Key.';
           }
 
-          dbgDetail.innerHTML = `<span style="color:#c0392b;">${detailMsg}</span>`;
-        }
-      }
-
-      retryBtn.addEventListener('click', checkConnection);
-      
-      // Ẩn/hiện bảng debug
-      debugToggleBtn.addEventListener('click', () => {
-        menuDebugBox.classList.toggle('open');
-        if (menuDebugBox.classList.contains('open')) {
-          checkConnection(); // Tự động check khi mở bảng
-        }
-      });
-
-      // ====== LOAD DATA ======
-      async function loadDiaryFromSupabase()
+          dbgDetail.innerHTML = `<span style="color:#c
