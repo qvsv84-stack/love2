@@ -82,9 +82,18 @@
 
     /* ================= ALBUM ẢNH MỚI ================= */
     .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding-bottom: 20px; }
-    .photo-card { background: #fff; padding: 8px; border-radius: 16px; box-shadow: 0 8px 20px -8px #dba5b8; display: flex; flex-direction: column; transition: 0.3s; position: relative; overflow: hidden; }
+    .photo-card { background: #fff; padding: 6px; border-radius: 16px; box-shadow: 0 8px 20px -8px #dba5b8; display: flex; flex-direction: column; transition: 0.3s; position: relative; overflow: hidden; }
     .photo-card:hover { transform: translateY(-5px); box-shadow: 0 12px 25px -8px #dba5b8; }
-    .photo-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 12px; }
+    
+    .photo-img-wrapper { position: relative; width: 100%; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden; }
+    .photo-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+    
+    /* Nút Sửa/Xóa trên ảnh (Chỉ hiện với người đăng) */
+    .photo-actions { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
+    .photo-actions button { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.9); color: #b15170; font-size: 0.8rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); transition: 0.2s; }
+    .photo-actions button:hover { transform: scale(1.1); }
+    .photo-actions button.delete { color: #c0392b; }
+
     .photo-info { padding: 10px 5px 5px; display: flex; flex-direction: column; gap: 4px; }
     .photo-caption { font-size: 0.85rem; font-weight: 700; color: #5a3e4b; line-height: 1.3; }
     .photo-author { font-size: 0.7rem; color: #b38392; display: flex; align-items: center; gap: 4px; }
@@ -117,8 +126,8 @@
 
     .photo-form { display: none; flex-direction: column; gap: 10px; margin-bottom: 15px; }
     .photo-form.active { display: flex; }
-    .photo-form input[type="url"], .photo-form input[type="text"], .promise-input { width: 100%; padding: 14px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem; background: #fff; }
-    .photo-form input:focus, .promise-input:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
+    .photo-form input[type="url"], .photo-form input[type="text"] { width: 100%; padding: 14px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem; background: #fff; }
+    .photo-form input:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
 
     .file-upload-wrapper { position: relative; width: 100%; }
     .file-upload-wrapper input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
@@ -128,6 +137,12 @@
     
     .image-preview-container { text-align: center; margin-top: 10px; display: none; }
     .image-preview-container img { max-width: 100%; max-height: 150px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+    /* Ô nhập chú thích mới (Có icon) */
+    .caption-input-wrapper { position: relative; margin-bottom: 15px; }
+    .caption-input-wrapper i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #fbc4d0; font-size: 1.1rem; }
+    .caption-input-wrapper input { width: 100%; padding: 14px 15px 14px 40px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem; background: #fff; transition: 0.2s; }
+    .caption-input-wrapper input:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
 
     .btn-modal-save { background: #fbc4d0; border: none; width: 100%; padding: 16px; border-radius: 15px; font-size: 1.1rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 4px 10px rgba(200,100,130,0.2); margin-top: 10px; }
     .btn-modal-save:hover { background: #ffdae5; }
@@ -232,13 +247,13 @@
       <div class="nav-item" data-target="view-promise"><i class="fas fa-handshake"></i> Giao ước</div>
     </div>
 
-    <!-- MODAL THÊM ẢNH (Bottom Sheet) -->
+    <!-- MODAL THÊM/SỬA ẢNH (Bottom Sheet) -->
     <div class="modal-overlay" id="photoModal">
       <div class="modal-sheet">
         <div class="modal-handle"></div>
-        <h3 class="modal-title">Thêm ảnh kỷ niệm</h3>
+        <h3 class="modal-title" id="photoModalTitle">Thêm ảnh kỷ niệm</h3>
         
-        <div class="photo-tabs">
+        <div class="photo-tabs" id="photoTabsContainer">
           <div class="ptab active" data-ptab="url"><i class="fas fa-link"></i> Dán Link</div>
           <div class="ptab" data-ptab="upload"><i class="fas fa-upload"></i> Tải lên</div>
         </div>
@@ -260,20 +275,24 @@
           </div>
         </div>
 
-        <input type="text" id="photoCaptionInput" placeholder="Lời chú thích cho ảnh..." style="margin-bottom: 15px;">
+        <!-- Chú thích (Thiết kế lại) -->
+        <div class="caption-input-wrapper">
+          <i class="fas fa-pen"></i>
+          <input type="text" id="photoCaptionInput" placeholder="Viết chú thích dễ thương cho ảnh...">
+        </div>
 
         <button class="btn-modal-save" id="savePhotoBtn"><i class="fas fa-save"></i> Lưu vào Album</button>
         <button class="btn-modal-close" id="closePhotoModal">Hủy bỏ</button>
       </div>
     </div>
 
-    <!-- MODAL THÊM GIAO ƯỚC (Bottom Sheet) -->
+    <!-- MODAL THÊM/SỬA GIAO ƯỚC (Bottom Sheet) -->
     <div class="modal-overlay" id="promiseModal">
       <div class="modal-sheet">
         <div class="modal-handle"></div>
         <h3 class="modal-title" id="promiseModalTitle">Giao ước mới</h3>
         
-        <textarea class="promise-input" id="promiseInput" placeholder="Viết lời hứa hoặc giao ước của bạn..." rows="4" style="resize: none; margin-bottom: 15px;"></textarea>
+        <textarea class="promise-input" id="promiseInput" placeholder="Viết lời hứa hoặc giao ước của bạn..." rows="4" style="resize: none; margin-bottom: 15px; width: 100%; padding: 14px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem;"></textarea>
         
         <button class="btn-modal-save" id="savePromiseBtn"><i class="fas fa-save"></i> Lưu giao ước</button>
         <button class="btn-modal-close" id="closePromiseModal">Hủy bỏ</button>
@@ -305,6 +324,7 @@
     let currentEntryId = null;
     let currentPhotoTab = 'url';
     let editingPromiseId = null;
+    let editingPhotoId = null;
 
     function getTodayString() {
       const today = new Date();
@@ -375,7 +395,7 @@
       });
     });
 
-    // ====== LOGIC NHẬT KÝ (Giữ nguyên) ======
+    // ====== LOGIC NHẬT KÝ ======
     document.querySelectorAll('.dtab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
@@ -504,16 +524,24 @@
       `;
     }
 
-    // ====== LOGIC ALBUM ẢNH MỚI ======
+    // ====== LOGIC ALBUM ẢNH ======
     const photoModal = document.getElementById('photoModal');
 
+    // Mở modal thêm ảnh mới
     document.getElementById('openAddPhotoModal').addEventListener('click', () => {
-      photoModal.classList.add('open');
+      editingPhotoId = null;
+      document.getElementById('photoModalTitle').textContent = 'Thêm ảnh kỷ niệm';
+      document.getElementById('photoTabsContainer').style.display = 'flex';
+      document.getElementById('form-url').classList.add('active');
+      document.getElementById('form-upload').classList.remove('active');
+      
       // Reset form
       document.getElementById('photoUrlInput').value = '';
       document.getElementById('photoCaptionInput').value = '';
       document.getElementById('photoFileInput').value = '';
       document.getElementById('imagePreviewContainer').style.display = 'none';
+      
+      photoModal.classList.add('open');
     });
 
     document.getElementById('closePhotoModal').addEventListener('click', () => photoModal.classList.remove('open'));
@@ -560,17 +588,32 @@
         return;
       }
 
-      grid.innerHTML = data.map(photo => `
-        <div class="photo-card">
-          <img src="${escapeHtml(photo.image_url)}" alt="Kỷ niệm" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
-          <div class="photo-info">
-            <div class="photo-caption">${escapeHtml(photo.caption || 'Kỷ niệm')}</div>
-            <div class="photo-author"><i class="fas fa-user-circle"></i> ${photo.uploaded_by ? photo.uploaded_by.charAt(0).toUpperCase() + photo.uploaded_by.slice(1) : 'Ẩn danh'}</div>
+      grid.innerHTML = data.map(photo => {
+        const isMine = photo.uploaded_by === currentUser;
+        // Nút Sửa/Xóa chỉ hiện với người đăng
+        const actionsHtml = isMine ? `
+          <div class="photo-actions">
+            <button onclick="editPhoto('${photo.id}', '${escapeHtml(photo.caption || '').replace(/'/g, "\\'")}')"><i class="fas fa-pen"></i></button>
+            <button class="delete" onclick="deletePhoto('${photo.id}')"><i class="fas fa-trash"></i></button>
           </div>
-        </div>
-      `).join('');
+        ` : '';
+
+        return `
+          <div class="photo-card">
+            <div class="photo-img-wrapper">
+              <img src="${escapeHtml(photo.image_url)}" alt="Kỷ niệm" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
+              ${actionsHtml}
+            </div>
+            <div class="photo-info">
+              <div class="photo-caption">${escapeHtml(photo.caption || 'Kỷ niệm')}</div>
+              <div class="photo-author"><i class="fas fa-user-circle"></i> ${photo.uploaded_by ? photo.uploaded_by.charAt(0).toUpperCase() + photo.uploaded_by.slice(1) : 'Ẩn danh'}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
+    // Xử lý lưu (Thêm mới hoặc Cập nhật)
     document.getElementById('savePhotoBtn').addEventListener('click', async () => {
       const caption = document.getElementById('photoCaptionInput').value.trim();
       const btn = document.getElementById('savePhotoBtn');
@@ -579,35 +622,42 @@
       btn.disabled = true;
 
       try {
-        let finalImageUrl = '';
-
-        if (currentPhotoTab === 'url') {
-          const url = document.getElementById('photoUrlInput').value.trim();
-          if (!url) throw new Error('Vui lòng dán link ảnh!');
-          finalImageUrl = url;
+        if (editingPhotoId) {
+          // Cập nhật chú thích
+          const { error } = await supabaseClient.from('photo_album').update({ caption }).eq('id', editingPhotoId);
+          if (error) throw error;
         } else {
-          const fileInput = document.getElementById('photoFileInput');
-          const file = fileInput.files[0];
-          if (!file) throw new Error('Vui lòng chọn 1 bức ảnh!');
+          // Thêm mới
+          let finalImageUrl = '';
 
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-          const filePath = `${currentUser}/${fileName}`;
+          if (currentPhotoTab === 'url') {
+            const url = document.getElementById('photoUrlInput').value.trim();
+            if (!url) throw new Error('Vui lòng dán link ảnh!');
+            finalImageUrl = url;
+          } else {
+            const fileInput = document.getElementById('photoFileInput');
+            const file = fileInput.files[0];
+            if (!file) throw new Error('Vui lòng chọn 1 bức ảnh!');
 
-          const { error: uploadError } = await supabaseClient.storage.from('photos').upload(filePath, file);
-          if (uploadError) throw new Error('Lỗi upload: ' + uploadError.message);
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `${currentUser}/${fileName}`;
 
-          const { data: publicUrlData } = supabaseClient.storage.from('photos').getPublicUrl(filePath);
-          finalImageUrl = publicUrlData.publicUrl;
+            const { error: uploadError } = await supabaseClient.storage.from('photos').upload(filePath, file);
+            if (uploadError) throw new Error('Lỗi upload: ' + uploadError.message);
+
+            const { data: publicUrlData } = supabaseClient.storage.from('photos').getPublicUrl(filePath);
+            finalImageUrl = publicUrlData.publicUrl;
+          }
+
+          const { error: dbError } = await supabaseClient.from('photo_album').insert([{ 
+            image_url: finalImageUrl, 
+            caption: caption, 
+            uploaded_by: currentUser 
+          }]);
+          
+          if (dbError) throw new Error('Lỗi lưu database: ' + dbError.message);
         }
-
-        const { error: dbError } = await supabaseClient.from('photo_album').insert([{ 
-          image_url: finalImageUrl, 
-          caption: caption, 
-          uploaded_by: currentUser 
-        }]);
-        
-        if (dbError) throw new Error('Lỗi lưu database: ' + dbError.message);
 
         photoModal.classList.remove('open');
         await loadPhotos();
@@ -619,6 +669,30 @@
         btn.disabled = false;
       }
     });
+
+    // Hàm toàn cục Sửa ảnh
+    window.editPhoto = function(id, caption) {
+      editingPhotoId = id;
+      document.getElementById('photoModalTitle').textContent = 'Sửa chú thích ảnh';
+      document.getElementById('photoTabsContainer').style.display = 'none'; // Ẩn phần chọn ảnh
+      document.getElementById('form-url').classList.remove('active');
+      document.getElementById('form-upload').classList.remove('active');
+      
+      document.getElementById('photoCaptionInput').value = caption;
+      photoModal.classList.add('open');
+    };
+
+    // Hàm toàn cục Xóa ảnh
+    window.deletePhoto = async function(id) {
+      if (!confirm('Bạn có chắc muốn xóa bức ảnh này không?')) return;
+      try {
+        const { error } = await supabaseClient.from('photo_album').delete().eq('id', id);
+        if (error) throw error;
+        await loadPhotos();
+      } catch (err) {
+        alert('Lỗi khi xóa: ' + err.message);
+      }
+    };
 
     // ====== LOGIC GIAO ƯỚC ======
     const promiseModal = document.getElementById('promiseModal');
@@ -652,7 +726,6 @@
         const authorName = promise.author.charAt(0).toUpperCase() + promise.author.slice(1);
         const sideClass = isMine ? 'my-side' : 'partner-side';
         
-        // Nút Sửa/Xóa chỉ hiện với người viết
         const actionButtons = isMine ? `
           <div class="promise-actions">
             <button class="btn-icon edit" onclick="editPromise('${promise.id}', '${escapeHtml(promise.content).replace(/'/g, "\\'")}')"><i class="fas fa-pen"></i></button>
@@ -684,11 +757,9 @@
 
       try {
         if (editingPromiseId) {
-          // Cập nhật
           const { error } = await supabaseClient.from('couple_promises').update({ content }).eq('id', editingPromiseId);
           if (error) throw error;
         } else {
-          // Thêm mới
           const { error } = await supabaseClient.from('couple_promises').insert([{ content, author: currentUser }]);
           if (error) throw error;
         }
@@ -702,7 +773,6 @@
       }
     });
 
-    // Hàm toàn cục để gọi từ nút HTML (onclick)
     window.editPromise = function(id, content) {
       editingPromiseId = id;
       document.getElementById('promiseModalTitle').textContent = 'Sửa giao ước';
