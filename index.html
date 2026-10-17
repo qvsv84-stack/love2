@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Love Story · Nhật ký cặp đôi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,135 +11,106 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     /* ================= CSS TOÀN CỤC ================= */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Quicksand', sans-serif; background: linear-gradient(145deg, #fff0f5 0%, #ffe4ec 100%); min-height: 100vh; color: #5a3e4b; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; overflow: hidden; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Quicksand', sans-serif; background: linear-gradient(145deg, #fff0f5 0%, #ffe4ec 100%); min-height: 100vh; color: #5a3e4b; display: flex; align-items: center; justify-content: center; overflow: hidden; }
     
     :root {
-      --primary: #fbc4d0; --primary-dark: #e9a6b8; --text-main: #5f2e42; --text-light: #b38392;
-      --bg-glass: rgba(255, 240, 245, 0.85); --shadow: 0 15px 25px -5px rgba(200, 100, 130, 0.3);
+      --primary: #fbc4d0; --text-main: #5f2e42;
+      --bg-glass: rgba(255, 240, 245, 0.95);
     }
 
-    /* ================= MÀN HÌNH ĐĂNG NHẬP ================= */
+    /* ================= ĐĂNG NHẬP ================= */
     .login-screen { position: fixed; inset: 0; background: #fff0f5; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; transition: opacity 0.4s ease, visibility 0.4s; }
     .login-screen.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
-    .login-box { background: #fffbfd; max-width: 400px; width: 100%; padding: 40px 30px; border-radius: 40px; box-shadow: 0 20px 40px -15px #e5a5b9, 0 0 0 10px #ffeef4 inset; text-align: center; border: 1px solid #f8c8d8; }
+    .login-box { background: #fffbfd; max-width: 400px; width: 100%; padding: 40px 30px; border-radius: 40px; box-shadow: 0 20px 40px -15px #e5a5b9; text-align: center; border: 1px solid #f8c8d8; }
     .login-box h2 { font-family: 'Dancing Script', cursive; font-size: 3rem; color: #b15170; margin-bottom: 10px; }
-    .login-box p { font-size: 1rem; color: #b38392; margin-bottom: 25px; }
     .input-group { position: relative; margin-bottom: 15px; }
-    .input-group input { width: 100%; padding: 16px 20px; border-radius: 30px; border: 2px solid #f8c8d8; background: #fff; font-size: 1.1rem; font-family: inherit; color: #5a3e4b; outline: none; transition: 0.2s; }
-    .input-group input:focus { border-color: #fbc4d0; box-shadow: 0 0 0 4px #fff0f5; }
-    .btn-primary { background: var(--primary); border: none; width: 100%; padding: 16px; border-radius: 30px; font-size: 1.2rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 10px 20px -8px #e5a5b9; transition: 0.2s; border: 2px solid #fff; margin-top: 10px; font-family: inherit; }
-    .btn-primary:hover { background: #ffdae5; transform: translateY(-2px); }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-    .login-error { color: #c0392b; font-size: 0.9rem; margin-top: 15px; min-height: 20px; font-weight: 500; line-height: 1.4; }
+    .input-group input { width: 100%; padding: 16px 20px; border-radius: 30px; border: 2px solid #f8c8d8; background: #fff; font-size: 1.1rem; font-family: inherit; color: #5a3e4b; outline: none; }
+    .input-group input:focus { border-color: #fbc4d0; }
+    .btn-primary { background: var(--primary); border: none; width: 100%; padding: 16px; border-radius: 30px; font-size: 1.2rem; font-weight: 700; color: #5a2c3e; cursor: pointer; box-shadow: 0 10px 20px -8px #e5a5b9; transition: 0.2s; border: 2px solid #fff; margin-top: 10px; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .login-error { color: #c0392b; font-size: 0.9rem; margin-top: 15px; min-height: 20px; font-weight: 500; }
 
-    /* ================= MÀN HÌNH CHÍNH (APP SHELL) ================= */
-    .app-screen { max-width: 1000px; width: 100%; height: 90vh; background: var(--bg-glass); backdrop-filter: blur(10px); border-radius: 40px; box-shadow: 0 25px 50px -15px rgba(230, 120, 150, 0.4); border: 1px solid rgba(255, 210, 220, 0.7); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    /* ================= APP SHELL ================= */
+    .app-screen { max-width: 500px; width: 100%; height: 100vh; max-height: 932px; /* iPhone 14 Pro Max height */ background: var(--bg-glass); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    @media (min-width: 500px) { .app-screen { border-radius: 40px; height: 90vh; box-shadow: 0 25px 50px -15px rgba(230, 120, 150, 0.4); } }
     .app-screen.hidden { display: none; }
     
     /* Header */
-    .app-header { padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.5); border-bottom: 1px solid #f8c8d8; }
-    .app-header h1 { font-family: 'Dancing Script', cursive; font-size: 2.5rem; color: #c96b8b; line-height: 1; }
-    .user-info { font-weight: 600; color: #b15170; background: #fff; padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 10px #f3cedb; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
+    .app-header { padding: 20px 20px 15px; display: flex; justify-content: space-between; align-items: center; background: transparent; flex-shrink: 0; }
+    .app-header h1 { font-family: 'Dancing Script', cursive; font-size: 2.2rem; color: #c96b8b; line-height: 1; }
+    .user-info { font-weight: 600; color: #b15170; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 4px 10px #f3cedb; font-size: 0.85rem; display: flex; align-items: center; gap: 10px; }
 
     /* Main Content Area */
-    .app-content { flex: 1; overflow-y: auto; padding: 20px 30px 100px; position: relative; scroll-behavior: smooth; }
-    .view-section { display: none; animation: fadeIn 0.4s ease; }
-    .view-section.active { display: block; }
+    .app-content { flex: 1; overflow-y: auto; padding: 0 15px 80px; position: relative; display: flex; flex-direction: column; }
+    .view-section { display: none; flex: 1; flex-direction: column; animation: fadeIn 0.3s ease; }
+    .view-section.active { display: flex; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Tiêu đề các mục & Thanh chọn ngày */
-    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-    .section-title { font-family: 'Dancing Script', cursive; font-size: 2rem; color: #b15170; display: flex; align-items: center; gap: 10px; margin: 0; }
+    /* ================= NHẬT KÝ TABS ================= */
+    .diary-tabs-container { background: #fff; border-radius: 20px; padding: 5px; display: flex; gap: 5px; margin-bottom: 15px; box-shadow: 0 5px 15px -5px #e5bccb; flex-shrink: 0; }
+    .dtab { flex: 1; text-align: center; padding: 12px 5px; font-size: 0.85rem; font-weight: 700; color: #b38392; border-radius: 15px; cursor: pointer; transition: 0.2s; }
+    .dtab.active { background: #fbc4d0; color: #5a2c3e; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     
-    .date-picker-wrapper { display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px 15px; border-radius: 20px; box-shadow: 0 5px 15px -5px #e5bccb; border: 1px solid #f8c8d8; }
-    .date-picker-wrapper label { font-weight: 700; color: #b15170; font-size: 0.9rem; }
-    .date-picker-wrapper input[type="date"] { padding: 5px 10px; border-radius: 10px; border: 1px solid #f8c8d8; font-family: inherit; color: #5a3e4b; font-weight: 600; outline: none; cursor: pointer; font-size: 0.95rem; }
-    .date-picker-wrapper input[type="date"]:focus { border-color: #fbc4d0; }
+    /* Ngày tháng */
+    .date-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; }
+    .date-picker-wrapper { display: flex; align-items: center; gap: 8px; background: #fff; padding: 6px 12px; border-radius: 15px; box-shadow: 0 3px 10px -3px #e5bccb; }
+    .date-picker-wrapper input[type="date"] { border: none; font-family: inherit; color: #5a3e4b; font-weight: 700; font-size: 1rem; outline: none; background: transparent; }
     
-    .date-notice { font-size: 0.85rem; color: #b38392; font-style: italic; text-align: center; margin-bottom: 15px; display: block; }
+    /* Vùng nội dung tab */
+    .diary-tab-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    
+    /* Trang giấy kẻ dòng */
+    .lined-textarea, .lined-paper {
+      width: 100%;
+      background-color: #fffbfd;
+      background-image: repeating-linear-gradient(
+        transparent, transparent 31px, #fce4ec 31px, #fce4ec 32px
+      );
+      background-attachment: local;
+      line-height: 32px;
+      padding: 8px 15px;
+      border: 1px solid #f8c8d8;
+      border-radius: 15px;
+      font-family: inherit;
+      font-size: 1rem;
+      color: #4b2e39;
+      outline: none;
+    }
+    
+    .lined-textarea { flex: 1; resize: none; min-height: 350px; }
+    .lined-textarea:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
+    .lined-paper { flex: 1; overflow-y: auto; white-space: pre-wrap; min-height: 350px; }
+    
+    .empty-state { text-align: center; color: #b38392; font-style: italic; padding: 40px 20px; line-height: 1.6; }
 
-    /* ================= NHẬT KÝ ĐÔI (2 CỘT) ================= */
-    .diary-split-container { display: flex; gap: 20px; flex-wrap: wrap; }
-    .diary-column { flex: 1; min-width: 280px; background: #fffbfd; border-radius: 20px; box-shadow: 0 10px 30px -10px #dba5b8; padding: 25px; border: 1px solid #ffe2ec; position: relative; display: flex; flex-direction: column; }
+    /* Nút hành động (Sửa/Xóa/Lưu) */
+    .action-buttons { display: flex; gap: 10px; margin-top: 15px; flex-shrink: 0; }
+    .btn-action { flex: 1; padding: 14px; border-radius: 15px; border: none; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-save { background: #fbc4d0; color: #5a2c3e; box-shadow: 0 4px 10px rgba(200,100,130,0.2); }
+    .btn-save:hover { background: #ffdae5; }
+    .btn-edit { background: #fff; color: #b15170; border: 2px solid #fbc4d0; }
+    .btn-delete { background: #fff0f0; color: #c0392b; border: 2px solid #ffcccc; }
     
-    .diary-column.my-side { border-top: 5px solid #fbc4d0; }
-    .diary-column.partner-side { border-top: 5px solid #b3d4f5; background: #f8fbff; }
-
-    .column-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-weight: 700; font-size: 1.2rem; color: #b15170; border-bottom: 1px dashed #f8c8d8; padding-bottom: 10px; }
-    .partner-side .column-header { color: #4a7ab5; border-bottom-color: #cce0f7; }
-    .column-header i { font-size: 1.4rem; }
-    
-    /* Phần nhập liệu - Tăng chiều cao */
-    .diary-input-box { margin-bottom: 20px; }
-    .diary-textarea { width: 100%; min-height: 180px; border: 2px solid #f8c8d8; border-radius: 15px; padding: 15px; font-family: inherit; font-size: 1rem; color: #5a3e4b; resize: vertical; outline: none; transition: 0.2s; background: #fff; line-height: 1.6; }
-    .diary-textarea:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
-    .diary-textarea:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; border-color: #e0e0e0; }
-    
-    .btn-save-small { background: var(--primary); border: none; padding: 12px 25px; border-radius: 20px; font-size: 1rem; font-weight: 700; color: #5a2c3e; cursor: pointer; transition: 0.2s; float: right; margin-top: 10px; border: 1px solid #fff; }
-    .btn-save-small:hover { background: #ffdae5; transform: translateY(-2px); }
-    .btn-save-small:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    /* Lịch sử nhật ký 2 bên - Tăng chiều cao */
-    .diary-history-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; max-height: 450px; overflow-y: auto; padding-right: 5px; flex: 1; }
-    .diary-note { padding: 12px 15px; border-radius: 12px; background: #fff; font-size: 0.95rem; line-height: 1.5; box-shadow: 0 3px 8px -3px #e5bccb; white-space: pre-wrap; }
-    .my-side .diary-note { border-left: 3px solid #fbc4d0; }
-    .partner-side .diary-note { border-left: 3px solid #b3d4f5; }
-    .diary-note .time { font-size: 0.75rem; color: #b38392; margin-top: 5px; display: block; text-align: right; }
-    .empty-notice { text-align: center; color: #b38392; font-style: italic; font-size: 0.9rem; padding: 20px 0; }
-
-    /* ================= ALBUM ẢNH ================= */
-    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
-    .photo-card { background: #fff; padding: 10px; border-radius: 15px; box-shadow: 0 5px 15px -5px #dba5b8; text-align: center; transform: rotate(-2deg); transition: 0.3s; }
-    .photo-card:nth-child(even) { transform: rotate(2deg); }
-    .photo-card:hover { transform: scale(1.05) rotate(0); z-index: 10; }
-    .photo-card img { width: 100%; height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 10px; }
-    .photo-card p { font-size: 0.9rem; color: #5a3e4b; font-weight: 600; }
-    .add-photo-form { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-    .add-photo-form input { flex: 1; padding: 12px; border-radius: 20px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; }
-    
-    /* ================= GIAO ƯỚC ================= */
-    .promise-box { background: #fffcfd; border: 2px dashed #f7c7d6; border-radius: 20px; padding: 30px; text-align: center; }
-    .promise-icon { font-size: 3rem; color: #fbc4d0; margin-bottom: 15px; }
-    .promise-box h3 { font-family: 'Dancing Script', cursive; font-size: 2rem; color: #b15170; margin-bottom: 10px; }
-    .promise-box p { font-size: 1.1rem; line-height: 1.8; color: #6d364b; }
+    /* Tab Cặp đôi (2 cột) */
+    .couple-grid { display: flex; gap: 15px; flex: 1; overflow: hidden; }
+    .couple-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .couple-col-header { font-weight: 700; font-size: 1rem; color: #b15170; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+    .couple-col:nth-child(2) .couple-col-header { color: #4a7ab5; }
+    .couple-col .lined-paper { font-size: 0.95rem; }
 
     /* ================= BOTTOM NAVIGATION ================= */
-    .bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 15px 10px; border-top: 1px solid #f8c8d8; box-shadow: 0 -5px 20px rgba(230, 120, 150, 0.1); border-radius: 30px 30px 0 0; z-index: 100; }
-    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: #b38392; font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 5px 15px; border-radius: 15px; transition: 0.2s; }
+    .bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 12px 10px 20px; border-top: 1px solid #f8c8d8; border-radius: 20px 20px 0 0; z-index: 100; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #b38392; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: 0.2s; }
     .nav-item i { font-size: 1.4rem; }
-    .nav-item:hover, .nav-item.active { color: #b15170; background: #fff0f5; }
+    .nav-item.active { color: #b15170; }
 
-    /* ================= DEBUG & SETTINGS ================= */
-    .settings-btn { background: transparent; border: none; color: #b38392; font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
-    .settings-btn:hover { color: #b15170; transform: rotate(90deg); }
+    /* ================= SETTINGS ================= */
     .settings-modal { position: absolute; inset: 0; background: rgba(255,255,255,0.95); z-index: 500; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: 0.3s; padding: 20px; }
     .settings-modal.open { opacity: 1; pointer-events: all; }
-    .settings-box { background: #fff; border-radius: 20px; padding: 30px; width: 100%; max-width: 450px; box-shadow: 0 10px 30px rgba(200,100,130,0.2); }
-    .debug-box { background: #fff5f7; border: 2px dashed #f0a8bd; border-radius: 15px; padding: 15px; font-size: 0.85rem; color: #6d364b; line-height: 1.5; margin-top: 20px; text-align: left; }
-    .status-badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-weight: 700; font-size: 0.8rem; }
-    .status-ok { background: #d4f5dd; color: #1e8449; }
-    .status-err { background: #ffe0e0; color: #c0392b; }
-    .btn-logout { background: #ffe2eb; color: #c0392b; border: 1px solid #f8c8d8; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: 600; margin-top: 20px; width: 100%; font-family: inherit; }
-
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #f8c8d8; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: #fbc4d0; }
-
-    @media (max-width: 768px) {
-      .diary-split-container { flex-direction: column; }
-      .section-header { flex-direction: column; align-items: flex-start; }
-    }
-    @media (max-width: 600px) {
-      .app-screen { height: 100vh; border-radius: 0; }
-      .app-header { padding: 15px 20px; }
-      .app-header h1 { font-size: 2rem; }
-      .app-content { padding: 15px 15px 90px; }
-      .photo-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-      .photo-card img { height: 140px; }
-    }
+    .settings-box { background: #fff; border-radius: 20px; padding: 25px; width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(200,100,130,0.2); }
+    .btn-logout { background: #ffe2eb; color: #c0392b; border: 1px solid #f8c8d8; padding: 12px 20px; border-radius: 15px; cursor: pointer; font-weight: 700; margin-top: 20px; width: 100%; }
+    .settings-btn { background: transparent; border: none; color: #b38392; font-size: 1.3rem; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -148,12 +119,12 @@
   <div class="login-screen" id="loginScreen">
     <div class="login-box">
       <h2>Love Story</h2>
-      <p>Nhập tên và mật khẩu để vào nhà của chúng ta 💕</p>
+      <p style="color: #b38392; margin-bottom: 20px;">Nhập tên và mật khẩu để vào nhà 💕</p>
       <div class="input-group">
         <input type="text" id="usernameInput" placeholder="Tên (vd: diemmy)" autocomplete="off">
       </div>
       <div class="input-group">
-        <input type="password" id="passwordInput" placeholder="Mật khẩu của bạn">
+        <input type="password" id="passwordInput" placeholder="Mật khẩu">
       </div>
       <button class="btn-primary" id="loginBtn">Đăng nhập</button>
       <div class="login-error" id="loginError"></div>
@@ -171,82 +142,41 @@
       </div>
     </div>
     
-    <!-- Vùng nội dung chính (Chứa các Tab) -->
+    <!-- Vùng nội dung chính -->
     <div class="app-content">
       
-      <!-- TAB 1: NHẬT KÝ CẶP ĐÔI -->
+      <!-- TAB NHẬT KÝ -->
       <div class="view-section active" id="view-diary">
-        <!-- Tiêu đề + Chọn ngày cùng hàng -->
-        <div class="section-header">
-          <h2 class="section-title"><i class="fas fa-pen-fancy"></i> Nhật ký cặp đôi</h2>
+        
+        <!-- Tabs con -->
+        <div class="diary-tabs-container">
+          <div class="dtab active" data-dtab="self">Nhật ký bản thân</div>
+          <div class="dtab" data-dtab="partner">Nhật ký người ấy</div>
+          <div class="dtab" data-dtab="couple">Nhật ký cặp đôi</div>
+        </div>
+
+        <!-- Chọn ngày -->
+        <div class="date-header">
           <div class="date-picker-wrapper">
-            <label for="diaryDate"><i class="fas fa-calendar-day"></i> Ngày:</label>
+            <i class="fas fa-calendar-day" style="color:#b15170;"></i>
             <input type="date" id="diaryDate">
           </div>
         </div>
-        
-        <span class="date-notice" id="dateNotice"></span>
 
-        <div class="diary-split-container">
-          <!-- BÊN TRÁI: DIỄM MY -->
-          <div class="diary-column my-side" id="column-diemmy">
-            <div class="column-header">
-              <i class="fas fa-heart" style="color: #f48fb1;"></i> Trang của Diễm My
-            </div>
-            <div class="diary-input-box" id="input-box-diemmy">
-              <textarea class="diary-textarea" id="input-diemmy" placeholder="Diễm My viết gì đó cho Tiến Lợi đi..."></textarea>
-              <button class="btn-save-small" id="save-diemmy">Lưu lại</button>
-              <div style="clear:both;"></div>
-            </div>
-            <div class="diary-history-list" id="history-diemmy">
-              <!-- Lịch sử của My -->
-            </div>
-          </div>
-
-          <!-- BÊN PHẢI: TIẾN LỢI -->
-          <div class="diary-column partner-side" id="column-tienloi">
-            <div class="column-header">
-              <i class="fas fa-heart" style="color: #64b5f6;"></i> Trang của Tiến Lợi
-            </div>
-            <div class="diary-input-box" id="input-box-tienloi">
-              <textarea class="diary-textarea" id="input-tienloi" placeholder="Tiến Lợi viết gì đó cho Diễm My đi..."></textarea>
-              <button class="btn-save-small" id="save-tienloi">Lưu lại</button>
-              <div style="clear:both;"></div>
-            </div>
-            <div class="diary-history-list" id="history-tienloi">
-              <!-- Lịch sử của Lợi -->
-            </div>
-          </div>
+        <!-- Nội dung Tab -->
+        <div class="diary-tab-content" id="diaryTabContent">
+          <!-- Render bằng JS -->
         </div>
       </div>
 
-      <!-- TAB 2: ALBUM ẢNH -->
+      <!-- TAB KHÁC (Giữ nguyên placeholder) -->
       <div class="view-section" id="view-photos">
-        <h2 class="section-title"><i class="fas fa-camera"></i> Kỷ niệm ảnh</h2>
-        <div class="add-photo-form">
-          <input type="url" id="photoUrlInput" placeholder="Dán link ảnh (URL) vào đây...">
-          <input type="text" id="photoCaptionInput" placeholder="Lời chú thích...">
-          <button class="btn-primary" id="addPhotoBtn" style="width: auto; padding: 12px 20px; font-size: 1rem;"><i class="fas fa-plus"></i> Thêm</button>
-        </div>
-        <div class="photo-grid" id="photoGrid">
-          <!-- Ảnh sẽ load ở đây -->
-        </div>
+        <h2 style="font-family: 'Dancing Script'; font-size: 2rem; color: #b15170; margin-bottom: 15px;">Kỷ niệm ảnh</h2>
+        <p style="text-align: center; color: #b38392;">Tính năng đang phát triển...</p>
       </div>
-
-      <!-- TAB 3: GIAO ƯỚC -->
       <div class="view-section" id="view-promise">
-        <h2 class="section-title"><i class="fas fa-handshake"></i> Giao ước cặp đôi</h2>
-        <div class="promise-box">
-          <i class="fas fa-heart promise-icon"></i>
-          <h3>Lời Hứa Của Chúng Ta</h3>
-          <p>
-            "Chúng mình hứa sẽ luôn lắng nghe nhau,<br>
-            cùng nhau đi qua mọi giông bão,<br>
-            và không bao giờ buông tay nhau ra.<br>
-            Dù có chuyện gì xảy ra,<br>
-            hai đứa vẫn sẽ là nhà của nhau. ❤️"
-          </p>
-        </div>
+        <h2 style="font-family: 'Dancing Script'; font-size: 2rem; color: #b15170; margin-bottom: 15px;">Giao ước</h2>
+        <p style="text-align: center; color: #b38392;">Tính năng đang phát triển...</p>
       </div>
       
     </div>
@@ -258,20 +188,12 @@
       <div class="nav-item" data-target="view-promise"><i class="fas fa-handshake"></i> Giao ước</div>
     </div>
 
-    <!-- Modal Settings & Debug -->
+    <!-- Modal Settings -->
     <div class="settings-modal" id="settingsModal">
       <div class="settings-box">
-        <h3 style="font-family: 'Dancing Script', cursive; font-size: 1.8rem; color: #b15170; margin-bottom: 20px;">Cài đặt & Hệ thống</h3>
-        
-        <div class="debug-box">
-          <p><strong>Supabase URL:</strong> <br><span style="font-size: 0.75rem; word-break: break-all;" id="dbgUrl">—</span></p>
-          <p style="margin-top: 10px;"><strong>Trạng thái kết nối:</strong> <br><span class="status-badge" id="dbgStatus">Đang kiểm tra...</span></p>
-          <div id="dbgDetail" style="margin-top: 8px; font-size: 0.8rem; color: #856404;"></div>
-          <button class="btn-primary" id="retryDbBtn" style="width: 100%; margin-top: 10px; padding: 8px; font-size: 0.9rem;">Thử kết nối lại</button>
-        </div>
-
+        <h3 style="font-family: 'Dancing Script'; font-size: 1.8rem; color: #b15170; margin-bottom: 15px; text-align: center;">Cài đặt</h3>
         <button class="btn-logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
-        <button class="btn-primary" id="closeSettingsBtn" style="background: #e0c3d0; color: #5a3e4b; margin-top: 10px;"><i class="fas fa-times"></i> Đóng</button>
+        <button class="btn-primary" id="closeSettingsBtn" style="background: #e0c3d0; color: #5a3e4b; margin-top: 10px; padding: 12px;">Đóng</button>
       </div>
     </div>
   </div>
@@ -284,88 +206,41 @@
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // DOM Elements
+    // Elements
     const loginScreen = document.getElementById('loginScreen');
     const appScreen = document.getElementById('appScreen');
     const displayUser = document.getElementById('displayUser');
     const dateInput = document.getElementById('diaryDate');
-    const dateNotice = document.getElementById('dateNotice');
+    const diaryTabContent = document.getElementById('diaryTabContent');
     
-    // Global State
+    // State
     let currentUser = '';
+    let partnerUser = '';
+    let currentDiaryTab = 'self'; // 'self', 'partner', 'couple'
+    let currentEntryId = null; // ID của bản ghi đang xem (nếu có)
 
-    // Lấy ngày hôm nay theo định dạng YYYY-MM-DD (múi giờ VN)
     function getTodayString() {
       const today = new Date();
-      // Điều chỉnh theo múi giờ VN (UTC+7)
       const vnTime = new Date(today.getTime() + (7 * 60 * 60 * 1000));
       return vnTime.toISOString().split('T')[0];
     }
 
-    // ====== XỬ LÝ ĐĂNG NHẬP & SESSION ======
+    // ====== AUTH ======
     async function checkSession() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
-        const email = session.user.email;
-        currentUser = email.split('@')[0];
+        currentUser = session.user.email.split('@')[0];
         enterApp();
       }
     }
 
     function enterApp() {
+      partnerUser = currentUser === 'diemmy' ? 'tienloi' : 'diemmy';
       displayUser.innerHTML = `<i class="fas fa-user-heart"></i> ${currentUser.charAt(0).toUpperCase() + currentUser.slice(1)}`;
       loginScreen.classList.add('hidden');
       appScreen.classList.remove('hidden');
-      
-      // Setup ngày mặc định là hôm nay
       dateInput.value = getTodayString();
-      
-      // Cài đặt khóa/mở khóa ô nhập liệu dựa trên user hiện tại
-      setupDiaryPermissions();
-      
-      // Tải dữ liệu
-      loadDiaryForDate();
-      loadPhotos();
-    }
-
-    // Khóa ô nhập của người kia
-    function setupDiaryPermissions() {
-      if (currentUser === 'diemmy') {
-        document.getElementById('input-diemmy').disabled = false;
-        document.getElementById('save-diemmy').disabled = false;
-        
-        document.getElementById('input-tienloi').disabled = true;
-        document.getElementById('input-tienloi').placeholder = "Chỉ Tiến Lợi mới có thể viết ở đây.";
-        document.getElementById('save-tienloi').style.display = 'none';
-      } else if (currentUser === 'tienloi') {
-        document.getElementById('input-tienloi').disabled = false;
-        document.getElementById('save-tienloi').disabled = false;
-        
-        document.getElementById('input-diemmy').disabled = true;
-        document.getElementById('input-diemmy').placeholder = "Chỉ Diễm My mới có thể viết ở đây.";
-        document.getElementById('save-diemmy').style.display = 'none';
-      }
-    }
-
-    // Kiểm tra xem ngày đang chọn có phải hôm nay không
-    function isTodaySelected() {
-      return dateInput.value === getTodayString();
-    }
-
-    // Cập nhật trạng thái cho phép nhập liệu dựa trên ngày
-    function updateInputPermissions() {
-      const isToday = isTodaySelected();
-      
-      // Nếu không phải hôm nay, khóa ô nhập và ẩn nút lưu
-      if (!isToday) {
-        dateNotice.innerHTML = '<i class="fas fa-lock"></i> Đang xem lại kỷ niệm. Chỉ có thể viết vào ngày hôm nay.';
-        document.getElementById('input-box-diemmy').style.display = 'none';
-        document.getElementById('input-box-tienloi').style.display = 'none';
-      } else {
-        dateNotice.innerHTML = '<i class="fas fa-pen"></i> Hôm nay. Hãy viết gì đó nhé!';
-        document.getElementById('input-box-diemmy').style.display = 'block';
-        document.getElementById('input-box-tienloi').style.display = 'block';
-      }
+      renderDiaryTab();
     }
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
@@ -375,240 +250,202 @@
       const loginBtn = document.getElementById('loginBtn');
       
       loginError.textContent = '';
+      if (!username || !password) { loginError.textContent = 'Nhập đủ tên và mật khẩu!'; return; }
+      if (username !== 'diemmy' && username !== 'tienloi') { loginError.textContent = 'Tên không hợp lệ!'; return; }
 
-      if (!username || !password) {
-        loginError.textContent = 'Vui lòng nhập đủ Tên và Mật khẩu!';
-        return;
-      }
-      if (username !== 'diemmy' && username !== 'tienloi') {
-        loginError.textContent = 'Tên này không có trong danh sách.';
-        return;
-      }
-
-      loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang vào...';
+      loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
       loginBtn.disabled = true;
 
       try {
-        const { error } = await supabaseClient.auth.signInWithPassword({
-          email: `${username}@daomeo.local`,
-          password: password
-        });
-        
-        if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            throw new Error('Sai tên hoặc mật khẩu! (Hoặc tài khoản chưa được tạo trên Supabase)');
-          } else if (error.message.includes('Email not confirmed')) {
-            throw new Error('Tài khoản chưa xác nhận Email. Hãy vào Supabase bật Auto Confirm.');
-          } else {
-            throw new Error(error.message);
-          }
-        }
-        
+        const { error } = await supabaseClient.auth.signInWithPassword({ email: `${username}@daomeo.local`, password });
+        if (error) throw error;
         currentUser = username;
         enterApp();
       } catch (err) {
-        loginError.textContent = err.message;
+        loginError.textContent = err.message.includes('Invalid') ? 'Sai tên hoặc mật khẩu!' : err.message;
       } finally {
         loginBtn.innerHTML = 'Đăng nhập';
         loginBtn.disabled = false;
       }
     });
-    
+
     document.getElementById('passwordInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('loginBtn').click(); });
+    document.getElementById('logoutBtn').addEventListener('click', async () => { await supabaseClient.auth.signOut(); location.reload(); });
+    document.getElementById('openSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').classList.add('open'));
+    document.getElementById('closeSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').classList.remove('open'));
 
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      await supabaseClient.auth.signOut();
-      location.reload();
-    });
-
-    // ====== CHUYỂN TAB (SPA) ======
+    // Chuyển tab chính (Nhật ký, Ảnh, Giao ước)
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-        
         item.classList.add('active');
-        const targetId = item.getAttribute('data-target');
-        document.getElementById(targetId).classList.add('active');
+        document.getElementById(item.getAttribute('data-target')).classList.add('active');
       });
     });
 
-    // ====== LẮNG NGHE SỰ KIỆN CHỌN NGÀY ======
-    dateInput.addEventListener('change', () => {
-      updateInputPermissions();
-      loadDiaryForDate();
+    // Chuyển tab con (Self, Partner, Couple)
+    document.querySelectorAll('.dtab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentDiaryTab = tab.getAttribute('data-dtab');
+        renderDiaryTab();
+      });
     });
 
-    // ====== TÍNH NĂNG NHẬT KÝ THEO NGÀY ======
-    async function loadDiaryForDate() {
-      const selectedDate = dateInput.value; // Định dạng YYYY-MM-DD
-      if (!selectedDate) return;
-      
-      // Cập nhật trạng thái cho phép nhập liệu
-      updateInputPermissions();
+    dateInput.addEventListener('change', renderDiaryTab);
 
-      // Tạo khoảng thời gian từ 00:00:00 đến 23:59:59 của ngày được chọn (theo giờ VN)
+    // ====== LOGIC RENDER NHẬT KÝ ======
+    async function renderDiaryTab() {
+      const selectedDate = dateInput.value;
+      if (!selectedDate) return;
+
+      // Hiển thị trạng thái đang tải
+      diaryTabContent.innerHTML = '<div style="text-align:center; padding: 40px; color:#b38392;"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+
+      // Lấy mốc thời gian đầu ngày và cuối ngày (giờ VN)
       const startOfDay = new Date(`${selectedDate}T00:00:00+07:00`).toISOString();
       const endOfDay = new Date(`${selectedDate}T23:59:59.999+07:00`).toISOString();
 
-      // Tải cho Diễm My
-      loadDiaryColumn('diemmy', startOfDay, endOfDay);
-      
-      // Tải cho Tiến Lợi
-      loadDiaryColumn('tienloi', startOfDay, endOfDay);
+      try {
+        if (currentDiaryTab === 'self') {
+          await renderSelfTab(startOfDay, endOfDay);
+        } else if (currentDiaryTab === 'partner') {
+          await renderPartnerTab(startOfDay, endOfDay);
+        } else if (currentDiaryTab === 'couple') {
+          await renderCoupleTab(startOfDay, endOfDay);
+        }
+      } catch (err) {
+        diaryTabContent.innerHTML = `<div style="color:#c0392b; text-align:center; padding:20px;">Lỗi tải dữ liệu: ${err.message}</div>`;
+      }
     }
 
-    async function loadDiaryColumn(authorName, startOfDay, endOfDay) {
-      const historyList = document.getElementById(`history-${authorName}`);
-      historyList.innerHTML = '<div style="text-align:center; color:#b38392; font-size:0.9rem;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
-      
+    // Hàm lấy dữ liệu 1 người trong 1 ngày
+    async function fetchEntry(author, startOfDay, endOfDay) {
       const { data, error } = await supabaseClient
         .from('diary_entries')
         .select('*')
-        .eq('author', authorName) 
+        .eq('author', author)
         .gte('created_at', startOfDay)
         .lte('created_at', endOfDay)
-        .order('created_at', { ascending: false });
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    }
 
-      if (error || !data) {
-        historyList.innerHTML = '<div style="color:#c0392b; text-align:center; font-size: 0.9rem;">Lỗi tải nhật ký.</div>';
-        return;
-      }
+    // 1. TAB BẢN THÂN
+    async function renderSelfTab(startOfDay, endOfDay) {
+      const entry = await fetchEntry(currentUser, startOfDay, endOfDay);
+      currentEntryId = entry ? entry.id : null;
 
-      if (data.length === 0) {
-        historyList.innerHTML = '<div class="empty-notice">Chưa có dòng nào trong ngày này...</div>';
-        return;
-      }
-
-      historyList.innerHTML = data.map(item => {
-        const time = new Date(item.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute:'2-digit' });
-        return `
-          <div class="diary-note">
-            ${escapeHtml(item.content)}
-            <span class="time"><i class="far fa-clock"></i> ${time}</span>
+      let html = '';
+      if (entry) {
+        // Đã có dữ liệu -> hiển thị để sửa/xóa
+        html = `
+          <textarea class="lined-textarea" id="selfTextarea" placeholder="Viết gì đó...">${escapeHtml(entry.content)}</textarea>
+          <div class="action-buttons">
+            <button class="btn-action btn-save" id="btnSaveSelf"><i class="fas fa-save"></i> Lưu thay đổi</button>
+            <button class="btn-action btn-delete" id="btnDeleteSelf"><i class="fas fa-trash"></i> Xóa</button>
           </div>
         `;
-      }).join('');
+      } else {
+        // Chưa có -> hiển thị ô trống để viết
+        html = `
+          <textarea class="lined-textarea" id="selfTextarea" placeholder="Hôm nay bạn muốn viết gì?"></textarea>
+          <div class="action-buttons">
+            <button class="btn-action btn-save" id="btnSaveSelf"><i class="fas fa-plus"></i> Lưu nhật ký</button>
+          </div>
+        `;
+      }
+      diaryTabContent.innerHTML = html;
+
+      // Gắn sự kiện
+      document.getElementById('btnSaveSelf').addEventListener('click', saveSelfDiary);
+      const delBtn = document.getElementById('btnDeleteSelf');
+      if (delBtn) delBtn.addEventListener('click', deleteSelfDiary);
     }
 
-    // Hàm xử lý lưu
-    async function saveDiary(authorName, inputId) {
-      if (!isTodaySelected()) {
-        alert('Chỉ có thể viết nhật ký cho ngày hôm nay thôi nhé!');
-        return;
-      }
+    async function saveSelfDiary() {
+      const content = document.getElementById('selfTextarea').value.trim();
+      if (!content) return alert('Chưa viết gì mà!');
 
-      const inputEl = document.getElementById(inputId);
-      const content = inputEl.value.trim();
-      if (!content) return alert('Viết gì đó đã rồi mới lưu được chứ!');
-
-      const btn = document.getElementById(`save-${authorName}`);
+      const btn = document.getElementById('btnSaveSelf');
       const originalText = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
       btn.disabled = true;
-
-      const { error } = await supabaseClient
-        .from('diary_entries')
-        .insert([{ content: content, author: authorName }]);
-
-      if (error) {
-        alert('Lỗi khi lưu: ' + error.message);
-      } else {
-        inputEl.value = '';
-        // Tải lại danh sách cho ngày hôm nay
-        loadDiaryForDate();
-      }
-      
-      btn.innerHTML = originalText;
-      btn.disabled = false;
-    }
-
-    // Gắn sự kiện click cho 2 nút lưu
-    document.getElementById('save-diemmy').addEventListener('click', () => saveDiary('diemmy', 'input-diemmy'));
-    document.getElementById('save-tienloi').addEventListener('click', () => saveDiary('tienloi', 'input-tienloi'));
-
-    // ====== TÍNH NĂNG ALBUM ẢNH ======
-    async function loadPhotos() {
-      const grid = document.getElementById('photoGrid');
-      grid.innerHTML = '<div style="text-align:center; color:#b38392; grid-column: 1/-1;"><i class="fas fa-spinner fa-spin"></i> Đang tải ảnh...</div>';
-
-      const { data, error } = await supabaseClient
-        .from('photo_album')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error || !data) {
-        grid.innerHTML = '<div style="color:#c0392b; grid-column: 1/-1; text-align: center;">Lỗi tải ảnh. (Bạn đã tạo bảng photo_album chưa?)</div>';
-        return;
-      }
-
-      if (data.length === 0) {
-        grid.innerHTML = '<div style="text-align:center; color:#b38392; grid-column: 1/-1; font-style:italic;">Chưa có tấm ảnh nào. Thêm ảnh kỷ niệm đầu tiên đi!</div>';
-        return;
-      }
-
-      grid.innerHTML = data.map(photo => `
-        <div class="photo-card">
-          <img src="${escapeHtml(photo.image_url)}" alt="Kỷ niệm" onerror="this.src='https://via.placeholder.com/200x200?text=Lỗi+Ảnh'">
-          <p>${escapeHtml(photo.caption || 'Kỷ niệm đẹp')}</p>
-        </div>
-      `).join('');
-    }
-
-    document.getElementById('addPhotoBtn').addEventListener('click', async () => {
-      const url = document.getElementById('photoUrlInput').value.trim();
-      const caption = document.getElementById('photoCaptionInput').value.trim();
-      if (!url) return alert('Dán link ảnh vào đã nào!');
-
-      const btn = document.getElementById('addPhotoBtn');
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-      btn.disabled = true;
-
-      const { error } = await supabaseClient
-        .from('photo_album')
-        .insert([{ image_url: url, caption: caption, uploaded_by: currentUser }]);
-
-      if (error) {
-        alert('Lỗi thêm ảnh: ' + error.message);
-      } else {
-        document.getElementById('photoUrlInput').value = '';
-        document.getElementById('photoCaptionInput').value = '';
-        await loadPhotos();
-      }
-      
-      btn.innerHTML = '<i class="fas fa-plus"></i> Thêm';
-      btn.disabled = false;
-    });
-
-    // ====== SETTINGS & DEBUG ======
-    const settingsModal = document.getElementById('settingsModal');
-    document.getElementById('openSettingsBtn').addEventListener('click', () => { settingsModal.classList.add('open'); checkConnection(); });
-    document.getElementById('closeSettingsBtn').addEventListener('click', () => settingsModal.classList.remove('open'));
-
-    async function checkConnection() {
-      const dbgStatus = document.getElementById('dbgStatus');
-      const dbgDetail = document.getElementById('dbgDetail');
-      const dbgUrl = document.getElementById('dbgUrl');
-      
-      dbgUrl.textContent = SUPABASE_URL;
-      dbgStatus.className = 'status-badge';
-      dbgStatus.style.background = '#fff3cd'; dbgStatus.style.color = '#856404';
-      dbgStatus.textContent = 'Đang kiểm tra...';
-      dbgDetail.textContent = '';
 
       try {
-        const { error } = await supabaseClient.from('diary_entries').select('id').limit(1);
-        if (error) throw error;
-        
-        dbgStatus.className = 'status-badge status-ok';
-        dbgStatus.textContent = '✅ Kết nối thành công';
+        if (currentEntryId) {
+          // Cập nhật
+          const { error } = await supabaseClient.from('diary_entries').update({ content }).eq('id', currentEntryId);
+          if (error) throw error;
+          alert('Đã cập nhật nhật ký!');
+        } else {
+          // Thêm mới
+          const { error } = await supabaseClient.from('diary_entries').insert([{ content, author: currentUser }]);
+          if (error) throw error;
+          alert('Đã lưu nhật ký mới!');
+        }
+        renderDiaryTab();
       } catch (err) {
-        dbgStatus.className = 'status-badge status-err';
-        dbgStatus.textContent = '❌ Lỗi kết nối';
-        dbgDetail.textContent = err.message;
+        alert('Lỗi khi lưu: ' + err.message);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
       }
     }
-    document.getElementById('retryDbBtn').addEventListener('click', checkConnection);
+
+    async function deleteSelfDiary() {
+      if (!confirm('Bạn có chắc muốn xóa nhật ký ngày này không?')) return;
+      
+      try {
+        const { error } = await supabaseClient.from('diary_entries').delete().eq('id', currentEntryId);
+        if (error) throw error;
+        alert('Đã xóa!');
+        renderDiaryTab();
+      } catch (err) {
+        alert('Lỗi khi xóa: ' + err.message);
+      }
+    }
+
+    // 2. TAB NGƯỜI ẤY
+    async function renderPartnerTab(startOfDay, endOfDay) {
+      const entry = await fetchEntry(partnerUser, startOfDay, endOfDay);
+      
+      if (!entry) {
+        diaryTabContent.innerHTML = `<div class="empty-state"><i class="fas fa-heart-broken fa-2x" style="color:#f8c8d8; margin-bottom:15px;"></i><br>Người ấy chưa viết gì vào ngày này...</div>`;
+        return;
+      }
+
+      diaryTabContent.innerHTML = `
+        <div class="lined-paper">${escapeHtml(entry.content)}</div>
+      `;
+    }
+
+    // 3. TAB CẶP ĐÔI
+    async function renderCoupleTab(startOfDay, endOfDay) {
+      const [entrySelf, entryPartner] = await Promise.all([
+        fetchEntry(currentUser, startOfDay, endOfDay),
+        fetchEntry(partnerUser, startOfDay, endOfDay)
+      ]);
+
+      const htmlSelf = entrySelf ? `<div class="lined-paper">${escapeHtml(entrySelf.content)}</div>` : `<div class="lined-paper empty-state" style="font-size:0.9rem;">Chưa viết gì...</div>`;
+      const htmlPartner = entryPartner ? `<div class="lined-paper">${escapeHtml(entryPartner.content)}</div>` : `<div class="lined-paper empty-state" style="font-size:0.9rem;">Chưa viết gì...</div>`;
+
+      diaryTabContent.innerHTML = `
+        <div class="couple-grid">
+          <div class="couple-col">
+            <div class="couple-col-header"><i class="fas fa-heart" style="color:#f48fb1;"></i> ${currentUser.charAt(0).toUpperCase() + currentUser.slice(1)}</div>
+            ${htmlSelf}
+          </div>
+          <div class="couple-col">
+            <div class="couple-col-header"><i class="fas fa-heart" style="color:#64b5f6;"></i> ${partnerUser.charAt(0).toUpperCase() + partnerUser.slice(1)}</div>
+            ${htmlPartner}
+          </div>
+        </div>
+      `;
+    }
 
     // Hàm chống XSS
     function escapeHtml(str) {
