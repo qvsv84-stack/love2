@@ -373,9 +373,8 @@
     let currentTheme = localStorage.getItem('diaryTheme') || 'default';
     let currentFont = localStorage.getItem('diaryFont') || 'font-mali';
     let loveStartDateStr = null, diemmyBirthdayStr = null, tienloiBirthdayStr = null, loveCounterInterval = null, lastDayKey = '';
-    const entryCache = new Map(); // cache "${author}|${date}" -> entry
+    const entryCache = new Map();
 
-    // Cache formatter - tạo 1 lần, dùng mãi
     const _TODAY_FMT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' });
 
     function showToast(message, type = 'success') {
@@ -391,7 +390,6 @@
     }
 
     async function compressImage(file, maxWidth = 1200, quality = 0.7) {
-      // Ưu tiên createImageBitmap (nhanh hơn Image element, giải mã off-thread)
       try {
         if (window.createImageBitmap) {
           const bitmap = await createImageBitmap(file);
@@ -405,7 +403,6 @@
           return await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
         }
       } catch (e) { /* fallback */ }
-      // Fallback cho browser cũ
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -442,7 +439,6 @@
 
     const skeletonCard = `<div class="skeleton skeleton-card"></div>`;
 
-    // ====== AUTH ======
     async function checkSession() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session) return;
@@ -462,8 +458,6 @@
       document.getElementById('goalDate').value = today;
       applyDiaryTheme();
       setupRealtime();
-
-      // Tải song song - nhanh gấp 5 lần so với tuần tự
       await Promise.all([
         initLoveCounter().catch(e => console.error('Counter:', e)),
         renderDiaryTab().catch(e => console.error('Diary:', e)),
@@ -473,7 +467,6 @@
       ]);
     }
 
-    // ====== LOVE COUNTER ======
     const HOLIDAYS = [
       { name: 'Tết Dương', month: 1, day: 1, icon: '🎊' },
       { name: 'Valentine', month: 2, day: 14, icon: '💝' },
@@ -546,7 +539,6 @@
       renderCounterCards();
     }
 
-    // Chỉ update text node - KHÔNG rewrite innerHTML
     function updateLoveMainDisplay() {
       if (!loveStartDateStr) return;
       const t = getTodayVN();
@@ -620,7 +612,6 @@
       finally { btn.innerHTML = '<i class="fas fa-save"></i> Lưu cài đặt'; btn.disabled = false; }
     }
 
-    // ====== GOALS ======
     async function loadGoalsForDate(dateString) {
       const list = document.getElementById('goalList');
       list.innerHTML = `<div style="padding: 20px;">${skeletonCard}</div>`;
@@ -672,7 +663,6 @@
       } catch (err) { showToast('Lỗi: ' + err.message, 'error'); }
     };
 
-    // ====== REALTIME ======
     function setupRealtime() {
       realtimeChannel = supabaseClient.channel('diary_live_room');
       realtimeChannel.on('broadcast', { event: 'typing' }, (payload) => {
@@ -710,15 +700,14 @@
     }
 
     // === TIẾP TỤC PHẦN 2/2 ===
-  
-    // ====== DIARY ======
+    
+    
     async function renderDiaryTab() {
       const selectedDate = document.getElementById('diaryDate').value;
       if (!selectedDate) return;
       document.getElementById('diaryTabContent').innerHTML = `<div style="padding: 20px;">${skeletonCard}</div>`;
       document.getElementById('onThisDayContainer').innerHTML = '';
       try {
-        // Load "ngày này năm xưa" song song với tab content - không block
         if (currentDiaryTab === 'self' || currentDiaryTab === 'partner') {
           loadOnThisDay(selectedDate).catch(() => {});
         }
@@ -730,24 +719,17 @@
       }
     }
 
-    // 🔥 Tối ưu: query theo danh sách ngày cụ thể thay vì fetch ALL rồi filter
     async function loadOnThisDay(selectedDate) {
       const [y, m, d] = selectedDate.split('-').map(Number);
       const currentYear = new Date().getFullYear();
-      // Lấy tất cả các năm có thể có entry (5 năm gần nhất) - 1 query duy nhất
       const candidateDates = [];
       for (let yy = currentYear - 1; yy >= currentYear - 5; yy--) {
-        const mm = String(m).padStart(2, '0');
-        const dd = String(d).padStart(2, '0');
-        candidateDates.push(`${yy}-${mm}-${dd}`);
+        candidateDates.push(`${yy}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
       }
       const { data, error } = await supabaseClient
-        .from('diary_entries')
-        .select('entry_date, content, mood')
-        .eq('author', currentUser)
-        .in('entry_date', candidateDates)
-        .order('entry_date', { ascending: false })
-        .limit(1);
+        .from('diary_entries').select('entry_date, content, mood')
+        .eq('author', currentUser).in('entry_date', candidateDates)
+        .order('entry_date', { ascending: false }).limit(1);
       if (error || !data || data.length === 0) return;
       const latest = data[0];
       const year = latest.entry_date.split('-')[0];
@@ -756,7 +738,6 @@
       document.getElementById('onThisDayContainer').innerHTML = `<div class="on-this-day-banner"><h4><i class="fas fa-history"></i> Ngày này năm ${year}</h4><p>${mood} "${escapeHtml(text.slice(0, 50))}${text.length > 50 ? '...' : ''}"</p><span class="year">Hồi tưởng nhé 💕</span></div>`;
     }
 
-    // Cache in-memory, tự invalidate sau khi save/delete
     async function fetchEntry(author, dateStr) {
       const key = `${author}|${dateStr}`;
       if (entryCache.has(key)) return entryCache.get(key);
@@ -834,6 +815,7 @@
       }
     }
 
+    // 🎙️ GHI ÂM — có bộ lọc nhiễu Cấp 1 (noiseSuppression, echoCancellation, autoGainControl)
     function setupAudioRecording() {
       const recordBtn = document.getElementById('recordBtn');
       if (!recordBtn) return;
@@ -853,14 +835,41 @@
 
       recordBtn.addEventListener('click', async () => {
         if (mediaRecorder && mediaRecorder.state === 'recording') { try { mediaRecorder.stop(); } catch (e) { showToast('Lỗi dừng: ' + e.message, 'error'); } return; }
+
+        // 🔥 Bật bộ lọc nhiễu Cấp 1
         let stream;
-        try {   // Ưu tiên: bật bộ lọc của trình duyệt   try {     stream = await navigator.mediaDevices.getUserMedia({       audio: {         noiseSuppression: true,   // khử ồn nền (quạt, điều hoà, gió)         echoCancellation: true,   // khử vọng loa         autoGainControl: true,    // tự cân âm lượng         channelCount: 1,          // mono — file nhỏ hơn, giọng rõ hơn         sampleRate: 48000,         sampleSize: 16       }     });   } catch (constraintErr) {     // Máy/trình duyệt cũ không hỗ trợ → fallback về audio:true     console.warn('Bộ lọc âm thanh không hỗ trợ, dùng mặc định:', constraintErr);     stream = await navigator.mediaDevices.getUserMedia({ audio: true });   }   // Log để biết trình duyệt THỰC SỰ áp dụng cái gì   const track = stream.getAudioTracks()[0];   const settings = track.getSettings ? track.getSettings() : {};   console.log('🎤 Mic settings:', {     noiseSuppression: settings.noiseSuppression,     echoCancellation: settings.echoCancellation,     autoGainControl: settings.autoGainControl,     channelCount: settings.channelCount,     sampleRate: settings.sampleRate   }); }
-        catch (err) {
+        try {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                noiseSuppression: true,
+                echoCancellation: true,
+                autoGainControl: true,
+                channelCount: 1,
+                sampleRate: 48000,
+                sampleSize: 16
+              }
+            });
+          } catch (constraintErr) {
+            console.warn('Bộ lọc âm thanh không hỗ trợ, dùng mặc định:', constraintErr);
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          }
+          const track = stream.getAudioTracks()[0];
+          const settings = track.getSettings ? track.getSettings() : {};
+          console.log('🎤 Mic settings:', {
+            noiseSuppression: settings.noiseSuppression,
+            echoCancellation: settings.echoCancellation,
+            autoGainControl: settings.autoGainControl,
+            channelCount: settings.channelCount,
+            sampleRate: settings.sampleRate
+          });
+        } catch (err) {
           const msg = err.name === 'NotAllowedError' ? 'Bạn cần cho phép quyền micro!'
             : err.name === 'NotFoundError' ? 'Không tìm thấy micro!' : 'Lỗi micro: ' + err.message;
           showToast(msg, 'error'); return;
         }
         activeStream = stream;
+
         const mimeType = getSupportedAudioMimeType();
         let recorder;
         try { recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream); }
@@ -944,7 +953,6 @@
         audioBlob = null;
         await renderDiaryTab();
       } catch (err) {
-        // Cleanup: DB fail sau khi upload → xoá file treo
         if (uploadedPath) { try { await supabaseClient.storage.from('audio').remove([uploadedPath]); } catch (e) {} }
         showToast('Lỗi: ' + err.message, 'error');
         btn.innerHTML = '<i class="fas fa-save"></i> Lưu nhật ký';
@@ -1031,7 +1039,6 @@
         </div>`;
     }
 
-    // ====== PHOTOS ======
     function photoCardHtml(photo) {
       const isMine = photo.uploaded_by === currentUser;
       const actionsHtml = isMine
@@ -1082,7 +1089,7 @@
           const { error } = await supabaseClient.from('photo_album').update({ caption }).eq('id', editingPhotoId);
           if (error) throw error;
           showToast('Đã cập nhật!');
-          await loadPhotos(true); // Simple reload cho edit case
+          await loadPhotos(true);
         } else {
           let finalImageUrl = '';
           if (currentPhotoTab === 'url') {
@@ -1103,7 +1110,7 @@
           const { data, error } = await supabaseClient.from('photo_album').insert([{ image_url: finalImageUrl, caption, uploaded_by: currentUser }]).select().single();
           if (error) throw new Error('Lỗi lưu: ' + error.message);
           showToast('Đã thêm ảnh!');
-          await addPhoto(data); // 🔥 Chỉ append 1 card, không refetch
+          await addPhoto(data);
         }
         document.getElementById('photoModal').classList.remove('open');
       } catch (err) {
@@ -1133,14 +1140,12 @@
         }
         const { error } = await supabaseClient.from('photo_album').delete().eq('id', id);
         if (error) throw error;
-        // 🔥 Chỉ xoá 1 DOM node, không refetch
         const card = document.querySelector(`.photo-card[data-photo-id="${id}"]`);
         if (card) card.remove();
         showToast('Đã xóa!', 'info');
       } catch (err) { showToast('Lỗi: ' + err.message, 'error'); }
     }
 
-    // ====== PROMISE ======
     const sparkleConfig = [
       { left: '6%', top: '18%', delay: '0s' }, { left: '88%', top: '15%', delay: '0.3s' },
       { left: '12%', top: '72%', delay: '0.7s' }, { left: '85%', top: '78%', delay: '1.1s' },
@@ -1207,8 +1212,6 @@
       } catch (err) { showToast('Lỗi: ' + err.message, 'error'); }
     }
 
-    // ====== BOOT ======
-    // Pause timer khi tab ẩn - tiết kiệm pin
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         if (loveCounterInterval) { clearInterval(loveCounterInterval); loveCounterInterval = null; }
@@ -1219,12 +1222,10 @@
     });
 
     document.addEventListener('DOMContentLoaded', () => {
-      // Supabase load defer → chờ cho sẵn
       const init = () => {
         if (!window.supabase || !window.supabase.createClient) { setTimeout(init, 30); return; }
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Login
         document.getElementById('loginBtn').addEventListener('click', async () => {
           const username = document.getElementById('usernameInput').value.trim().toLowerCase();
           const password = document.getElementById('passwordInput').value;
@@ -1243,7 +1244,6 @@
         });
         document.getElementById('passwordInput').addEventListener('keypress', e => { if (e.key === 'Enter') document.getElementById('loginBtn').click(); });
 
-        // Header & settings
         document.getElementById('openSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').classList.add('open'));
         document.getElementById('closeSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').classList.remove('open'));
         document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -1252,7 +1252,6 @@
           location.reload();
         });
 
-        // Nav
         document.querySelectorAll('.nav-item').forEach(item => {
           item.addEventListener('click', () => {
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1262,7 +1261,6 @@
           });
         });
 
-        // Diary tabs & date
         document.querySelectorAll('.dtab').forEach(tab => {
           tab.addEventListener('click', () => {
             document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
@@ -1273,7 +1271,6 @@
         });
         document.getElementById('diaryDate').addEventListener('change', renderDiaryTab);
 
-        // Theme settings
         document.getElementById('openDiarySettingsBtn').addEventListener('click', () => document.getElementById('diarySettingsModal').classList.add('open'));
         document.getElementById('closeDiarySettingsModal').addEventListener('click', () => document.getElementById('diarySettingsModal').classList.remove('open'));
         document.querySelectorAll('#themeOptions .settings-item').forEach(el => el.addEventListener('click', () => {
@@ -1283,16 +1280,13 @@
           currentFont = el.getAttribute('data-font'); localStorage.setItem('diaryFont', currentFont); applyDiaryTheme();
         }));
 
-        // Counter settings
         document.getElementById('closeCounterSettings').addEventListener('click', () => document.getElementById('counterSettingsModal').classList.remove('open'));
         document.getElementById('saveCounterSettings').addEventListener('click', saveCounterSettings);
 
-        // Goals
         document.getElementById('goalDate').addEventListener('change', e => loadGoalsForDate(e.target.value));
         document.getElementById('addGoalBtn').addEventListener('click', addGoal);
         document.getElementById('newGoalInput').addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); addGoal(); } });
 
-        // Photos
         document.getElementById('openAddPhotoModal').addEventListener('click', () => {
           editingPhotoId = null;
           document.getElementById('photoModalTitle').textContent = 'Thêm ảnh kỷ niệm';
@@ -1333,7 +1327,6 @@
           if (delBtn) { deletePhoto(delBtn.dataset.id); return; }
         });
 
-        // Promise
         document.getElementById('openAddPromiseModal').addEventListener('click', () => {
           editingPromiseId = null;
           document.getElementById('promiseModalTitle').textContent = 'Giao ước mới';
@@ -1349,7 +1342,6 @@
           if (delBtn) { deletePromise(delBtn.dataset.id); return; }
         });
 
-        // Kick off session check
         checkSession();
       };
       init();
