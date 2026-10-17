@@ -90,10 +90,10 @@
       border: 1px solid #f8c8d8; border-radius: 15px; font-family: var(--font-diary); font-size: 1.15rem; color: #4b2e39; outline: none;
       transition: all 0.3s ease;
     }
-    .lined-textarea { flex: 1; resize: none; min-height: 300px; }
+    .lined-textarea { flex: 1; resize: none; min-height: 250px; }
     .lined-textarea:focus { border-color: #fbc4d0; box-shadow: 0 0 0 3px #fff0f5; }
-    .lined-paper { flex: 1; overflow-y: auto; white-space: pre-wrap; min-height: 300px; }
-    .empty-state { text-align: center; color: #b38392; font-style: italic; padding: 40px 20px; line-height: 1.6; font-family: 'Quicksand'; font-size: 1rem; }
+    .lined-paper { flex: 1; overflow-y: auto; white-space: pre-wrap; min-height: 250px; }
+    .empty-state { text-align: center; color: #b38392; font-style: italic; padding: 20px; line-height: 1.6; font-family: 'Quicksand'; font-size: 1rem; }
 
     /* Themes Class */
     .theme-starry { --paper-bg: #1a1a2e; --line-color: #2d2d44; color: #e0e0e0; border-color: #2d2d44; }
@@ -476,7 +476,7 @@
     let mediaRecorder;
     let audioChunks = [];
     let audioBlob = null;
-    let audioUrl = ''; // Trạng thái lưu trữ URL
+    let audioUrl = '';
     let recordingInterval;
     let recordSeconds = 0;
 
@@ -546,7 +546,7 @@
       
       document.getElementById('diaryDate').value = getTodayString();
       
-      applyDiaryTheme(); // Áp dụng giao diện đã lưu
+      applyDiaryTheme();
       setupRealtime();
       renderDiaryTab();
       loadPhotos(true);
@@ -598,13 +598,10 @@
     document.getElementById('closeDiarySettingsModal').addEventListener('click', () => document.getElementById('diarySettingsModal').classList.remove('open'));
 
     function applyDiaryTheme() {
-      // Xóa tất cả các class cũ
       document.body.className = '';
-      // Thêm theme và font mới
       document.body.classList.add(currentTheme);
       document.body.classList.add(currentFont);
 
-      // Cập nhật UI active
       document.querySelectorAll('#themeOptions .settings-item').forEach(el => {
         el.classList.toggle('active', el.getAttribute('data-theme') === currentTheme);
       });
@@ -702,7 +699,6 @@
       const endOfDay = new Date(`${selectedDate}T23:59:59.999+07:00`).toISOString();
 
       try {
-        // Tải "Ngày này năm xưa" (chỉ tải 1 lần khi mở tab)
         if (currentDiaryTab === 'self' || currentDiaryTab === 'partner') {
           loadOnThisDay(selectedDate);
         }
@@ -831,9 +827,25 @@
       
       const delAudioBtn = document.getElementById('btnDeleteAudio');
       if (delAudioBtn) {
-        delAudioBtn.addEventListener('click', () => {
+        delAudioBtn.addEventListener('click', async () => {
+          if (!confirm('Bạn có chắc muốn xóa đoạn ghi âm này không?')) return;
+          
+          if (currentEntryId) {
+            const { error } = await supabaseClient
+              .from('diary_entries')
+              .update({ audio_url: null })
+              .eq('id', currentEntryId);
+              
+            if (error) {
+              showToast('Lỗi khi xóa ghi âm: ' + error.message, 'error');
+              return;
+            }
+          }
+          
           audioUrl = '';
-          renderSelfTab(startOfDay, endOfDay); // Render lại để hiện nút ghi âm
+          audioBlob = null;
+          showToast('Đã xóa ghi âm!', 'info');
+          renderSelfTab(startOfDay, endOfDay);
         });
       }
     }
@@ -844,14 +856,12 @@
 
       recordBtn.addEventListener('click', async () => {
         if (mediaRecorder && mediaRecorder.state === 'recording') {
-          // Dừng ghi âm
           mediaRecorder.stop();
           clearInterval(recordingInterval);
           document.getElementById('recordingStatus').style.display = 'none';
           recordBtn.innerHTML = '<i class="fas fa-microphone"></i> Ghi âm lại';
           recordBtn.classList.remove('recording');
         } else {
-          // Bắt đầu ghi âm
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
@@ -868,8 +878,6 @@
               const url = URL.createObjectURL(audioBlob);
               document.getElementById('audioPreview').src = url;
               document.getElementById('audioPreviewContainer').style.display = 'block';
-              
-              // Tắt stream
               stream.getTracks().forEach(track => track.stop());
             };
 
@@ -879,7 +887,7 @@
               const mins = Math.floor(recordSeconds / 60).toString().padStart(2, '0');
               const secs = (recordSeconds % 60).toString().padStart(2, '0');
               document.getElementById('recordTimer').textContent = `${mins}:${secs}`;
-              if (recordSeconds >= 120) mediaRecorder.stop(); // Tối đa 2 phút
+              if (recordSeconds >= 120) mediaRecorder.stop();
             }, 1000);
 
           } catch (err) {
@@ -911,7 +919,6 @@
       try {
         let finalAudioUrl = audioUrl;
 
-        // Nếu có file ghi âm mới
         if (audioBlob) {
           btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu âm thanh...';
           const fileName = `${Date.now()}_voice.webm`;
@@ -938,6 +945,7 @@
           if (error) throw error;
         }
         showToast('Đã lưu nhật ký thành công!');
+        audioBlob = null; // Reset file ghi âm tạm
         renderDiaryTab();
       } catch (err) {
         showToast('Lỗi khi lưu: ' + err.message, 'error');
@@ -993,7 +1001,6 @@
         ${reactionsHtml}
       `;
 
-      // Gắn sự kiện thả cảm xúc
       if (entry) {
         document.querySelectorAll('.reaction-btn').forEach(btn => {
           btn.addEventListener('click', async () => {
@@ -1002,15 +1009,14 @@
             let users = reactions[reaction] || [];
             
             if (users.includes(currentUser)) {
-              users = users.filter(u => u !== currentUser); // Bỏ reaction
+              users = users.filter(u => u !== currentUser);
             } else {
-              users.push(currentUser); // Thêm reaction
+              users.push(currentUser);
             }
             reactions[reaction] = users;
 
             const { error } = await supabaseClient.from('diary_entries').update({ reactions }).eq('id', entry.id);
             if (!error) {
-              // Cập nhật UI ngay lập tức mà không cần load lại trang
               if (users.includes(currentUser)) btn.classList.add('active');
               else btn.classList.remove('active');
               btn.innerHTML = `${reaction} ${users.length > 0 ? users.length : ''}`;
@@ -1027,7 +1033,7 @@
         fetchEntry(partnerUser, startOfDay, endOfDay)
       ]);
       
-      const renderColumn = (entry, user) => {
+      const renderColumn = (entry) => {
         if (!entry) return `<div class="lined-paper" style="font-size: 1rem;"><span class="empty-state">Chưa viết gì...</span></div>`;
         
         let html = '';
@@ -1042,18 +1048,18 @@
         <div class="couple-grid">
           <div class="couple-col">
             <div class="couple-col-header"><i class="fas fa-heart" style="color:#f48fb1;"></i> ${currentUser.charAt(0).toUpperCase() + currentUser.slice(1)}</div>
-            ${renderColumn(entrySelf, currentUser)}
+            ${renderColumn(entrySelf)}
           </div>
           <div class="couple-col">
             <div class="couple-col-header"><i class="fas fa-heart" style="color:#64b5f6;"></i> ${partnerUser.charAt(0).toUpperCase() + partnerUser.slice(1)}</div>
-            <div id="couple-partner-live">${renderColumn(entryPartner, partnerUser)}</div>
+            <div id="couple-partner-live">${renderColumn(entryPartner)}</div>
             <div id="couple-partner-typing" style="font-size: 0.75rem; color: #b15170; text-align: right; margin-top: 5px; height: 15px; font-style: italic; opacity: 0; transition: opacity 0.3s;"></div>
           </div>
         </div>
       `;
     }
 
-    // ====== LOGIC ALBUM ẢNH (Giữ nguyên bản tối ưu) ======
+    // ====== LOGIC ALBUM ẢNH ======
     const photoModal = document.getElementById('photoModal');
 
     document.getElementById('openAddPhotoModal').addEventListener('click', () => {
