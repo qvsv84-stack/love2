@@ -10,7 +10,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    /* Ép buộc tải font Mali bằng @import để chắc chắn 100% thành công */
     @import url('https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600&display=swap');
 
     /* ================= CSS TOÀN CỤC ================= */
@@ -44,7 +43,7 @@
     .app-header h1 { font-family: 'Dancing Script', cursive; font-size: 2.2rem; color: #c96b8b; line-height: 1; }
     .user-info { font-weight: 600; color: #b15170; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 4px 10px #f3cedb; font-size: 0.85rem; display: flex; align-items: center; gap: 10px; }
 
-    /* Main Content Area - Thêm padding-top để tách khỏi Header */
+    /* Main Content Area */
     .app-content { flex: 1; overflow-y: auto; padding: 15px 15px 80px; position: relative; display: flex; flex-direction: column; }
     .view-section { display: none; flex: 1; flex-direction: column; animation: fadeIn 0.3s ease; }
     .view-section.active { display: flex; }
@@ -106,32 +105,142 @@
     .photo-caption { font-size: 0.85rem; font-weight: 700; color: #5a3e4b; line-height: 1.3; }
     .photo-author { font-size: 0.7rem; color: #b38392; display: flex; align-items: center; gap: 4px; }
 
-    /* ================= GIAO ƯỚC (FONT VIẾT TAY) ================= */
+    /* ================= GIAO ƯỚC (HIỆU ỨNG LẤP LÁNH ÁNH HỒNG) ================= */
     .promise-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px; }
     
     .promise-item { 
       display: flex; align-items: flex-start; gap: 15px; 
       background: #ffffff; padding: 20px; border-radius: 20px; 
-      box-shadow: 0 4px 15px -5px rgba(200, 100, 130, 0.15); 
-      position: relative; transition: 0.2s;
+      position: relative; 
+      overflow: hidden;
+      transition: transform 0.3s ease;
       border: 1px solid #fff0f5;
+      /* Hiệu ứng hào quang hồng phập phồng */
+      animation: promiseGlow 3s ease-in-out infinite;
     }
-    .promise-item:hover { transform: translateX(3px); box-shadow: 0 6px 20px -5px rgba(200, 100, 130, 0.25); }
 
+    /* Màu viền phân biệt người viết */
     .promise-item.diemmy-p { border-left: 5px solid #fbc4d0; }
     .promise-item.tienloi-p { border-left: 5px solid #b3d4f5; }
 
+    /* Hào quang Pulse */
+    @keyframes promiseGlow {
+      0%, 100% { 
+        box-shadow: 0 4px 15px -5px rgba(200, 100, 130, 0.15); 
+      }
+      50% { 
+        box-shadow: 0 4px 25px -3px rgba(251, 196, 208, 0.8), 
+                    0 0 30px rgba(251, 196, 208, 0.45), 
+                    inset 0 0 25px rgba(255, 240, 245, 0.4); 
+      }
+    }
+
+    .promise-item:hover { 
+      transform: translateX(3px) scale(1.005); 
+    }
+
+    /* Lớp Sparkles */
+    .sparkle-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .sparkle {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      pointer-events: none;
+      animation: sparkleAnim 2.5s ease-in-out infinite;
+      opacity: 0;
+    }
+
+    /* Cánh sao dọc */
+    .sparkle::before {
+      content: '';
+      position: absolute;
+      width: 2px;
+      height: 100%;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(to bottom, transparent, #ff8eb5, transparent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px #ffb6d0, 0 0 15px #fbc4d0;
+    }
+
+    /* Cánh sao ngang */
+    .sparkle::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      background: linear-gradient(to right, transparent, #ff8eb5, transparent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px #ffb6d0, 0 0 15px #fbc4d0;
+    }
+
+    /* Hiệu ứng xoay và nhấp nháy */
+    @keyframes sparkleAnim {
+      0%, 100% { 
+        opacity: 0; 
+        transform: scale(0) rotate(0deg); 
+      }
+      30% {
+        opacity: 1;
+        transform: scale(1.2) rotate(90deg);
+      }
+      50% { 
+        opacity: 1; 
+        transform: scale(1) rotate(180deg); 
+      }
+      70% {
+        opacity: 0.6;
+        transform: scale(0.8) rotate(270deg);
+      }
+    }
+
+    /* Ánh sáng quét (Shimmer) */
+    .promise-item::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.7) 50%,
+        transparent 100%
+      );
+      animation: shimmer 6s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { left: -100%; }
+      50% { left: 200%; }
+    }
+
+    /* Đảm bảo nội dung nằm trên hiệu ứng */
     .promise-index {
       width: 35px; height: 35px; flex-shrink: 0;
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
       font-family: 'Dancing Script', cursive; font-size: 1.5rem; font-weight: 700;
       box-shadow: 0 2px 5px rgba(0,0,0,0.05);
       padding-top: 2px;
+      position: relative;
+      z-index: 3;
     }
     .diemmy-p .promise-index { background: #fff0f5; color: #d65f8a; }
     .tienloi-p .promise-index { background: #f0f8ff; color: #4a7ab5; }
 
-    /* Nội dung giao ước dùng font Mali */
     .promise-text { 
       font-family: 'Mali', cursive, sans-serif !important; 
       font-size: 1.15rem; 
@@ -142,9 +251,15 @@
       padding-right: 35px; 
       word-break: break-word; 
       margin-top: 2px;
+      position: relative;
+      z-index: 3;
     }
     
-    .promise-actions { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; opacity: 0.3; transition: 0.2s; }
+    .promise-actions { 
+      position: absolute; top: 15px; right: 15px; 
+      display: flex; gap: 5px; opacity: 0.3; transition: 0.2s;
+      z-index: 4;
+    }
     .promise-item:hover .promise-actions { opacity: 1; }
     
     .btn-icon { background: transparent; border: none; font-size: 0.9rem; cursor: pointer; color: #b38392; transition: 0.2s; padding: 5px; }
@@ -722,7 +837,7 @@
       }
     };
 
-    // ====== LOGIC GIAO ƯỚC (FONT CHUẨN) ======
+    // ====== LOGIC GIAO ƯỚC (CÓ HIỆU ỨNG LẤP LÁNH) ======
     const promiseModal = document.getElementById('promiseModal');
 
     document.getElementById('openAddPromiseModal').addEventListener('click', () => {
@@ -733,6 +848,22 @@
     });
 
     document.getElementById('closePromiseModal').addEventListener('click', () => promiseModal.classList.remove('open'));
+
+    // Cấu hình vị trí các ngôi sao lấp lánh
+    const sparkleConfig = [
+      { left: '6%', top: '18%', delay: '0s' },
+      { left: '88%', top: '15%', delay: '0.3s' },
+      { left: '12%', top: '72%', delay: '0.7s' },
+      { left: '85%', top: '78%', delay: '1.1s' },
+      { left: '48%', top: '8%', delay: '1.5s' },
+      { left: '40%', top: '88%', delay: '1.9s' },
+      { left: '25%', top: '45%', delay: '0.5s' },
+      { left: '72%', top: '48%', delay: '1.3s' }
+    ];
+
+    const sparklesHtml = sparkleConfig.map(s => 
+      `<span class="sparkle" style="left:${s.left}; top:${s.top}; animation-delay:${s.delay};"></span>`
+    ).join('');
 
     async function loadPromises() {
       const list = document.getElementById('promiseList');
@@ -762,6 +893,7 @@
 
         return `
           <div class="promise-item ${colorClass}">
+            <div class="sparkle-layer">${sparklesHtml}</div>
             <div class="promise-index">${index + 1}</div>
             <div class="promise-text">${escapeHtml(promise.content)}</div>
             ${actionButtons}
