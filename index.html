@@ -854,7 +854,7 @@
       recordBtn.addEventListener('click', async () => {
         if (mediaRecorder && mediaRecorder.state === 'recording') { try { mediaRecorder.stop(); } catch (e) { showToast('Lỗi dừng: ' + e.message, 'error'); } return; }
         let stream;
-        try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+        try {   // Ưu tiên: bật bộ lọc của trình duyệt   try {     stream = await navigator.mediaDevices.getUserMedia({       audio: {         noiseSuppression: true,   // khử ồn nền (quạt, điều hoà, gió)         echoCancellation: true,   // khử vọng loa         autoGainControl: true,    // tự cân âm lượng         channelCount: 1,          // mono — file nhỏ hơn, giọng rõ hơn         sampleRate: 48000,         sampleSize: 16       }     });   } catch (constraintErr) {     // Máy/trình duyệt cũ không hỗ trợ → fallback về audio:true     console.warn('Bộ lọc âm thanh không hỗ trợ, dùng mặc định:', constraintErr);     stream = await navigator.mediaDevices.getUserMedia({ audio: true });   }   // Log để biết trình duyệt THỰC SỰ áp dụng cái gì   const track = stream.getAudioTracks()[0];   const settings = track.getSettings ? track.getSettings() : {};   console.log('🎤 Mic settings:', {     noiseSuppression: settings.noiseSuppression,     echoCancellation: settings.echoCancellation,     autoGainControl: settings.autoGainControl,     channelCount: settings.channelCount,     sampleRate: settings.sampleRate   }); }
         catch (err) {
           const msg = err.name === 'NotAllowedError' ? 'Bạn cần cho phép quyền micro!'
             : err.name === 'NotFoundError' ? 'Không tìm thấy micro!' : 'Lỗi micro: ' + err.message;
