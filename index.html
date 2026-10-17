@@ -6,7 +6,8 @@
   <title>Love Story · Nhật ký cặp đôi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Dancing+Script:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Thêm font Mali (viết tay dễ thương) -->
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Dancing+Script:wght@400;600;700&family=Mali:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -96,33 +97,44 @@
     .photo-caption { font-size: 0.85rem; font-weight: 700; color: #5a3e4b; line-height: 1.3; }
     .photo-author { font-size: 0.7rem; color: #b38392; display: flex; align-items: center; gap: 4px; }
 
-    /* ================= GIAO ƯỚC (THIẾT KẾ MỚI - ĐÁNH SỐ) ================= */
+    /* ================= GIAO ƯỚC (FONT VIẾT TAY) ================= */
     .promise-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px; }
     
     .promise-item { 
       display: flex; align-items: flex-start; gap: 15px; 
-      background: #ffffff; padding: 18px; border-radius: 20px; 
+      background: #ffffff; padding: 20px; border-radius: 20px; 
       box-shadow: 0 4px 15px -5px rgba(200, 100, 130, 0.15); 
       position: relative; transition: 0.2s;
       border: 1px solid #fff0f5;
     }
     .promise-item:hover { transform: translateX(3px); box-shadow: 0 6px 20px -5px rgba(200, 100, 130, 0.25); }
 
-    /* Dải màu phân biệt người viết */
     .promise-item.diemmy-p { border-left: 5px solid #fbc4d0; }
     .promise-item.tienloi-p { border-left: 5px solid #b3d4f5; }
 
     /* Vòng tròn đánh số thứ tự */
     .promise-index {
-      width: 32px; height: 32px; flex-shrink: 0;
+      width: 35px; height: 35px; flex-shrink: 0;
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      font-family: 'Dancing Script', cursive; font-size: 1.3rem; font-weight: 700;
+      font-family: 'Dancing Script', cursive; font-size: 1.5rem; font-weight: 700;
       box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      padding-top: 2px;
     }
     .diemmy-p .promise-index { background: #fff0f5; color: #d65f8a; }
     .tienloi-p .promise-index { background: #f0f8ff; color: #4a7ab5; }
 
-    .promise-text { font-size: 1rem; line-height: 1.6; color: #4b2e39; font-weight: 500; flex: 1; padding-right: 35px; word-break: break-word; white-space: pre-wrap; margin-top: 4px; }
+    /* Nội dung giao ước dùng font Mali */
+    .promise-text { 
+      font-family: 'Mali', cursive; 
+      font-size: 1.15rem; 
+      line-height: 1.8; 
+      color: #5a3e4b; 
+      font-weight: 500; 
+      flex: 1; 
+      padding-right: 35px; 
+      word-break: break-word; 
+      margin-top: 2px;
+    }
     
     .promise-actions { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; opacity: 0.3; transition: 0.2s; }
     .promise-item:hover .promise-actions { opacity: 1; }
@@ -139,7 +151,6 @@
     .modal-handle { width: 40px; height: 5px; background: #e0e0e0; border-radius: 5px; margin: 0 auto 15px; }
     .modal-title { font-family: 'Dancing Script'; font-size: 1.8rem; color: #b15170; text-align: center; margin-bottom: 20px; }
 
-    /* Tabs trong Modal */
     .photo-tabs { display: flex; background: #f5f5f5; border-radius: 15px; padding: 4px; margin-bottom: 15px; }
     .ptab { flex: 1; text-align: center; padding: 10px; font-weight: 700; font-size: 0.9rem; color: #999; cursor: pointer; border-radius: 12px; transition: 0.2s; }
     .ptab.active { background: #fff; color: #b15170; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -310,7 +321,8 @@
         <div class="modal-handle"></div>
         <h3 class="modal-title" id="promiseModalTitle">Giao ước mới</h3>
         
-        <textarea class="promise-input" id="promiseInput" placeholder="Viết lời hứa hoặc giao ước của bạn..." rows="4" style="resize: none; margin-bottom: 15px; width: 100%; padding: 14px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: inherit; font-size: 0.95rem;"></textarea>
+        <!-- Textarea này cũng đổi sang font Mali cho đồng bộ -->
+        <textarea class="promise-input" id="promiseInput" placeholder="Viết lời hứa hoặc giao ước của bạn..." rows="4" style="resize: none; margin-bottom: 15px; width: 100%; padding: 14px 15px; border-radius: 15px; border: 1px solid #f8c8d8; outline: none; font-family: 'Mali', cursive; font-size: 1.1rem; color: #5a3e4b;"></textarea>
         
         <button class="btn-modal-save" id="savePromiseBtn"><i class="fas fa-save"></i> Lưu giao ước</button>
         <button class="btn-modal-close" id="closePromiseModal">Hủy bỏ</button>
@@ -703,7 +715,7 @@
       }
     };
 
-    // ====== LOGIC GIAO ƯỚC (ĐÁNH SỐ THỨ TỰ) ======
+    // ====== LOGIC GIAO ƯỚC ======
     const promiseModal = document.getElementById('promiseModal');
 
     document.getElementById('openAddPromiseModal').addEventListener('click', () => {
@@ -719,7 +731,6 @@
       const list = document.getElementById('promiseList');
       list.innerHTML = '<div style="text-align:center; padding: 20px; color:#b38392;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
 
-      // Sắp xếp cũ nhất lên đầu để đánh số 1, 2, 3... theo thời gian
       const { data, error } = await supabaseClient.from('couple_promises').select('*').order('created_at', { ascending: true });
 
       if (error) {
@@ -733,11 +744,8 @@
 
       list.innerHTML = data.map((promise, index) => {
         const isMine = promise.author === currentUser;
-        
-        // Xác định màu thẻ dựa trên người viết
         let colorClass = promise.author === 'diemmy' ? 'diemmy-p' : 'tienloi-p';
         
-        // Nút Sửa/Xóa
         const actionButtons = isMine ? `
           <div class="promise-actions">
             <button class="btn-icon edit" onclick="editPromise('${promise.id}', '${escapeHtml(promise.content).replace(/'/g, "\\'")}')"><i class="fas fa-pen"></i></button>
