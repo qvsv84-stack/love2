@@ -42,7 +42,11 @@
                 <button class="close-btn" onclick="closeModal('modal-area')">✕</button>
             </div>
             <form id="form-area" class="sheet-form">
-                <input type="text" id="area-name" placeholder="Nhập tên khu vực (VD: Sảnh, Hành lang...)" required>
+                <input type="text" id="area-name" placeholder="Tên khu vực (VD: Sảnh, Sân sau...)" required>
+                <select id="area-type" required class="form-select">
+                    <option value="INDOOR">🏢 Trong nhà (Sảnh, Phòng...)</option>
+                    <option value="OUTDOOR">🌳 Ngoài trời (Sân, Ngoại cảnh...)</option>
+                </select>
                 <button type="submit" class="btn-primary">Tạo Khu Vực</button>
             </form>
         </div>
