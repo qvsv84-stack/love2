@@ -5,23 +5,34 @@
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
 body { background: var(--bg); color: var(--text); padding-bottom: 80px; padding-top: 70px; overflow-x: hidden; }
 
+/* Global Loader */
+.global-loader { position: fixed; inset: 0; background: rgba(255,255,255,0.7); z-index: 9999; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+.global-loader.hidden { display: none; }
+.spinner { width: 40px; height: 40px; border: 4px solid #e5e5ea; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* Header */
 .app-header { padding: 15px 20px; background: var(--card); position: fixed; top: 0; left: 0; right: 0; z-index: 10; border-bottom: 1px solid #e5e5ea; }
 .app-header h1 { font-size: 22px; font-weight: 800; color: var(--primary); }
 .app-header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* Skeleton Loading */
+.skeleton-card { height: 100px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 12px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 /* Danh sách khu vực & Swipe to delete */
 .area-list { padding: 15px; display: flex; flex-direction: column; gap: 12px; }
 .swipe-wrapper { position: relative; border-radius: 12px; overflow: hidden; background: var(--danger); }
 .swipe-delete-btn { position: absolute; top: 0; right: 0; bottom: 0; width: 80px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 15px; z-index: 1; }
 .area-card { background: var(--card); border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); position: relative; z-index: 2; user-select: none; -webkit-user-select: none; transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); will-change: transform; }
+.area-card.pressed { transform: scale(0.97); background: #f8f8f8; }
 .area-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
 .area-type-badge { font-size: 11px; background: #e5e5ea; color: var(--muted); padding: 4px 8px; border-radius: 6px; font-weight: 600; }
 .area-schedules { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; margin-top: 10px; border-top: 1px dashed #e5e5ea; padding-top: 10px; pointer-events: none; }
 .schedule-item { display: flex; gap: 10px; }
 .schedule-time { font-weight: 700; color: var(--primary); min-width: 45px; }
 
-/* Bottom Nav (5 Nút) */
+/* Bottom Nav */
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); padding-bottom: env(safe-area-inset-bottom); z-index: 100; }
 .nav-building { flex: 1; padding: 15px 0; border: none; background: none; font-size: 15px; font-weight: 700; color: var(--muted); border-top: 3px solid transparent; }
 .nav-building.active { color: var(--primary); border-top-color: var(--primary); background: #f0f7ff; }
@@ -31,12 +42,11 @@ body { background: var(--bg); color: var(--text); padding-bottom: 80px; padding-
 .fab:active { transform: scale(0.9); }
 
 /* Modal & Bottom Sheet */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; opacity: 0; visibility: hidden; transition: 0.3s; display: flex; align-items: flex-end; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; opacity: 0; visibility: hidden; transition: 0.3s; display: flex; align-items: flex-end; }
 .modal-overlay.show { opacity: 1; visibility: visible; }
 .bottom-sheet { background: var(--card); width: 100%; border-radius: 20px 20px 0 0; padding: 20px; transform: translateY(100%); transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); max-height: 90vh; overflow-y: auto; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
 .modal-overlay.show .bottom-sheet { transform: translateY(0); }
 .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.sheet-header h2 { font-size: 18px; }
 .close-btn { background: #e5e5ea; border: none; width: 30px; height: 30px; border-radius: 15px; font-weight: bold; color: var(--muted); }
 
 /* Form Nhập liệu */
@@ -44,19 +54,19 @@ body { background: var(--bg); color: var(--text); padding-bottom: 80px; padding-
 input, .form-select { padding: 14px; border: 1px solid #d1d1d6; border-radius: 10px; font-size: 16px; background: #f9f9fb; outline: none; width: 100%; -webkit-appearance: none; }
 input:focus, .form-select:focus { border-color: var(--primary); background: #fff; }
 
-/* Dòng nhập giờ trong Modal Schedule (Swipe to delete) */
+/* Dòng nhập giờ */
 .schedule-row-wrapper { position: relative; border-radius: 10px; overflow: hidden; background: var(--danger); margin-bottom: 10px; }
 .schedule-row-delete { position: absolute; top: 0; right: 0; bottom: 0; width: 60px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; z-index: 1; }
-.schedule-row { display: flex; gap: 10px; align-items: center; background: #fff; position: relative; z-index: 2; transition: transform 0.2s; padding: 5px; border-radius: 10px;}
+.schedule-row { display: flex; gap: 10px; align-items: center; background: #fff; position: relative; z-index: 2; transition: transform 0.2s; padding: 5px; border-radius: 10px; }
 .schedule-row input[type="time"] { width: 110px; flex-shrink: 0; }
 .schedule-row input[type="text"] { flex: 1; }
-.btn-delete-row { display: none; } /* Ẩn nút X cũ vì đã có vuốt */
 
 .sheet-actions { display: flex; gap: 10px; margin-top: 20px; }
 .btn-primary { flex: 2; background: var(--primary); color: white; padding: 15px; border-radius: 10px; border: none; font-weight: 600; font-size: 16px; }
+.btn-primary:disabled { opacity: 0.6; }
 .btn-outline { flex: 1; background: #e5f0fa; color: var(--primary); padding: 15px; border-radius: 10px; border: none; font-weight: 600; font-size: 15px; }
 
-/* Toast & Loading */
-.toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; visibility: hidden; transition: 0.3s; z-index: 999; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
+/* Toast */
+.toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; visibility: hidden; transition: 0.3s; z-index: 9999; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
-.loading-spinner { text-align: center; padding: 30px; color: var(--muted); }
+.toast.error { background: var(--danger); }
