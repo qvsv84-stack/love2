@@ -19,11 +19,69 @@ function showToast(msg, isErr = false) {
 }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-// --- 1. KHỞI TẠO 5 TÒA NHÀ (Nếu DB chưa có) ---
+// --- HÀM XỬ LÝ VUỐT (SWIPE TO DELETE) ---
+function handleSwipe(element, wrapper, deleteBtnWidth, onDelete) {
+    let startX = 0;
+    let currentX = 0;
+    let isDragging = false;
+    let isOpen = false;
+
+    // Bấm vào nút Xóa
+    wrapper.querySelector('.swipe-delete-btn, .schedule-row-delete').addEventListener('click', () => {
+        onDelete();
+    });
+
+    element.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        isDragging = false;
+        element.style.transition = 'none'; // Bỏ hiệu ứng mượt khi đang kéo
+    });
+
+    element.addEventListener('touchmove', (e) => {
+        currentX = e.touches[0].clientX;
+        let deltaX = currentX - startX;
+        
+        if (Math.abs(deltaX) > 10) isDragging = true;
+
+        if (isDragging) {
+            if (isOpen) deltaX -= deleteBtnWidth; // Nếu đang mở thì tính từ vị trí đã trượt
+            if (deltaX > 0) deltaX = 0; // Không cho kéo sang phải
+            if (deltaX < -deleteBtnWidth) deltaX = -deleteBtnWidth; // Không kéo quá nút xóa
+            element.style.transform = `translateX(${deltaX}px)`;
+        }
+    });
+
+    element.addEventListener('touchend', () => {
+        element.style.transition = 'transform 0.2s'; // Bật lại hiệu ứng mượt
+        let deltaX = currentX - startX;
+        if (isOpen) deltaX -= deleteBtnWidth;
+
+        if (deltaX < -deleteBtnWidth / 2) {
+            // Vuốt quá nửa -> Mở
+            element.style.transform = `translateX(-${deleteBtnWidth}px)`;
+            isOpen = true;
+        } else {
+            // Vuốt chưa đủ -> Đóng lại
+            element.style.transform = `translateX(0)`;
+            isOpen = false;
+        }
+    });
+    
+    // Ngăn chặn sự kiện click khi đang vuốt
+    element.addEventListener('click', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            e.stopPropagation();
+        } else if (isOpen) {
+            element.style.transform = `translateX(0)`;
+            isOpen = false;
+        }
+    });
+}
+
+// --- 1. KHỞI TẠO 5 TÒA NHÀ ---
 async function initBuildings() {
     const { data: buildings } = await supabaseClient.from('buildings').select('*').order('name');
-    
-    // Tự động tạo B1 đến B5 nếu chưa có
     if (!buildings || buildings.length < 5) {
         for (let i = 1; i <= 5; i++) {
             const bName = `Tòa nhà B${i}`;
@@ -32,7 +90,7 @@ async function initBuildings() {
             }
         }
     }
-    switchBuilding(1); // Mặc định mở B1
+    switchBuilding(1);
 }
 
 // --- 2. CHUYỂN TÒA NHÀ ---
@@ -41,11 +99,9 @@ async function switchBuilding(index) {
     document.querySelector(`.nav-building[data-index="${index}"]`).classList.add('active');
     document.getElementById('header-title').innerText = `Tòa Nhà B${index}`;
 
-    // Tìm ID của tòa nhà trong DB
     const { data: bData } = await supabaseClient.from('buildings').select('id').eq('name', `Tòa nhà B${index}`).single();
     if (!bData) return;
     currentBuildingId = bData.id;
-
     loadAreas();
 }
 
@@ -85,6 +141,14 @@ async function loadAreas() {
             scheduleHtml = '<div style="color:#aaa; font-style:italic;">Chưa có giờ làm việc (Nhấn giữ để thêm)</div>';
         }
 
+        // Cấu trúc bọc Swipe
+        const wrapper = document.createElement('div');
+        wrapper.className = 'swipe-wrapper';
+        
+        const deleteBtn = document.createElement('div');
+        deleteBtn.className = 'swipe-delete-btn';
+        deleteBtn.innerHTML = '🗑️ Xoá';
+        
         const card = document.createElement('div');
         card.className = 'area-card';
         card.innerHTML = `
@@ -94,10 +158,17 @@ async function loadAreas() {
             </div>
             <div class="area-schedules">${scheduleHtml}</div>
         `;
+
+        wrapper.appendChild(deleteBtn);
+        wrapper.appendChild(card);
         
-        // --- LOGIC NHẤN GIỮ (LONG PRESS) 800ms ---
+        // Khởi tạo Swipe cho thẻ
+        handleSwipe(card, wrapper, 80, () => deleteArea(area.id, area.name));
+
+        // --- LOGIC NHẤN GIỮ (LONG PRESS) ---
         const startPress = (e) => {
             longPressTimer = setTimeout(() => {
+                // Hủy bỏ long press nếu người dùng đang vuốt (isDragging)
                 if (navigator.vibrate) navigator.vibrate(50);
                 openScheduleModal(area);
             }, 800);
@@ -110,12 +181,25 @@ async function loadAreas() {
         card.addEventListener('mousedown', startPress);
         card.addEventListener('mouseup', cancelPress);
         card.addEventListener('mouseleave', cancelPress);
-        
-        // Chặn menu copy/paste của Safari khi nhấn giữ
         card.addEventListener('contextmenu', e => e.preventDefault());
 
-        listEl.appendChild(card);
+        listEl.appendChild(wrapper);
     });
+}
+
+// --- HÀM XOÁ KHU VỰC ---
+async function deleteArea(areaId, areaName) {
+    if (!confirm(`Bạn có chắc muốn xoá khu vực "${areaName}"?\nTất cả giờ làm việc bên trong cũng sẽ bị xoá.`)) return;
+    
+    // Xóa Area trong Database (Lịch trình sẽ tự động xóa theo nhờ Cascade)
+    const { error } = await supabaseClient.from('areas').delete().eq('id', areaId);
+    
+    if (error) {
+        showToast('Lỗi xoá: ' + error.message, true);
+    } else {
+        showToast('Đã xoá khu vực!');
+        loadAreas(); // Load lại danh sách
+    }
 }
 
 // --- 4. THÊM KHU VỰC MỚI ---
@@ -127,12 +211,10 @@ function openAddAreaModal() {
 document.getElementById('form-area').onsubmit = async (e) => {
     e.preventDefault();
     const name = document.getElementById('area-name').value;
-    const type = document.getElementById('area-type').value; // Lấy giá trị Trong nhà / Ngoài trời
+    const type = document.getElementById('area-type').value;
     
     const { error } = await supabaseClient.from('areas').insert([{ 
-        building_id: currentBuildingId, 
-        name: name,
-        type: type 
+        building_id: currentBuildingId, name: name, type: type 
     }]);
 
     if (error) showToast('Lỗi: ' + error.message, true);
@@ -143,7 +225,7 @@ document.getElementById('form-area').onsubmit = async (e) => {
     }
 };
 
-// --- 5. MODAL THÊM GIỜ LÀM VIỆC (KHI NHẤN GIỮ) ---
+// --- 5. MODAL THÊM GIỜ LÀM VIỆC ---
 function openScheduleModal(area) {
     currentAreaIdForSchedule = area.id;
     document.getElementById('schedule-area-title').innerText = `Giờ làm việc: ${area.name}`;
@@ -162,17 +244,34 @@ function openScheduleModal(area) {
 
 function addScheduleRow(time = '', content = '') {
     const container = document.getElementById('schedule-rows');
-    const div = document.createElement('div');
-    div.className = 'schedule-row';
-    div.innerHTML = `
+    
+    // Cấu trúc Swipe cho dòng giờ
+    const wrapper = document.createElement('div');
+    wrapper.className = 'schedule-row-wrapper';
+    
+    const deleteBtn = document.createElement('div');
+    deleteBtn.className = 'schedule-row-delete';
+    deleteBtn.innerHTML = 'Xoá';
+    
+    const row = document.createElement('div');
+    row.className = 'schedule-row';
+    row.innerHTML = `
         <input type="time" class="input-time" value="${time}" required>
         <input type="text" class="input-task" placeholder="Nội dung (VD: Quét sàn)" value="${content}" required>
-        <button type="button" class="btn-delete-row" onclick="this.parentElement.remove()">✕</button>
     `;
-    container.appendChild(div);
+
+    wrapper.appendChild(deleteBtn);
+    wrapper.appendChild(row);
+
+    // Khởi tạo Swipe cho dòng (kéo 60px để hiện nút Xoá)
+    handleSwipe(row, wrapper, 60, () => {
+        wrapper.remove(); // Xoá phần tử khỏi DOM
+    });
+
+    container.appendChild(wrapper);
 }
 
-// Lưu Lịch Trình (Tự động tạo Task mới nếu chưa có)
+// Lưu Lịch Trình
 async function saveSchedules() {
     const rows = document.querySelectorAll('#schedule-rows .schedule-row');
     if (rows.length === 0) return closeModal('modal-schedule');
@@ -182,7 +281,7 @@ async function saveSchedules() {
 
     let successCount = 0;
 
-    // 1. Xoá các schedule cũ của khu vực này (Ghi đè lại từ đầu cho dễ quản lý)
+    // Xoá lịch trình cũ của khu vực này
     await supabaseClient.from('schedules').delete().eq('area_id', currentAreaIdForSchedule);
 
     for (const row of rows) {
@@ -191,7 +290,6 @@ async function saveSchedules() {
 
         if (!time || !taskName) continue;
 
-        // 2. Kiểm tra xem Task này có trong bảng `tasks` chưa
         let taskId;
         const { data: existingTask } = await supabaseClient.from('tasks').select('id').eq('name', taskName).single();
         
@@ -202,7 +300,6 @@ async function saveSchedules() {
             taskId = newTask.id;
         }
 
-        // 3. Thêm lịch trình mới
         const { error } = await supabaseClient.from('schedules').insert([{
             area_id: currentAreaIdForSchedule,
             task_id: taskId,
