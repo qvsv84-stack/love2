@@ -3,79 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>App Giám Sát</title>
+    <title>Giám Sát Vệ Sinh</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <!-- Thanh Menu chuyển trang -->
-    <div class="nav-bar">
-        <button id="btn-view" class="active" onclick="switchTab('view')">Xem Lịch</button>
-        <button id="btn-admin" onclick="switchTab('admin')">Quản Trị</button>
-    </div>
 
-    <!-- TRANG 1: XEM LỊCH (Giám sát) -->
+    <!-- Vùng chứa thông báo (Toast) -->
+    <div id="toast" class="toast">Đã lưu thành công!</div>
+
+    <!-- Màn hình 1: Xem Lịch Trình -->
     <div id="page-view" class="page active">
-        <header>
-            <h1>Giám Sát Công Việc</h1>
-            <p id="current-date">Hôm nay</p>
+        <header class="app-header">
+            <h1>Giám Sát Hôm Nay</h1>
+            <p id="current-date">...</p>
         </header>
-        <main id="task-list">
-            <div class="loading">Đang tải dữ liệu...</div>
+
+        <main id="task-list" class="task-list">
+            <!-- Dữ liệu sẽ được JS render vào đây -->
+            <div class="loading-spinner">Đang tải dữ liệu...</div>
         </main>
     </div>
 
-    <!-- TRANG 2: QUẢN TRỊ (Thêm dữ liệu) -->
+    <!-- Màn hình 2: Quản Trị -->
     <div id="page-admin" class="page">
-        <header>
-            <h1>Quản Trị Dữ Liệu</h1>
+        <header class="app-header">
+            <h1>Cài Đặt Hệ Thống</h1>
         </header>
 
-        <!-- Form thêm Tòa nhà -->
-        <div class="admin-card">
-            <h3>🏢 Thêm Tòa Nhà</h3>
-            <form id="form-building">
-                <input type="text" id="building-name" placeholder="Tên tòa nhà (VD: Nhà A)" required>
-                <button type="submit">Thêm Tòa Nhà</button>
-            </form>
-        </div>
+        <div class="admin-container">
+            <!-- Form Tòa Nhà -->
+            <details class="admin-card">
+                <summary>🏢 Thêm Tòa Nhà</summary>
+                <form id="form-building">
+                    <input type="text" id="building-name" placeholder="Tên tòa nhà (VD: Nhà A)" required>
+                    <button type="submit" class="btn-primary">Lưu Tòa Nhà</button>
+                </form>
+            </details>
 
-        <!-- Form thêm Khu vực -->
-        <div class="admin-card">
-            <h3>📍 Thêm Khu Vực</h3>
-            <form id="form-area">
-                <select id="area-building-id" required></select>
-                <input type="text" id="area-name" placeholder="Tên khu vực (VD: Sảnh chính)" required>
-                <select id="area-type" required>
-                    <option value="INDOOR">Trong nhà (Indoor)</option>
-                    <option value="OUTDOOR">Ngoài trời (Outdoor)</option>
-                </select>
-                <button type="submit">Thêm Khu Vực</button>
-            </form>
-        </div>
+            <!-- Form Khu Vực -->
+            <details class="admin-card">
+                <summary>📍 Thêm Khu Vực</summary>
+                <form id="form-area">
+                    <select id="area-building-id" required></select>
+                    <input type="text" id="area-name" placeholder="Tên khu vực (VD: Sảnh)" required>
+                    <select id="area-type" required>
+                        <option value="INDOOR">Trong nhà (Indoor)</option>
+                        <option value="OUTDOOR">Ngoài trời (Outdoor)</option>
+                    </select>
+                    <button type="submit" class="btn-primary">Lưu Khu Vực</button>
+                </form>
+            </details>
 
-        <!-- Form thêm Công việc -->
-        <div class="admin-card">
-            <h3>📝 Thêm Công Việc</h3>
-            <form id="form-task">
-                <input type="text" id="task-name" placeholder="Tên công việc (VD: Quét nhà)" required>
-                <button type="submit">Thêm Công Việc</button>
-            </form>
-        </div>
+            <!-- Form Công Việc -->
+            <details class="admin-card">
+                <summary>📝 Thêm Công Việc</summary>
+                <form id="form-task">
+                    <input type="text" id="task-name" placeholder="Tên công việc (VD: Quét nhà)" required>
+                    <button type="submit" class="btn-primary">Lưu Công Việc</button>
+                </form>
+            </details>
 
-        <!-- Form thêm Lịch trình -->
-        <div class="admin-card">
-            <h3>⏰ Thêm Lịch Trình</h3>
-            <form id="form-schedule">
-                <select id="sch-building" onchange="loadAreasForSchedule()" required></select>
-                <select id="sch-area" required></select>
-                <select id="sch-task" required></select>
-                <input type="time" id="sch-time" required>
-                <input type="text" id="sch-note" placeholder="Ghi chú (nếu có)">
-                <button type="submit">Thêm Lịch Trình</button>
-            </form>
+            <!-- Form Lịch Trình -->
+            <details class="admin-card">
+                <summary>⏰ Gán Lịch Trình</summary>
+                <form id="form-schedule">
+                    <select id="sch-building" onchange="loadAreasForSchedule()" required></select>
+                    <select id="sch-area" required></select>
+                    <select id="sch-task" required></select>
+                    <input type="time" id="sch-time" required>
+                    <input type="text" id="sch-note" placeholder="Ghi chú (nếu có)">
+                    <button type="submit" class="btn-primary">Lưu Lịch Trình</button>
+                </form>
+            </details>
         </div>
     </div>
+
+    <!-- Bottom Navigation (Menu dưới đáy) -->
+    <nav class="bottom-nav">
+        <button id="btn-view" class="active" onclick="switchTab('view')">
+            <span class="icon">📋</span>
+            <span>Lịch Làm</span>
+        </button>
+        <button id="btn-admin" onclick="switchTab('admin')">
+            <span class="icon">⚙️</span>
+            <span>Quản Trị</span>
+        </button>
+    </nav>
 
     <script src="app.js"></script>
 </body>
