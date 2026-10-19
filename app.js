@@ -23,7 +23,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('show'); 
 async function initBuildings() {
     const { data: buildings } = await supabaseClient.from('buildings').select('*').order('name');
     
-    // Nếu chưa có đủ 5 tòa nhà B1-B5, tự động tạo
+    // Tự động tạo B1 đến B5 nếu chưa có
     if (!buildings || buildings.length < 5) {
         for (let i = 1; i <= 5; i++) {
             const bName = `Tòa nhà B${i}`;
@@ -32,18 +32,16 @@ async function initBuildings() {
             }
         }
     }
-    // Mặc định load B1
-    switchBuilding(1);
+    switchBuilding(1); // Mặc định mở B1
 }
 
 // --- 2. CHUYỂN TÒA NHÀ ---
 async function switchBuilding(index) {
-    // Cập nhật UI Bottom Nav
     document.querySelectorAll('.nav-building').forEach(btn => btn.classList.remove('active'));
     document.querySelector(`.nav-building[data-index="${index}"]`).classList.add('active');
     document.getElementById('header-title').innerText = `Tòa Nhà B${index}`;
 
-    // Lấy ID của tòa nhà B(index) từ DB
+    // Tìm ID của tòa nhà trong DB
     const { data: bData } = await supabaseClient.from('buildings').select('id').eq('name', `Tòa nhà B${index}`).single();
     if (!bData) return;
     currentBuildingId = bData.id;
@@ -56,11 +54,9 @@ async function loadAreas() {
     const listEl = document.getElementById('area-list');
     listEl.innerHTML = '<div class="loading-spinner">Đang tải khu vực...</div>';
 
-    // Lấy Khu vực của tòa nhà này
     const { data: areas } = await supabaseClient.from('areas').select('*').eq('building_id', currentBuildingId).order('created_at', { ascending: true });
     dbAreas = areas || [];
 
-    // Lấy Lịch trình của các khu vực này (để hiển thị giờ lên Card)
     if (dbAreas.length > 0) {
         const areaIds = dbAreas.map(a => a.id);
         const { data: schedules } = await supabaseClient.from('schedules').select('*, tasks(name)').in('area_id', areaIds).order('start_time');
@@ -76,7 +72,6 @@ async function loadAreas() {
     }
 
     dbAreas.forEach(area => {
-        // Lấy các giờ của khu vực này
         const areaSchedules = dbSchedules.filter(s => s.area_id === area.id);
         let scheduleHtml = '';
         if (areaSchedules.length > 0) {
@@ -95,27 +90,28 @@ async function loadAreas() {
         card.innerHTML = `
             <div class="area-title">
                 ${area.name}
-                <span class="area-type-badge">${area.type === 'INDOOR' ? 'Trong nhà' : 'Ngoài trời'}</span>
+                <span class="area-type-badge">${area.type === 'INDOOR' ? '🏢 Trong nhà' : '🌳 Ngoài trời'}</span>
             </div>
             <div class="area-schedules">${scheduleHtml}</div>
         `;
         
-        // --- LOGIC NHẤN GIỮ (LONG PRESS) ---
-        card.addEventListener('touchstart', (e) => {
+        // --- LOGIC NHẤN GIỮ (LONG PRESS) 800ms ---
+        const startPress = (e) => {
             longPressTimer = setTimeout(() => {
-                // Hành động khi nhấn giữ 800ms
-                if (navigator.vibrate) navigator.vibrate(50); // Rung nhẹ (nếu đt hỗ trợ)
+                if (navigator.vibrate) navigator.vibrate(50);
                 openScheduleModal(area);
             }, 800);
-        });
-        card.addEventListener('touchend', () => clearTimeout(longPressTimer));
-        card.addEventListener('touchmove', () => clearTimeout(longPressTimer));
-        // Dành cho chuột (test trên máy tính)
-        card.addEventListener('mousedown', () => { longPressTimer = setTimeout(() => openScheduleModal(area), 800); });
-        card.addEventListener('mouseup', () => clearTimeout(longPressTimer));
-        card.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+        };
+        const cancelPress = () => clearTimeout(longPressTimer);
+
+        card.addEventListener('touchstart', startPress);
+        card.addEventListener('touchend', cancelPress);
+        card.addEventListener('touchmove', cancelPress);
+        card.addEventListener('mousedown', startPress);
+        card.addEventListener('mouseup', cancelPress);
+        card.addEventListener('mouseleave', cancelPress);
         
-        // Chặn menu copy/paste của trình duyệt khi nhấn giữ
+        // Chặn menu copy/paste của Safari khi nhấn giữ
         card.addEventListener('contextmenu', e => e.preventDefault());
 
         listEl.appendChild(card);
@@ -131,11 +127,12 @@ function openAddAreaModal() {
 document.getElementById('form-area').onsubmit = async (e) => {
     e.preventDefault();
     const name = document.getElementById('area-name').value;
+    const type = document.getElementById('area-type').value; // Lấy giá trị Trong nhà / Ngoài trời
     
     const { error } = await supabaseClient.from('areas').insert([{ 
         building_id: currentBuildingId, 
         name: name,
-        type: 'INDOOR' // Mặc định trong nhà, có thể sửa sau
+        type: type 
     }]);
 
     if (error) showToast('Lỗi: ' + error.message, true);
@@ -155,7 +152,6 @@ function openScheduleModal(area) {
     const rowsContainer = document.getElementById('schedule-rows');
     rowsContainer.innerHTML = '';
 
-    // Hiển thị các giờ đã có (nếu có) để user thấy
     const existing = dbSchedules.filter(s => s.area_id === area.id);
     if (existing.length > 0) {
         existing.forEach(s => addScheduleRow(s.start_time.substring(0,5), s.tasks?.name));
@@ -176,7 +172,7 @@ function addScheduleRow(time = '', content = '') {
     container.appendChild(div);
 }
 
-// Lưu Lịch Trình (Xử lý cả logic lưu Task mới)
+// Lưu Lịch Trình (Tự động tạo Task mới nếu chưa có)
 async function saveSchedules() {
     const rows = document.querySelectorAll('#schedule-rows .schedule-row');
     if (rows.length === 0) return closeModal('modal-schedule');
@@ -186,31 +182,27 @@ async function saveSchedules() {
 
     let successCount = 0;
 
+    // 1. Xoá các schedule cũ của khu vực này (Ghi đè lại từ đầu cho dễ quản lý)
+    await supabaseClient.from('schedules').delete().eq('area_id', currentAreaIdForSchedule);
+
     for (const row of rows) {
         const time = row.querySelector('.input-time').value;
         const taskName = row.querySelector('.input-task').value;
 
         if (!time || !taskName) continue;
 
-        // 1. Kiểm tra xem Task này có trong bảng `tasks` chưa
+        // 2. Kiểm tra xem Task này có trong bảng `tasks` chưa
         let taskId;
         const { data: existingTask } = await supabaseClient.from('tasks').select('id').eq('name', taskName).single();
         
         if (existingTask) {
             taskId = existingTask.id;
         } else {
-            // Nếu chưa có, tạo mới
             const { data: newTask } = await supabaseClient.from('tasks').insert([{ name: taskName }]).select().single();
             taskId = newTask.id;
         }
 
-        // 2. Xoá các schedule cũ của khu vực này (để tránh trùng lặp khi sửa) 
-        // *Lưu ý: Để đơn giản, ta xoá hết giờ cũ của Area rồi thêm lại từ đầu
-        if (successCount === 0) {
-            await supabaseClient.from('schedules').delete().eq('area_id', currentAreaIdForSchedule);
-        }
-
-        // 3. Insert lịch trình mới
+        // 3. Thêm lịch trình mới
         const { error } = await supabaseClient.from('schedules').insert([{
             area_id: currentAreaIdForSchedule,
             task_id: taskId,
@@ -224,8 +216,8 @@ async function saveSchedules() {
     btn.innerText = 'Lưu Tất Cả'; btn.disabled = false;
     showToast(`Đã lưu ${successCount} khung giờ!`);
     closeModal('modal-schedule');
-    loadAreas(); // Cập nhật lại danh sách ngoài màn hình chính
+    loadAreas();
 }
 
-// Chạy app
+// Bắt đầu chạy
 initBuildings();
