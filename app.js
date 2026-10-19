@@ -2,269 +2,230 @@ const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// --- STATE QUẢN LÝ ---
-let db = { buildings: [], areas: [], tasks: [], schedules: [] };
-let editContext = { type: null, id: null }; // Lưu trạng thái đang Sửa cái gì
+// --- STATE ---
+let currentBuildingId = null;
+let currentAreaIdForSchedule = null;
+let dbAreas = [];
+let dbSchedules = [];
+let longPressTimer = null;
 
-// --- TIỆN ÍCH ---
-function showToast(msg, isError = false) {
+// --- UTILS ---
+function showToast(msg, isErr = false) {
     const t = document.getElementById('toast');
     t.innerText = msg;
-    t.style.background = isError ? 'var(--danger)' : '#333';
+    t.style.background = isErr ? 'var(--danger)' : '#333';
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
 }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-document.getElementById('current-date').innerText = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit' });
-
-function switchMainTab(tab) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.remove('active'));
-    document.getElementById(`page-${tab}`).classList.add('active');
-    document.getElementById(`btn-${tab}`).classList.add('active');
+// --- 1. KHỞI TẠO 5 TÒA NHÀ (Nếu DB chưa có) ---
+async function initBuildings() {
+    const { data: buildings } = await supabaseClient.from('buildings').select('*').order('name');
     
-    if (tab === 'admin') { fetchAllDataForAdmin(); document.getElementById('fab-add').style.display = 'flex'; }
-    else { fetchTasksForToday(); document.getElementById('fab-add').style.display = 'none'; }
+    // Nếu chưa có đủ 5 tòa nhà B1-B5, tự động tạo
+    if (!buildings || buildings.length < 5) {
+        for (let i = 1; i <= 5; i++) {
+            const bName = `Tòa nhà B${i}`;
+            if (!buildings || !buildings.find(b => b.name === bName)) {
+                await supabaseClient.from('buildings').insert([{ name: bName }]);
+            }
+        }
+    }
+    // Mặc định load B1
+    switchBuilding(1);
 }
 
-function switchAdminTab(tab) {
-    document.querySelectorAll('.segment-control button').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.admin-content').forEach(c => c.classList.remove('active'));
-    event.target.classList.add('active');
-    document.getElementById(`admin-tab-${tab}`).classList.add('active');
+// --- 2. CHUYỂN TÒA NHÀ ---
+async function switchBuilding(index) {
+    // Cập nhật UI Bottom Nav
+    document.querySelectorAll('.nav-building').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.nav-building[data-index="${index}"]`).classList.add('active');
+    document.getElementById('header-title').innerText = `Tòa Nhà B${index}`;
+
+    // Lấy ID của tòa nhà B(index) từ DB
+    const { data: bData } = await supabaseClient.from('buildings').select('id').eq('name', `Tòa nhà B${index}`).single();
+    if (!bData) return;
+    currentBuildingId = bData.id;
+
+    loadAreas();
 }
 
-// --- 1. TRANG GIÁM SÁT (VIEW) ---
-async function fetchTasksForToday() {
-    const listEl = document.getElementById('task-list');
-    listEl.innerHTML = '<div class="loading-spinner">Đang tải...</div>';
+// --- 3. LOAD KHU VỰC ---
+async function loadAreas() {
+    const listEl = document.getElementById('area-list');
+    listEl.innerHTML = '<div class="loading-spinner">Đang tải khu vực...</div>';
 
-    // Lấy giờ hiện tại để check trễ
-    const now = new Date();
-    const currentTimeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    // Lấy Khu vực của tòa nhà này
+    const { data: areas } = await supabaseClient.from('areas').select('*').eq('building_id', currentBuildingId).order('created_at', { ascending: true });
+    dbAreas = areas || [];
 
-    // Query lấy lịch trình + Log của ngày hôm nay
-    const { data: schedules, error } = await supabaseClient
-        .from('schedules')
-        .select(`id, start_time, note, tasks ( name ), areas ( name, buildings ( name ) )`)
-        .order('start_time', { ascending: true });
-
-    if (error) return listEl.innerHTML = `<div style="color:red">Lỗi: ${error.message}</div>`;
-
-    // Lấy log hôm nay để biết task nào xong rồi
-    const { data: logs } = await supabaseClient.from('task_logs').select('schedule_id').eq('log_date', new Date().toISOString().split('T')[0]);
-    const completedIds = logs ? logs.map(l => l.schedule_id) : [];
+    // Lấy Lịch trình của các khu vực này (để hiển thị giờ lên Card)
+    if (dbAreas.length > 0) {
+        const areaIds = dbAreas.map(a => a.id);
+        const { data: schedules } = await supabaseClient.from('schedules').select('*, tasks(name)').in('area_id', areaIds).order('start_time');
+        dbSchedules = schedules || [];
+    } else {
+        dbSchedules = [];
+    }
 
     listEl.innerHTML = '';
-    let currentSection = '';
+    if (dbAreas.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; color:#888; margin-top:50px;">Chưa có khu vực nào.<br>Bấm nút + để thêm mới.</div>';
+        return;
+    }
 
-    schedules.forEach(item => {
-        const timeStr = item.start_time.substring(0, 5);
-        const hour = parseInt(timeStr.split(':')[0]);
-        let sectionName = hour < 12 ? '🌅 Ca Sáng' : (hour < 18 ? '☀️ Ca Chiều' : '🌙 Ca Tối');
-
-        if (sectionName !== currentSection) {
-            listEl.innerHTML += `<div class="section-title">${sectionName}</div>`;
-            currentSection = sectionName;
+    dbAreas.forEach(area => {
+        // Lấy các giờ của khu vực này
+        const areaSchedules = dbSchedules.filter(s => s.area_id === area.id);
+        let scheduleHtml = '';
+        if (areaSchedules.length > 0) {
+            scheduleHtml = areaSchedules.map(s => `
+                <div class="schedule-item">
+                    <span class="schedule-time">${s.start_time.substring(0,5)}</span>
+                    <span>${s.tasks?.name}</span>
+                </div>
+            `).join('');
+        } else {
+            scheduleHtml = '<div style="color:#aaa; font-style:italic;">Chưa có giờ làm việc (Nhấn giữ để thêm)</div>';
         }
 
-        const isDone = completedIds.includes(item.id);
-        const isOverdue = !isDone && (currentTimeStr > timeStr); // Quá giờ & chưa làm
-
         const card = document.createElement('div');
-        card.className = `task-card ${isDone ? 'completed' : ''} ${isOverdue ? 'overdue' : ''}`;
+        card.className = 'area-card';
         card.innerHTML = `
-            <div class="task-info">
-                <div class="task-time">
-                    ${timeStr} 
-                    ${isOverdue ? '<span class="badge-overdue">Quá hạn</span>' : ''}
-                </div>
-                <div class="task-name">${item.tasks?.name}</div>
-                <div class="task-loc">📍 ${item.areas?.buildings?.name} • ${item.areas?.name}</div>
+            <div class="area-title">
+                ${area.name}
+                <span class="area-type-badge">${area.type === 'INDOOR' ? 'Trong nhà' : 'Ngoài trời'}</span>
             </div>
-            <button class="btn-check ${isDone ? 'done' : ''}" 
-                onclick="markTaskDone('${item.id}', this)" ${isDone ? 'disabled' : ''}>
-                ${isDone ? 'Đã xong ✓' : 'Xong'}
-            </button>
+            <div class="area-schedules">${scheduleHtml}</div>
         `;
+        
+        // --- LOGIC NHẤN GIỮ (LONG PRESS) ---
+        card.addEventListener('touchstart', (e) => {
+            longPressTimer = setTimeout(() => {
+                // Hành động khi nhấn giữ 800ms
+                if (navigator.vibrate) navigator.vibrate(50); // Rung nhẹ (nếu đt hỗ trợ)
+                openScheduleModal(area);
+            }, 800);
+        });
+        card.addEventListener('touchend', () => clearTimeout(longPressTimer));
+        card.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+        // Dành cho chuột (test trên máy tính)
+        card.addEventListener('mousedown', () => { longPressTimer = setTimeout(() => openScheduleModal(area), 800); });
+        card.addEventListener('mouseup', () => clearTimeout(longPressTimer));
+        card.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+        
+        // Chặn menu copy/paste của trình duyệt khi nhấn giữ
+        card.addEventListener('contextmenu', e => e.preventDefault());
+
         listEl.appendChild(card);
     });
 }
 
-async function markTaskDone(scheduleId, btn) {
-    btn.innerText = '...'; btn.disabled = true;
-    const { error } = await supabaseClient.from('task_logs').insert([{ schedule_id: scheduleId, status: 'COMPLETED' }]);
-    
-    if (error) { showToast('Lỗi: ' + error.message, true); btn.innerText = 'Xong'; btn.disabled = false; }
-    else { showToast('Đã ghi nhận!'); fetchTasksForToday(); }
+// --- 4. THÊM KHU VỰC MỚI ---
+function openAddAreaModal() {
+    document.getElementById('modal-area').classList.add('show');
+    document.getElementById('area-name').value = '';
 }
 
-// --- 2. TRANG QUẢN TRỊ (ADMIN) ---
-async function fetchAllDataForAdmin() {
-    // Tải toàn bộ data để render
-    const [bRes, aRes, tRes, sRes] = await Promise.all([
-        supabaseClient.from('buildings').select('*').order('name'),
-        supabaseClient.from('areas').select('*, buildings(name)').order('name'),
-        supabaseClient.from('tasks').select('*').order('name'),
-        supabaseClient.from('schedules').select('*, tasks(name), areas(name, buildings(name))').order('start_time')
-    ]);
-
-    db.buildings = bRes.data || [];
-    db.areas = aRes.data || [];
-    db.tasks = tRes.data || [];
-    db.schedules = sRes.data || [];
-
-    renderAdminSchedules();
-    renderAdminCategories();
-}
-
-function renderAdminSchedules() {
-    const el = document.getElementById('admin-schedule-list');
-    el.innerHTML = db.schedules.length ? '' : '<p style="text-align:center; color:#888; padding:20px;">Chưa có lịch trình nào.</p>';
-    
-    db.schedules.forEach(s => {
-        const div = document.createElement('div');
-        div.className = 'admin-item';
-        div.innerHTML = `
-            <div class="item-info">
-                <h4>[${s.start_time.substring(0,5)}] ${s.tasks?.name}</h4>
-                <p>${s.areas?.buildings?.name} - ${s.areas?.name}</p>
-            </div>
-            <div class="item-actions">
-                <button class="btn-icon btn-edit" onclick="openModal('schedule', '${s.id}')">✏️</button>
-                <button class="btn-icon btn-delete" onclick="deleteItem('schedules', '${s.id}')">🗑️</button>
-            </div>
-        `;
-        el.appendChild(div);
-    });
-}
-
-function renderAdminCategories() {
-    // Render Tòa nhà
-    document.getElementById('list-buildings').innerHTML = db.buildings.map(b => `
-        <div class="cat-item">
-            <span>${b.name}</span>
-            <div>
-                <button class="btn-icon btn-delete" onclick="deleteItem('buildings', '${b.id}')">🗑️</button>
-            </div>
-        </div>
-    `).join('');
-
-    // Render Khu vực
-    document.getElementById('list-areas').innerHTML = db.areas.map(a => `
-        <div class="cat-item">
-            <span>${a.name} (${a.buildings?.name})</span>
-            <button class="btn-icon btn-delete" onclick="deleteItem('areas', '${a.id}')">🗑️</button>
-        </div>
-    `).join('');
-
-    // Render Tasks
-    document.getElementById('list-tasks').innerHTML = db.tasks.map(t => `
-        <div class="cat-item">
-            <span>${t.name}</span>
-            <button class="btn-icon btn-delete" onclick="deleteItem('tasks', '${t.id}')">🗑️</button>
-        </div>
-    `).join('');
-}
-
-// --- 3. MODAL (THÊM / SỬA) ---
-function openModal(type = 'schedule', id = null) {
-    editContext = { type, id };
-    const overlay = document.getElementById('modal-overlay');
-    const title = document.getElementById('modal-title');
-    const fields = document.getElementById('form-fields');
-    
-    overlay.classList.add('show');
-    
-    if (type === 'schedule') {
-        title.innerText = id ? 'Sửa Lịch Trình' : 'Thêm Lịch Trình';
-        const sch = id ? db.schedules.find(x => x.id === id) : null;
-
-        fields.innerHTML = `
-            <select id="f-building" required><option value="">-- Chọn Tòa nhà --</option></select>
-            <select id="f-area" required><option value="">-- Chọn Khu vực --</option></select>
-            <select id="f-task" required><option value="">-- Chọn Công việc --</option></select>
-            <input type="time" id="f-time" required value="${sch ? sch.start_time.substring(0,5) : ''}">
-            <input type="text" id="f-note" placeholder="Ghi chú..." value="${sch ? sch.note || '' : ''}">
-        `;
-
-        // Load data vào select
-        const bSelect = document.getElementById('f-building');
-        db.buildings.forEach(b => bSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`);
-        const tSelect = document.getElementById('f-task');
-        db.tasks.forEach(t => tSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`);
-
-        // Xử lý logic chọn Nhà -> Hiện Khu vực
-        bSelect.onchange = () => {
-            const bId = bSelect.value;
-            const aSelect = document.getElementById('f-area');
-            aSelect.innerHTML = '<option value="">-- Chọn Khu vực --</option>';
-            db.areas.filter(a => a.building_id === bId).forEach(a => aSelect.innerHTML += `<option value="${a.id}">${a.name}</option>`);
-        };
-
-        // Nếu đang Sửa thì điền dữ liệu cũ vào
-        if (sch) {
-            bSelect.value = sch.areas.building_id;
-            bSelect.onchange();
-            document.getElementById('f-area').value = sch.area_id;
-            document.getElementById('f-task').value = sch.task_id;
-        }
-    } 
-    // Tương tự cho các loại khác (Tòa nhà, Khu vực, Công việc) nếu cần Sửa
-    else if (type === 'building') {
-        title.innerText = 'Thêm Tòa Nhà';
-        fields.innerHTML = `<input type="text" id="f-name" placeholder="Tên tòa nhà..." required>`;
-    }
-}
-
-function closeModal() {
-    document.getElementById('modal-overlay').classList.remove('show');
-}
-
-// Xử lý Lưu Form
-document.getElementById('dynamic-form').onsubmit = async (e) => {
+document.getElementById('form-area').onsubmit = async (e) => {
     e.preventDefault();
-    const { type, id } = editContext;
+    const name = document.getElementById('area-name').value;
+    
+    const { error } = await supabaseClient.from('areas').insert([{ 
+        building_id: currentBuildingId, 
+        name: name,
+        type: 'INDOOR' // Mặc định trong nhà, có thể sửa sau
+    }]);
 
-    if (type === 'schedule') {
-        const payload = {
-            area_id: document.getElementById('f-area').value,
-            task_id: document.getElementById('f-task').value,
-            start_time: document.getElementById('f-time').value + ':00',
-            note: document.getElementById('f-note').value,
-            frequency: 'DAILY'
-        };
-        
-        let res;
-        if (id) res = await supabaseClient.from('schedules').update(payload).eq('id', id);
-        else res = await supabaseClient.from('schedules').insert([payload]);
-
-        if (res.error) showToast('Lỗi: ' + res.error.message, true);
-        else { closeModal(); fetchAllDataForAdmin(); showToast('Đã lưu!'); }
-    }
-    else if (type === 'building') {
-        const name = document.getElementById('f-name').value;
-        const res = await supabaseClient.from('buildings').insert([{ name }]);
-        if (!res.error) { closeModal(); fetchAllDataForAdmin(); showToast('Đã thêm!'); }
+    if (error) showToast('Lỗi: ' + error.message, true);
+    else {
+        showToast('Đã thêm khu vực!');
+        closeModal('modal-area');
+        loadAreas();
     }
 };
 
-// --- 4. XOÁ DỮ LIỆU ---
-async function deleteItem(table, id) {
-    if (!confirm('Bạn có chắc chắn muốn xoá? Thao tác này không thể hoàn tác.')) return;
+// --- 5. MODAL THÊM GIỜ LÀM VIỆC (KHI NHẤN GIỮ) ---
+function openScheduleModal(area) {
+    currentAreaIdForSchedule = area.id;
+    document.getElementById('schedule-area-title').innerText = `Giờ làm việc: ${area.name}`;
+    document.getElementById('modal-schedule').classList.add('show');
     
-    const { error } = await supabaseClient.from(table).delete().eq('id', id);
-    if (error) showToast('Lỗi xoá: ' + error.message, true);
-    else { showToast('Đã xoá!'); fetchAllDataForAdmin(); }
+    const rowsContainer = document.getElementById('schedule-rows');
+    rowsContainer.innerHTML = '';
+
+    // Hiển thị các giờ đã có (nếu có) để user thấy
+    const existing = dbSchedules.filter(s => s.area_id === area.id);
+    if (existing.length > 0) {
+        existing.forEach(s => addScheduleRow(s.start_time.substring(0,5), s.tasks?.name));
+    } else {
+        addScheduleRow(); // Tạo 1 dòng trống mặc định
+    }
 }
 
-// Nút FAB (Thêm)
-document.getElementById('fab-add').onclick = () => {
-    // Nếu đang ở tab Lịch trình thì thêm Lịch trình, nếu ở Danh mục thì thêm Tòa nhà (VD)
-    const isScheduleTab = document.getElementById('admin-tab-schedule').classList.contains('active');
-    if (isScheduleTab) openModal('schedule');
-    else openModal('building');
-};
+function addScheduleRow(time = '', content = '') {
+    const container = document.getElementById('schedule-rows');
+    const div = document.createElement('div');
+    div.className = 'schedule-row';
+    div.innerHTML = `
+        <input type="time" class="input-time" value="${time}" required>
+        <input type="text" class="input-task" placeholder="Nội dung (VD: Quét sàn)" value="${content}" required>
+        <button type="button" class="btn-delete-row" onclick="this.parentElement.remove()">✕</button>
+    `;
+    container.appendChild(div);
+}
 
-// Khởi chạy lần đầu
-fetchTasksForToday();
+// Lưu Lịch Trình (Xử lý cả logic lưu Task mới)
+async function saveSchedules() {
+    const rows = document.querySelectorAll('#schedule-rows .schedule-row');
+    if (rows.length === 0) return closeModal('modal-schedule');
+
+    const btn = document.querySelector('#modal-schedule .btn-primary');
+    btn.innerText = 'Đang lưu...'; btn.disabled = true;
+
+    let successCount = 0;
+
+    for (const row of rows) {
+        const time = row.querySelector('.input-time').value;
+        const taskName = row.querySelector('.input-task').value;
+
+        if (!time || !taskName) continue;
+
+        // 1. Kiểm tra xem Task này có trong bảng `tasks` chưa
+        let taskId;
+        const { data: existingTask } = await supabaseClient.from('tasks').select('id').eq('name', taskName).single();
+        
+        if (existingTask) {
+            taskId = existingTask.id;
+        } else {
+            // Nếu chưa có, tạo mới
+            const { data: newTask } = await supabaseClient.from('tasks').insert([{ name: taskName }]).select().single();
+            taskId = newTask.id;
+        }
+
+        // 2. Xoá các schedule cũ của khu vực này (để tránh trùng lặp khi sửa) 
+        // *Lưu ý: Để đơn giản, ta xoá hết giờ cũ của Area rồi thêm lại từ đầu
+        if (successCount === 0) {
+            await supabaseClient.from('schedules').delete().eq('area_id', currentAreaIdForSchedule);
+        }
+
+        // 3. Insert lịch trình mới
+        const { error } = await supabaseClient.from('schedules').insert([{
+            area_id: currentAreaIdForSchedule,
+            task_id: taskId,
+            start_time: time + ':00',
+            frequency: 'DAILY'
+        }]);
+
+        if (!error) successCount++;
+    }
+
+    btn.innerText = 'Lưu Tất Cả'; btn.disabled = false;
+    showToast(`Đã lưu ${successCount} khung giờ!`);
+    closeModal('modal-schedule');
+    loadAreas(); // Cập nhật lại danh sách ngoài màn hình chính
+}
+
+// Chạy app
+initBuildings();
