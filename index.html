@@ -9,87 +9,81 @@
 </head>
 <body>
 
-    <!-- Vùng chứa thông báo (Toast) -->
-    <div id="toast" class="toast">Đã lưu thành công!</div>
+    <div id="toast" class="toast">Thành công!</div>
 
-    <!-- Màn hình 1: Xem Lịch Trình -->
+    <!-- ================= TRANG GIÁM SÁT ================= -->
     <div id="page-view" class="page active">
         <header class="app-header">
-            <h1>Giám Sát Hôm Nay</h1>
-            <p id="current-date">...</p>
+            <div>
+                <h1>Giám Sát Hôm Nay</h1>
+                <p id="current-date">...</p>
+            </div>
         </header>
-
         <main id="task-list" class="task-list">
-            <!-- Dữ liệu sẽ được JS render vào đây -->
             <div class="loading-spinner">Đang tải dữ liệu...</div>
         </main>
     </div>
 
-    <!-- Màn hình 2: Quản Trị -->
+    <!-- ================= TRANG QUẢN TRỊ ================= -->
     <div id="page-admin" class="page">
         <header class="app-header">
-            <h1>Cài Đặt Hệ Thống</h1>
+            <h1>Quản Trị Hệ Thống</h1>
+            <div class="segment-control">
+                <button class="active" onclick="switchAdminTab('schedule')">Lịch Trình</button>
+                <button onclick="switchAdminTab('category')">Danh Mục</button>
+            </div>
         </header>
 
-        <div class="admin-container">
-            <!-- Form Tòa Nhà -->
-            <details class="admin-card">
-                <summary>🏢 Thêm Tòa Nhà</summary>
-                <form id="form-building">
-                    <input type="text" id="building-name" placeholder="Tên tòa nhà (VD: Nhà A)" required>
-                    <button type="submit" class="btn-primary">Lưu Tòa Nhà</button>
-                </form>
-            </details>
+        <!-- Sub-tab 1: Quản lý Lịch trình -->
+        <div id="admin-tab-schedule" class="admin-content active">
+            <div id="admin-schedule-list" class="list-container"></div>
+        </div>
 
-            <!-- Form Khu Vực -->
-            <details class="admin-card">
-                <summary>📍 Thêm Khu Vực</summary>
-                <form id="form-area">
-                    <select id="area-building-id" required></select>
-                    <input type="text" id="area-name" placeholder="Tên khu vực (VD: Sảnh)" required>
-                    <select id="area-type" required>
-                        <option value="INDOOR">Trong nhà (Indoor)</option>
-                        <option value="OUTDOOR">Ngoài trời (Outdoor)</option>
-                    </select>
-                    <button type="submit" class="btn-primary">Lưu Khu Vực</button>
-                </form>
-            </details>
-
-            <!-- Form Công Việc -->
-            <details class="admin-card">
-                <summary>📝 Thêm Công Việc</summary>
-                <form id="form-task">
-                    <input type="text" id="task-name" placeholder="Tên công việc (VD: Quét nhà)" required>
-                    <button type="submit" class="btn-primary">Lưu Công Việc</button>
-                </form>
-            </details>
-
-            <!-- Form Lịch Trình -->
-            <details class="admin-card">
-                <summary>⏰ Gán Lịch Trình</summary>
-                <form id="form-schedule">
-                    <select id="sch-building" onchange="loadAreasForSchedule()" required></select>
-                    <select id="sch-area" required></select>
-                    <select id="sch-task" required></select>
-                    <input type="time" id="sch-time" required>
-                    <input type="text" id="sch-note" placeholder="Ghi chú (nếu có)">
-                    <button type="submit" class="btn-primary">Lưu Lịch Trình</button>
-                </form>
-            </details>
+        <!-- Sub-tab 2: Quản lý Danh mục (Nhà, Khu vực, Công việc) -->
+        <div id="admin-tab-category" class="admin-content">
+            <div class="category-section">
+                <h3>🏢 Tòa Nhà</h3>
+                <div id="list-buildings"></div>
+            </div>
+            <div class="category-section">
+                <h3>📍 Khu Vực</h3>
+                <div id="list-areas"></div>
+            </div>
+            <div class="category-section">
+                <h3>📝 Công Việc Mẫu</h3>
+                <div id="list-tasks"></div>
+            </div>
         </div>
     </div>
 
-    <!-- Bottom Navigation (Menu dưới đáy) -->
+    <!-- Bottom Navigation -->
     <nav class="bottom-nav">
-        <button id="btn-view" class="active" onclick="switchTab('view')">
-            <span class="icon">📋</span>
-            <span>Lịch Làm</span>
+        <button id="btn-view" class="active" onclick="switchMainTab('view')">
+            <span class="icon">📋</span> Giám Sát
         </button>
-        <button id="btn-admin" onclick="switchTab('admin')">
-            <span class="icon">⚙️</span>
-            <span>Quản Trị</span>
+        <button id="btn-admin" onclick="switchMainTab('admin')">
+            <span class="icon">⚙️</span> Quản Trị
         </button>
     </nav>
+
+    <!-- Nút Thêm Mới (Floating Action Button) -->
+    <button id="fab-add" class="fab" onclick="openModal()">+</button>
+
+    <!-- ================= MODAL (BOTTOM SHEET) ĐỂ THÊM/SỬA ================= -->
+    <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+        <div class="bottom-sheet" onclick="event.stopPropagation()">
+            <div class="sheet-header">
+                <h2 id="modal-title">Thêm Mới</h2>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            
+            <form id="dynamic-form" class="sheet-form">
+                <!-- Nội dung form sẽ được JS tạo động tùy theo ngữ cảnh -->
+                <div id="form-fields"></div>
+                <button type="submit" class="btn-primary" id="btn-save">Lưu Lại</button>
+            </form>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>
