@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Giám Sát Vệ Sinh</title>
+    <title>Thiết Lập Khu Vực</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -11,77 +11,59 @@
 
     <div id="toast" class="toast">Thành công!</div>
 
-    <!-- ================= TRANG GIÁM SÁT ================= -->
-    <div id="page-view" class="page active">
-        <header class="app-header">
-            <div>
-                <h1>Giám Sát Hôm Nay</h1>
-                <p id="current-date">...</p>
-            </div>
-        </header>
-        <main id="task-list" class="task-list">
-            <div class="loading-spinner">Đang tải dữ liệu...</div>
-        </main>
-    </div>
+    <!-- Header -->
+    <header class="app-header">
+        <h1 id="header-title">Tòa Nhà B1</h1>
+        <p id="header-subtitle">Nhấn giữ vào Khu vực để thêm giờ làm việc</p>
+    </header>
 
-    <!-- ================= TRANG QUẢN TRỊ ================= -->
-    <div id="page-admin" class="page">
-        <header class="app-header">
-            <h1>Quản Trị Hệ Thống</h1>
-            <div class="segment-control">
-                <button class="active" onclick="switchAdminTab('schedule')">Lịch Trình</button>
-                <button onclick="switchAdminTab('category')">Danh Mục</button>
-            </div>
-        </header>
+    <!-- Danh sách Khu vực -->
+    <main id="area-list" class="area-list">
+        <div class="loading-spinner">Đang tải...</div>
+    </main>
 
-        <!-- Sub-tab 1: Quản lý Lịch trình -->
-        <div id="admin-tab-schedule" class="admin-content active">
-            <div id="admin-schedule-list" class="list-container"></div>
-        </div>
-
-        <!-- Sub-tab 2: Quản lý Danh mục (Nhà, Khu vực, Công việc) -->
-        <div id="admin-tab-category" class="admin-content">
-            <div class="category-section">
-                <h3>🏢 Tòa Nhà</h3>
-                <div id="list-buildings"></div>
-            </div>
-            <div class="category-section">
-                <h3>📍 Khu Vực</h3>
-                <div id="list-areas"></div>
-            </div>
-            <div class="category-section">
-                <h3>📝 Công Việc Mẫu</h3>
-                <div id="list-tasks"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bottom Navigation -->
+    <!-- Bottom Navigation (5 Tòa nhà) -->
     <nav class="bottom-nav">
-        <button id="btn-view" class="active" onclick="switchMainTab('view')">
-            <span class="icon">📋</span> Giám Sát
-        </button>
-        <button id="btn-admin" onclick="switchMainTab('admin')">
-            <span class="icon">⚙️</span> Quản Trị
-        </button>
+        <button class="nav-building active" data-index="1" onclick="switchBuilding(1)">B1</button>
+        <button class="nav-building" data-index="2" onclick="switchBuilding(2)">B2</button>
+        <button class="nav-building" data-index="3" onclick="switchBuilding(3)">B3</button>
+        <button class="nav-building" data-index="4" onclick="switchBuilding(4)">B4</button>
+        <button class="nav-building" data-index="5" onclick="switchBuilding(5)">B5</button>
     </nav>
 
-    <!-- Nút Thêm Mới (Floating Action Button) -->
-    <button id="fab-add" class="fab" onclick="openModal()">+</button>
+    <!-- Nút Thêm Khu Vực (+) -->
+    <button id="fab-add" class="fab" onclick="openAddAreaModal()">+</button>
 
-    <!-- ================= MODAL (BOTTOM SHEET) ĐỂ THÊM/SỬA ================= -->
-    <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+    <!-- ================= MODAL: THÊM KHU VỰC ================= -->
+    <div id="modal-area" class="modal-overlay" onclick="closeModal('modal-area')">
         <div class="bottom-sheet" onclick="event.stopPropagation()">
             <div class="sheet-header">
-                <h2 id="modal-title">Thêm Mới</h2>
-                <button class="close-btn" onclick="closeModal()">✕</button>
+                <h2>Thêm Khu Vực Mới</h2>
+                <button class="close-btn" onclick="closeModal('modal-area')">✕</button>
+            </div>
+            <form id="form-area" class="sheet-form">
+                <input type="text" id="area-name" placeholder="Nhập tên khu vực (VD: Sảnh, Hành lang...)" required>
+                <button type="submit" class="btn-primary">Tạo Khu Vực</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: THÊM GIỜ LÀM VIỆC ================= -->
+    <div id="modal-schedule" class="modal-overlay" onclick="closeModal('modal-schedule')">
+        <div class="bottom-sheet" onclick="event.stopPropagation()">
+            <div class="sheet-header">
+                <h2 id="schedule-area-title">Thêm Giờ Làm Việc</h2>
+                <button class="close-btn" onclick="closeModal('modal-schedule')">✕</button>
             </div>
             
-            <form id="dynamic-form" class="sheet-form">
-                <!-- Nội dung form sẽ được JS tạo động tùy theo ngữ cảnh -->
-                <div id="form-fields"></div>
-                <button type="submit" class="btn-primary" id="btn-save">Lưu Lại</button>
-            </form>
+            <div id="schedule-rows">
+                <!-- Các dòng nhập giờ sẽ được JS tạo ở đây -->
+            </div>
+
+            <div class="sheet-actions">
+                <button type="button" class="btn-outline" onclick="addScheduleRow()">+ Thêm dòng</button>
+                <button type="button" class="btn-primary" onclick="saveSchedules()">Lưu Tất Cả</button>
+            </div>
         </div>
     </div>
 
