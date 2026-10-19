@@ -3,105 +3,136 @@ const SUPABASE_ANON_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// --- 1. CHUYỂN TRANG (TABS) ---
+// --- TIỆN ÍCH UI ---
+function showToast(message, isError = false) {
+    const toast = document.getElementById('toast');
+    toast.innerText = message;
+    toast.style.backgroundColor = isError ? 'var(--danger)' : '#333';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
 function switchTab(tabName) {
-    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
-    document.querySelectorAll('.nav-bar button').forEach(btn => btn.classList.remove('active'));
-    
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.remove('active'));
     document.getElementById(`page-${tabName}`).classList.add('active');
     document.getElementById(`btn-${tabName}`).classList.add('active');
 
     if (tabName === 'admin') {
-        loadAdminDropdowns(); // Load lại dữ liệu mới nhất khi mở trang Admin
+        loadAdminDropdowns();
     } else {
-        fetchTasks(); // Load lại lịch trình khi mở trang Xem
+        fetchTasks();
     }
 }
 
-// --- 2. TRANG XEM LỊCH (GIÁM SÁT) ---
-document.getElementById('current-date').innerText = new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+// --- XỬ LÝ LỊCH TRÌNH & GIÁM SÁT ---
+document.getElementById('current-date').innerText = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
 async function fetchTasks() {
     const taskListEl = document.getElementById('task-list');
-    taskListEl.innerHTML = '<div class="loading">Đang tải dữ liệu...</div>';
+    taskListEl.innerHTML = '<div class="loading-spinner">⏳ Đang đồng bộ dữ liệu...</div>';
 
+    // Lấy dữ liệu schedules + join bảng
     const { data, error } = await supabaseClient
         .from('schedules')
         .select(`id, start_time, note, tasks ( name ), areas ( name, buildings ( name ) )`)
         .order('start_time', { ascending: true });
 
     if (error) {
-        taskListEl.innerHTML = `<div style="color:red; padding:15px; background:#ffe6e6; border-radius:8px;">Lỗi: ${error.message}</div>`;
+        taskListEl.innerHTML = `<div class="empty-state" style="color:var(--danger)">Lỗi: ${error.message}</div>`;
         return;
     }
 
     if (data.length === 0) {
-        taskListEl.innerHTML = `<div style="text-align:center; padding:20px; background:white; border-radius:8px;">Chưa có lịch trình nào. Hãy sang tab "Quản Trị" để thêm.</div>`;
+        taskListEl.innerHTML = `<div class="empty-state">Chưa có lịch trình. Hãy sang tab Quản Trị để thêm mới.</div>`;
         return;
     }
 
     taskListEl.innerHTML = ''; 
+    
+    // Lấy giờ hiện tại để check trạng thái trễ
+    const now = new Date();
+    const currentTimeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+    // Phân nhóm theo ca
+    let currentSection = '';
+    
     data.forEach(item => {
-        const timeStr = item.start_time.substring(0, 5); 
+        const timeStr = item.start_time.substring(0, 5); // "08:30"
+        const hour = parseInt(timeStr.split(':')[0]);
+        
+        // Logic phân ca
+        let sectionName = '';
+        if (hour < 12) sectionName = '🌅 Ca Sáng';
+        else if (hour < 18) sectionName = '☀️ Ca Chiều';
+        else sectionName = '🌙 Ca Tối';
+
+        if (sectionName !== currentSection) {
+            taskListEl.innerHTML += `<div class="section-title">${sectionName}</div>`;
+            currentSection = sectionName;
+        }
+
+        // Check quá hạn (Nếu giờ hiện tại > giờ task + 30 phút thì coi là trễ)
+        const isOverdue = currentTimeStr > timeStr; // Đơn giản hóa: Quá giờ là tính là overdue nếu chưa done (Trong thực tế cần check log)
+
         const card = document.createElement('div');
-        card.className = 'task-card';
+        card.className = `task-card`;
         card.id = `task-${item.id}`;
         
         card.innerHTML = `
             <div class="task-info">
-                <div class="task-time">${timeStr}</div>
+                <div class="task-time">${timeStr} ${isOverdue ? '<span style="font-size:12px; color:var(--danger)">(Quá giờ)</span>' : ''}</div>
                 <div class="task-name">${item.tasks?.name || 'N/A'}</div>
-                <div class="task-location">📍 ${item.areas?.buildings?.name || 'N/A'} - ${item.areas?.name || 'N/A'}</div>
+                <div class="task-location">📍 ${item.areas?.buildings?.name || 'N/A'} • ${item.areas?.name || 'N/A'}</div>
                 ${item.note ? `<div class="task-note">Ghi chú: ${item.note}</div>` : ''}
             </div>
-            <button class="btn-check" onclick="markComplete('${item.id}', this)">Hoàn thành</button>
+            <button class="btn-check" onclick="markComplete('${item.id}', this)">Xong</button>
         `;
         taskListEl.appendChild(card);
     });
 }
 
 async function markComplete(scheduleId, btnElement) {
-    btnElement.innerText = 'Đang lưu...';
-    const { error } = await supabaseClient.from('task_logs').insert([{ schedule_id: scheduleId, status: 'COMPLETED' }]);
+    const originalText = btnElement.innerText;
+    btnElement.innerText = 'Lưu...';
+    btnElement.disabled = true;
+
+    const { error } = await supabaseClient
+        .from('task_logs')
+        .insert([{ schedule_id: scheduleId, status: 'COMPLETED' }]);
 
     if (error) {
-        alert('Lỗi lưu: ' + error.message);
-        btnElement.innerText = 'Hoàn thành';
+        showToast('Lỗi: ' + error.message, true);
+        btnElement.innerText = originalText;
+        btnElement.disabled = false;
     } else {
+        showToast('Đã đánh dấu hoàn thành!');
         btnElement.innerText = 'Đã xong ✓';
         btnElement.classList.add('done');
         document.getElementById(`task-${scheduleId}`).classList.add('completed');
     }
 }
 
-// --- 3. TRANG QUẢN TRỊ (ADMIN) ---
-
-// Hàm load dữ liệu vào các ô Dropdown (Select)
+// --- QUẢN TRỊ (ADMIN) ---
 async function loadAdminDropdowns() {
-    // Load Tòa nhà cho form Khu vực
+    // Tòa nhà
     const { data: buildings } = await supabaseClient.from('buildings').select('*').order('name');
-    const buildingSelect1 = document.getElementById('area-building-id');
-    const buildingSelect2 = document.getElementById('sch-building');
+    const bSelects = [document.getElementById('area-building-id'), document.getElementById('sch-building')];
+    bSelects.forEach(sel => sel.innerHTML = '<option value="">-- Chọn Tòa nhà --</option>');
     
-    buildingSelect1.innerHTML = '<option value="">-- Chọn Tòa nhà --</option>';
-    buildingSelect2.innerHTML = '<option value="">-- Chọn Tòa nhà --</option>';
     if(buildings) {
         buildings.forEach(b => {
-            buildingSelect1.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-            buildingSelect2.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+            bSelects.forEach(sel => sel.innerHTML += `<option value="${b.id}">${b.name}</option>`);
         });
     }
 
-    // Load Công việc cho form Lịch trình
+    // Công việc
     const { data: tasks } = await supabaseClient.from('tasks').select('*').order('name');
     const taskSelect = document.getElementById('sch-task');
     taskSelect.innerHTML = '<option value="">-- Chọn Công việc --</option>';
-    if(tasks) {
-        tasks.forEach(t => taskSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`);
-    }
+    if(tasks) tasks.forEach(t => taskSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`);
 }
 
-// Hàm load Khu vực dựa theo Tòa nhà đã chọn (trong form Lịch trình)
 async function loadAreasForSchedule() {
     const buildingId = document.getElementById('sch-building').value;
     const areaSelect = document.getElementById('sch-area');
@@ -114,58 +145,54 @@ async function loadAreasForSchedule() {
 
     const { data: areas } = await supabaseClient.from('areas').select('*').eq('building_id', buildingId).order('name');
     areaSelect.innerHTML = '<option value="">-- Chọn Khu vực --</option>';
-    if(areas) {
-        areas.forEach(a => areaSelect.innerHTML += `<option value="${a.id}">${a.name}</option>`);
-    }
+    if(areas) areas.forEach(a => areaSelect.innerHTML += `<option value="${a.id}">${a.name}</option>`);
 }
 
-// --- 4. XỬ LÝ SỰ KIỆN SUBMIT FORM ---
-
-// Thêm Tòa nhà
+// Xử lý Submit
 document.getElementById('form-building').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('building-name').value;
     const { error } = await supabaseClient.from('buildings').insert([{ name }]);
-    if (error) alert('Lỗi: ' + error.message);
-    else { alert('Đã thêm Tòa nhà!'); document.getElementById('building-name').value = ''; loadAdminDropdowns(); }
+    if (error) showToast('Lỗi: ' + error.message, true);
+    else { 
+        showToast('Thêm Tòa nhà thành công'); 
+        document.getElementById('building-name').value = ''; 
+        loadAdminDropdowns(); 
+    }
 });
 
-// Thêm Khu vực
 document.getElementById('form-area').addEventListener('submit', async (e) => {
     e.preventDefault();
     const building_id = document.getElementById('area-building-id').value;
     const name = document.getElementById('area-name').value;
     const type = document.getElementById('area-type').value;
     const { error } = await supabaseClient.from('areas').insert([{ building_id, name, type }]);
-    if (error) alert('Lỗi: ' + error.message);
-    else { alert('Đã thêm Khu vực!'); document.getElementById('area-name').value = ''; loadAreasForSchedule(); }
+    if (error) showToast('Lỗi: ' + error.message, true);
+    else { showToast('Thêm Khu vực thành công'); document.getElementById('area-name').value = ''; loadAreasForSchedule(); }
 });
 
-// Thêm Công việc
 document.getElementById('form-task').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('task-name').value;
     const { error } = await supabaseClient.from('tasks').insert([{ name }]);
-    if (error) alert('Lỗi: ' + error.message);
-    else { alert('Đã thêm Công việc!'); document.getElementById('task-name').value = ''; loadAdminDropdowns(); }
+    if (error) showToast('Lỗi: ' + error.message, true);
+    else { showToast('Thêm Công việc thành công'); document.getElementById('task-name').value = ''; loadAdminDropdowns(); }
 });
 
-// Thêm Lịch trình
 document.getElementById('form-schedule').addEventListener('submit', async (e) => {
     e.preventDefault();
     const area_id = document.getElementById('sch-area').value;
     const task_id = document.getElementById('sch-task').value;
-    const start_time = document.getElementById('sch-time').value + ':00'; // Thêm giây
+    const start_time = document.getElementById('sch-time').value + ':00'; 
     const note = document.getElementById('sch-note').value;
 
     const { error } = await supabaseClient.from('schedules').insert([{ area_id, task_id, start_time, note, frequency: 'DAILY' }]);
-    if (error) alert('Lỗi: ' + error.message);
+    if (error) showToast('Lỗi: ' + error.message, true);
     else { 
-        alert('Đã thêm Lịch trình thành công!'); 
+        showToast('Gán lịch thành công!'); 
         document.getElementById('sch-note').value = ''; 
-        // Không cần reload, lát nữa qua tab Xem là thấy
     }
 });
 
-// Khởi chạy lần đầu
+// Khởi chạy
 fetchTasks();
