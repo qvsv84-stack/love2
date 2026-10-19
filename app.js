@@ -45,6 +45,12 @@ const UI = {
         // Tương tác vuốt xoá
         this.bindSwipeToDelete(row, wrapper, 60, () => wrapper.remove());
         container.appendChild(wrapper);
+
+        // UX: Tự động cuộn xuống cuối khi thêm dòng mới
+        setTimeout(() => {
+            const modalBody = document.querySelector('#modal-schedule .bottom-sheet');
+            if (modalBody) modalBody.scrollTop = modalBody.scrollHeight;
+        }, 50);
     },
 
     // Hàm dùng chung xử lý vuốt (Swipe)
@@ -137,7 +143,6 @@ const App = {
         document.querySelector(`.nav-building[data-index="${index}"]`).classList.add('active');
         document.getElementById('header-title').innerText = `Tòa Nhà B${index}`;
 
-        // Dùng lệnh .single() sẽ báo lỗi nếu tìm thấy > 1, nên dùng limit(1)
         const { data: bData } = await supabaseClient.from('buildings').select('id').eq('name', `Tòa nhà B${index}`).limit(1).single();
         if (!bData) return;
         
@@ -231,7 +236,7 @@ const App = {
             }, 800);
         };
         
-        const cancelPress = (e) => {
+        const cancelPress = () => {
             clearTimeout(this.state.longPressTimer);
             element.classList.remove('pressed');
         };
@@ -291,17 +296,11 @@ const App = {
         UI.showLoader(true);
 
         try {
-            // 1. Thu thập dữ liệu từ form
+            // 1. Thu thập dữ liệu từ form (Giữ nguyên các dòng trùng giờ)
             const formData = Array.from(rows).map(row => ({
                 time: row.querySelector('.input-time').value,
                 taskName: row.querySelector('.input-task').value.trim()
             })).filter(item => item.time && item.taskName);
-
-            // Check trùng giờ
-            const times = formData.map(f => f.time);
-            if (new Set(times).size !== times.length) {
-                throw new Error("Có khung giờ bị trùng nhau. Vui lòng kiểm tra lại.");
-            }
 
             // 2. Xoá tất cả lịch trình cũ của khu vực này
             await supabaseClient.from('schedules').delete().eq('area_id', this.state.currentAreaId);
@@ -327,7 +326,7 @@ const App = {
                 createdTasks.forEach(t => taskMap.set(t.name, t.id));
             }
 
-            // 5. Tạo payload Schedules và Bulk Insert
+            // 5. Tạo payload Schedules và Bulk Insert (Không chặn trùng giờ)
             const schedulesPayload = formData.map(item => ({
                 area_id: this.state.currentAreaId,
                 task_id: taskMap.get(item.taskName),
@@ -360,7 +359,7 @@ document.getElementById('form-area').addEventListener('submit', async (e) => {
     const name = document.getElementById('area-name').value.trim();
     const type = document.getElementById('area-type').value;
     
-    // Check trùng tên khu vực
+    // Check trùng tên khu vực (Vẫn giữ để tránh tạo 2 khu vực cùng tên)
     if (App.state.areas.some(a => a.name.toLowerCase() === name.toLowerCase())) {
         return UI.showToast('Tên khu vực này đã tồn tại!', true);
     }
