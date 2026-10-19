@@ -8,6 +8,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+    <!-- Lớp phủ chặn tương tác khi loading -->
+    <div id="global-loader" class="global-loader hidden">
+        <div class="spinner"></div>
+    </div>
 
     <div id="toast" class="toast">Thành công!</div>
 
@@ -19,54 +23,54 @@
 
     <!-- Danh sách Khu vực -->
     <main id="area-list" class="area-list">
-        <div class="loading-spinner">Đang tải...</div>
+        <!-- Skeleton Loading -->
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
     </main>
 
     <!-- Bottom Navigation (5 Tòa nhà) -->
     <nav class="bottom-nav">
-        <button class="nav-building active" data-index="1" onclick="switchBuilding(1)">B1</button>
-        <button class="nav-building" data-index="2" onclick="switchBuilding(2)">B2</button>
-        <button class="nav-building" data-index="3" onclick="switchBuilding(3)">B3</button>
-        <button class="nav-building" data-index="4" onclick="switchBuilding(4)">B4</button>
-        <button class="nav-building" data-index="5" onclick="switchBuilding(5)">B5</button>
+        <button class="nav-building active" data-index="1" onclick="App.switchBuilding(1)">B1</button>
+        <button class="nav-building" data-index="2" onclick="App.switchBuilding(2)">B2</button>
+        <button class="nav-building" data-index="3" onclick="App.switchBuilding(3)">B3</button>
+        <button class="nav-building" data-index="4" onclick="App.switchBuilding(4)">B4</button>
+        <button class="nav-building" data-index="5" onclick="App.switchBuilding(5)">B5</button>
     </nav>
 
     <!-- Nút Thêm Khu Vực (+) -->
-    <button id="fab-add" class="fab" onclick="openAddAreaModal()">+</button>
+    <button id="fab-add" class="fab" onclick="UI.openModal('modal-area')">+</button>
 
     <!-- ================= MODAL: THÊM KHU VỰC ================= -->
-    <div id="modal-area" class="modal-overlay" onclick="closeModal('modal-area')">
+    <div id="modal-area" class="modal-overlay" onclick="UI.closeModal('modal-area')">
         <div class="bottom-sheet" onclick="event.stopPropagation()">
             <div class="sheet-header">
                 <h2>Thêm Khu Vực Mới</h2>
-                <button class="close-btn" onclick="closeModal('modal-area')">✕</button>
+                <button class="close-btn" onclick="UI.closeModal('modal-area')">✕</button>
             </div>
             <form id="form-area" class="sheet-form">
-                <input type="text" id="area-name" placeholder="Tên khu vực (VD: Sảnh, Sân sau...)" required>
+                <input type="text" id="area-name" placeholder="Tên khu vực (VD: Sảnh, Sân sau...)" required maxlength="50">
                 <select id="area-type" required class="form-select">
                     <option value="INDOOR">🏢 Trong nhà (Sảnh, Phòng...)</option>
                     <option value="OUTDOOR">🌳 Ngoài trời (Sân, Ngoại cảnh...)</option>
                 </select>
-                <button type="submit" class="btn-primary">Tạo Khu Vực</button>
+                <button type="submit" class="btn-primary" id="btn-save-area">Tạo Khu Vực</button>
             </form>
         </div>
     </div>
 
     <!-- ================= MODAL: THÊM GIỜ LÀM VIỆC ================= -->
-    <div id="modal-schedule" class="modal-overlay" onclick="closeModal('modal-schedule')">
+    <div id="modal-schedule" class="modal-overlay" onclick="UI.closeModal('modal-schedule')">
         <div class="bottom-sheet" onclick="event.stopPropagation()">
             <div class="sheet-header">
                 <h2 id="schedule-area-title">Thêm Giờ Làm Việc</h2>
-                <button class="close-btn" onclick="closeModal('modal-schedule')">✕</button>
+                <button class="close-btn" onclick="UI.closeModal('modal-schedule')">✕</button>
             </div>
             
-            <div id="schedule-rows">
-                <!-- Các dòng nhập giờ sẽ được JS tạo ở đây -->
-            </div>
+            <div id="schedule-rows"></div>
 
             <div class="sheet-actions">
-                <button type="button" class="btn-outline" onclick="addScheduleRow()">+ Thêm dòng</button>
-                <button type="button" class="btn-primary" onclick="saveSchedules()">Lưu Tất Cả</button>
+                <button type="button" class="btn-outline" onclick="UI.addScheduleRow()">+ Thêm dòng</button>
+                <button type="button" class="btn-primary" id="btn-save-schedules" onclick="App.saveSchedules()">Lưu Tất Cả</button>
             </div>
         </div>
     </div>
