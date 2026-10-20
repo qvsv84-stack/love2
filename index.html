@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <!-- Lớp phủ chặn tương tác khi loading -->
     <div id="global-loader" class="global-loader hidden">
         <div class="spinner"></div>
     </div>
@@ -17,28 +16,42 @@
 
     <!-- Header -->
     <header class="app-header">
-        <h1 id="header-title">Tòa Nhà B1</h1>
-        <p id="header-subtitle">Vuốt trái để xoá • Nhấn giữ để thêm giờ</p>
+        <div class="header-top">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <h1 id="header-title">Đang tải...</h1>
+                <button id="btn-edit-building" class="icon-btn" onclick="UI.openEditBuildingModal()" style="display: none;">✏️</button>
+            </div>
+            <p id="header-subtitle">Vuốt trái để xoá khu vực • Nhấn giữ để thêm giờ</p>
+        </div>
     </header>
 
     <!-- Danh sách Khu vực -->
     <main id="area-list" class="area-list">
-        <!-- Skeleton Loading -->
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
     </main>
 
-    <!-- Bottom Navigation (5 Tòa nhà) -->
-    <nav class="bottom-nav">
-        <button class="nav-building active" data-index="1" onclick="App.switchBuilding(1)">B1</button>
-        <button class="nav-building" data-index="2" onclick="App.switchBuilding(2)">B2</button>
-        <button class="nav-building" data-index="3" onclick="App.switchBuilding(3)">B3</button>
-        <button class="nav-building" data-index="4" onclick="App.switchBuilding(4)">B4</button>
-        <button class="nav-building" data-index="5" onclick="App.switchBuilding(5)">B5</button>
+    <!-- Bottom Navigation (Render động từ Database) -->
+    <nav id="building-nav" class="bottom-nav">
+        <!-- JS sẽ render các nút tòa nhà vào đây -->
     </nav>
 
     <!-- Nút Thêm Khu Vực (+) -->
-    <button id="fab-add" class="fab" onclick="UI.openModal('modal-area')">+</button>
+    <button id="fab-add" class="fab" onclick="UI.openAddAreaModal()">+</button>
+
+    <!-- ================= MODAL: THÊM/SỬA TÒA NHÀ ================= -->
+    <div id="modal-building" class="modal-overlay" onclick="UI.closeModal('modal-building')">
+        <div class="bottom-sheet" onclick="event.stopPropagation()">
+            <div class="sheet-header">
+                <h2 id="building-modal-title">Thêm Tòa Nhà</h2>
+                <button class="close-btn" onclick="UI.closeModal('modal-building')">✕</button>
+            </div>
+            <form id="form-building" class="sheet-form">
+                <input type="text" id="building-name" placeholder="Tên tòa nhà (VD: Nhà A, B1...)" required maxlength="50">
+                <button type="submit" class="btn-primary" id="btn-save-building">Lưu Tòa Nhà</button>
+            </form>
+        </div>
+    </div>
 
     <!-- ================= MODAL: THÊM KHU VỰC ================= -->
     <div id="modal-area" class="modal-overlay" onclick="UI.closeModal('modal-area')">
