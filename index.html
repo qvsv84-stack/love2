@@ -14,14 +14,35 @@
 
     <div id="toast" class="toast">Thành công!</div>
 
+    <!-- Overlay làm mờ nền khi mở Menu -->
+    <div id="drawer-overlay" class="drawer-overlay" onclick="UI.closeDrawer()"></div>
+
+    <!-- Menu Drawer (Trượt từ trái sang) -->
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Danh Sách Tòa Nhà</h2>
+        </div>
+        <div id="building-list" class="building-list">
+            <!-- Danh sách tòa nhà sẽ được JS render vào đây -->
+        </div>
+        <div class="sidebar-footer">
+            <button class="btn-add-building" onclick="UI.openAddBuildingModal()">
+                <span>+</span> Thêm Tòa Nhà Mới
+            </button>
+        </div>
+    </aside>
+
     <!-- Header -->
     <header class="app-header">
-        <div class="header-top">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <h1 id="header-title">Đang tải...</h1>
-                <button id="btn-edit-building" class="icon-btn" onclick="UI.openEditBuildingModal()" style="display: none;">✏️</button>
+        <div class="header-left">
+            <button class="menu-btn" onclick="UI.openDrawer()">☰</button>
+            <div class="header-title-group">
+                <div class="title-row">
+                    <h1 id="header-title">Đang tải...</h1>
+                    <button id="btn-edit-building" class="icon-btn" onclick="UI.openEditBuildingModal()" style="display: none;">✏️</button>
+                </div>
+                <p id="header-subtitle">Vuốt trái để xoá khu vực • Nhấn giữ để thêm giờ</p>
             </div>
-            <p id="header-subtitle">Vuốt trái để xoá khu vực • Nhấn giữ để thêm giờ</p>
         </div>
     </header>
 
@@ -30,11 +51,6 @@
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
     </main>
-
-    <!-- Bottom Navigation (Render động từ Database) -->
-    <nav id="building-nav" class="bottom-nav">
-        <!-- JS sẽ render các nút tòa nhà vào đây -->
-    </nav>
 
     <!-- Nút Thêm Khu Vực (+) -->
     <button id="fab-add" class="fab" onclick="UI.openAddAreaModal()">+</button>
