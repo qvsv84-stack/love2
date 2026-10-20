@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Quản Lý Nhân Sự</title>
-    <!-- Thư viện Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
@@ -15,37 +14,37 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: var(--text); overflow-x: hidden; }
 
-        /* Utilities */
+        /* Utilities & Animations */
         .hidden { display: none !important; }
-        .spinner { width: 30px; height: 30px; border: 3px solid #e5e5ea; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { to { transform: rotate(360deg); } }
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; visibility: hidden; transition: 0.3s; z-index: 9999; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
         .toast.error { background: var(--danger); }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         /* === MÀN HÌNH 1: CHỌN TÒA NHÀ === */
-        #view-buildings { padding: 20px; animation: fadeIn 0.3s; padding-bottom: 80px; }
+        #view-buildings { padding: 20px; padding-bottom: 80px; }
         .page-title { font-size: 24px; font-weight: 800; color: var(--primary); margin-bottom: 5px; text-align: center; }
         .page-subtitle { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 20px; }
         
         .building-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-        .building-btn { background: var(--card); border: none; padding: 25px 15px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s; touch-action: manipulation; }
-        .building-btn:active { transform: scale(0.95); }
+        .building-btn { background: var(--card); border: none; padding: 25px 15px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s; touch-action: manipulation; animation: fadeIn 0.3s; }
+        .building-btn:active { transform: scale(0.95); background: #f8f8f8; }
         .building-btn .icon { font-size: 30px; margin-bottom: 10px; }
         .building-btn .name { font-size: 15px; font-weight: 700; color: var(--text); text-align: center; line-height: 1.3;}
 
         /* === MÀN HÌNH 2: DANH SÁCH NHÂN VIÊN === */
-        #view-employees { animation: fadeIn 0.3s; padding-bottom: 80px; }
+        #view-employees { padding-bottom: 80px; }
         .header-bar { background: var(--card); padding: 15px 20px; display: flex; align-items: center; gap: 15px; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #e5e5ea; }
         .btn-back { background: none; border: none; font-size: 24px; color: var(--primary); cursor: pointer; padding: 5px; display: flex; align-items: center; font-weight: bold; }
         .header-title { font-size: 18px; font-weight: 700; flex: 1; }
         .btn-delete-building { background: #ffe5e5; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: var(--danger); }
 
         .employee-list { padding: 15px; display: flex; flex-direction: column; gap: 12px; }
-        .emp-card { background: var(--card); border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .emp-card { background: var(--card); border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); animation: fadeIn 0.3s; }
         .emp-info h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
         
-        /* CSS cho link gọi điện */
         .phone-link { display: inline-flex; align-items: center; font-size: 14px; color: var(--primary); text-decoration: none; font-weight: 500; margin-top: 2px; }
         .phone-link:active { opacity: 0.5; }
         .no-phone { font-size: 14px; color: var(--muted); margin-top: 2px; }
@@ -54,6 +53,9 @@
         .action-btn { background: #f2f2f7; border: none; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; }
         .btn-edit { color: var(--primary); }
         .btn-delete { color: var(--danger); }
+
+        /* Skeleton Loading (Khung xương) */
+        .skeleton-card { height: 76px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 12px; }
 
         /* Nút FAB */
         .fab { position: fixed; bottom: 30px; right: 20px; padding: 0 20px; height: 56px; border-radius: 28px; background: var(--primary); color: white; font-size: 16px; font-weight: bold; border: none; box-shadow: 0 4px 12px rgba(0,122,255,0.4); z-index: 90; display: flex; align-items: center; gap: 8px; transition: transform 0.1s; }
@@ -76,8 +78,6 @@
         
         .btn-primary { width: 100%; background: var(--primary); color: white; padding: 15px; border-radius: 10px; border: none; font-weight: 600; font-size: 16px; margin-top: 10px; }
         .btn-primary:disabled { opacity: 0.6; }
-        
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -89,11 +89,12 @@
         <h1 class="page-title">Chọn Khu Vực</h1>
         <p class="page-subtitle">Danh sách được sắp xếp theo A-Z</p>
         <div id="building-grid" class="building-grid">
-            <div class="spinner" style="grid-column: span 2;"></div>
+            <!-- Skeleton xương cho màn hình chính -->
+            <div class="skeleton-card" style="height: 100px; grid-column: span 1;"></div>
+            <div class="skeleton-card" style="height: 100px; grid-column: span 1;"></div>
         </div>
     </div>
 
-    <!-- FAB Thêm Tòa Nhà (Chỉ hiện ở màn hình 1) -->
     <button class="fab" id="fab-building" onclick="UI.openBuildingModal()">
         <span>+</span> Thêm Tòa Nhà
     </button>
@@ -106,11 +107,8 @@
             <button class="btn-delete-building" id="btn-delete-building" onclick="App.deleteCurrentBuilding()">🗑️</button>
         </div>
 
-        <div id="employee-list" class="employee-list">
-            <!-- Danh sách nhân viên được JS render -->
-        </div>
+        <div id="employee-list" class="employee-list"></div>
 
-        <!-- FAB Thêm Nhân Viên (Chỉ hiện ở màn hình 2) -->
         <button class="fab hidden" id="fab-employee" onclick="UI.openEmployeeModal()">
             <span>+</span> Thêm Nhân Viên
         </button>
@@ -169,22 +167,15 @@
                 t.className = `toast show ${isErr ? 'error' : ''}`;
                 setTimeout(() => t.classList.remove('show'), 2500);
             },
-            openBuildingModal() {
-                document.getElementById('modal-building').classList.add('show');
-                document.body.style.overflow = 'hidden';
-            },
-            closeBuildingModal() {
-                document.getElementById('modal-building').classList.remove('show');
-                document.body.style.overflow = '';
-                document.getElementById('form-building').reset();
-            },
+            openBuildingModal() { document.getElementById('modal-building').classList.add('show'); document.body.style.overflow = 'hidden'; },
+            closeBuildingModal() { document.getElementById('modal-building').classList.remove('show'); document.body.style.overflow = ''; document.getElementById('form-building').reset(); },
             openEmployeeModal(empId = null) {
                 const title = document.getElementById('modal-emp-title');
                 const nameInput = document.getElementById('emp-name');
                 const phoneInput = document.getElementById('emp-phone');
                 
                 if (empId) {
-                    const employee = App.state.employees.find(e => e.id === empId);
+                    const employee = App.state.employeesCache[App.state.currentBuildingId].find(e => e.id === empId);
                     if (!employee) return;
                     title.innerText = 'Sửa Thông Tin';
                     nameInput.value = employee.name;
@@ -199,22 +190,19 @@
                 document.getElementById('modal-employee').classList.add('show');
                 document.body.style.overflow = 'hidden';
             },
-            closeEmployeeModal() {
-                document.getElementById('modal-employee').classList.remove('show');
-                document.body.style.overflow = '';
-                document.getElementById('form-employee').reset();
-            }
+            closeEmployeeModal() { document.getElementById('modal-employee').classList.remove('show'); document.body.style.overflow = ''; document.getElementById('form-employee').reset(); }
         };
 
         // ==========================================
-        // MODULE APP
+        // MODULE APP (TỐI ƯU CACHE)
         // ==========================================
         const App = {
             state: {
                 buildings: [],
                 currentBuildingId: null,
                 currentBuildingName: '',
-                employees: [],
+                // Lưu trữ đệm nhân viên theo ID tòa nhà
+                employeesCache: {},
                 editingEmpId: null
             },
 
@@ -238,7 +226,7 @@
                 grid.innerHTML = '';
 
                 if (this.state.buildings.length === 0) {
-                    grid.innerHTML = '<p style="grid-column: span 2; text-align:center;">Chưa có tòa nhà nào. Bấm nút Thêm bên dưới.</p>';
+                    grid.innerHTML = '<p style="grid-column: span 2; text-align:center; padding: 20px;">Chưa có tòa nhà nào.</p>';
                     return;
                 }
 
@@ -256,36 +244,52 @@
                 });
             },
 
+            // --- TỐI ƯU UX TẠI ĐÂY ---
             openBuilding(id, name) {
                 this.state.currentBuildingId = id;
                 this.state.currentBuildingName = name;
                 document.getElementById('current-building-name').innerText = name;
                 
+                // 1. Chuyển màn hình NGAY LẬP TỨC
                 document.getElementById('view-buildings').classList.add('hidden');
                 document.getElementById('fab-building').classList.add('hidden');
-                
                 document.getElementById('view-employees').classList.remove('hidden');
                 document.getElementById('fab-employee').classList.remove('hidden');
                 
-                this.loadEmployees();
+                const listEl = document.getElementById('employee-list');
+                
+                // 2. Kiểm tra Cache
+                if (this.state.employeesCache[id]) {
+                    // Nếu có cache -> Vẽ ngay lập tức (0ms)
+                    this.renderEmployees(this.state.employeesCache[id]);
+                    // Gọi API ngầm để đồng bộ nếu có thay đổi
+                    this.fetchAndUpdateEmployees(id, true); 
+                } else {
+                    // Nếu chưa có cache -> Hiện Skeleton Loading
+                    listEl.innerHTML = `
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                    `;
+                    // Gọi API lần đầu
+                    this.fetchAndUpdateEmployees(id, false);
+                }
             },
 
             goHome() {
                 document.getElementById('view-employees').classList.add('hidden');
                 document.getElementById('fab-employee').classList.add('hidden');
-                
                 document.getElementById('view-buildings').classList.remove('hidden');
                 document.getElementById('fab-building').classList.remove('hidden');
                 
                 this.state.currentBuildingId = null;
                 this.state.currentBuildingName = '';
-                this.init();
             },
 
             async deleteCurrentBuilding() {
                 const bName = this.state.currentBuildingName;
                 const bId = this.state.currentBuildingId;
-                const confirmMsg = `CẢNH BÁO: Bạn đang xoá tòa nhà "${bName}".\n\nToàn bộ nhân viên thuộc tòa nhà này cũng sẽ bị xoá và KHÔNG THỂ KHÔI PHỤC.\n\nBạn có chắc chắn muốn tiếp tục?`;
+                const confirmMsg = `CẢNH BÁO: Bạn đang xoá tòa nhà "${bName}".\n\nToàn bộ nhân viên thuộc tòa nhà này cũng sẽ bị xoá và KHÔNG THỂ KHÔI PHỤC.`;
                 
                 if (!confirm(confirmMsg)) return;
 
@@ -293,26 +297,36 @@
                 if (error) UI.showToast('Lỗi xoá: ' + error.message, true);
                 else {
                     UI.showToast('Đã xoá tòa nhà');
+                    delete this.state.employeesCache[bId]; // Xoá cache
                     this.goHome();
+                    this.init();
                 }
             },
 
-            async loadEmployees() {
-                const listEl = document.getElementById('employee-list');
-                listEl.innerHTML = '<div class="spinner"></div>';
-
+            // Hàm lấy dữ liệu (có tham số isBackground)
+            async fetchAndUpdateEmployees(buildingId, isBackground = false) {
                 const { data, error } = await supabaseClient
                     .from('employees')
                     .select('*')
-                    .eq('building_id', this.state.currentBuildingId)
+                    .eq('building_id', buildingId)
                     .order('created_at', { ascending: false });
 
                 if (error) {
-                    listEl.innerHTML = '<p style="text-align:center; color:red;">Lỗi tải dữ liệu</p>';
+                    if (!isBackground) document.getElementById('employee-list').innerHTML = '<p style="text-align:center; color:red;">Lỗi tải dữ liệu</p>';
                     return;
                 }
 
-                this.state.employees = data || [];
+                // Lưu vào Cache
+                this.state.employeesCache[buildingId] = data || [];
+
+                // Nếu đang ở đúng màn hình đó thì mới vẽ lại
+                if (this.state.currentBuildingId === buildingId) {
+                    this.renderEmployees(data);
+                }
+            },
+
+            renderEmployees(data) {
+                const listEl = document.getElementById('employee-list');
                 listEl.innerHTML = '';
 
                 if (data.length === 0) {
@@ -321,9 +335,7 @@
                 }
 
                 data.forEach(emp => {
-                    // Xử lý chuỗi SĐT: Xoá các ký tự không phải số (dấu cách, gạch ngang)
                     const rawPhone = emp.phone ? emp.phone.replace(/[^0-9+]/g, '') : '';
-                    // Nếu có SĐT thì hiển thị link, không thì hiển thị chữ mờ
                     const phoneHtml = emp.phone 
                         ? `<a href="tel:${rawPhone}" class="phone-link">📞 ${emp.phone}</a>`
                         : `<div class="no-phone">📞 Chưa có SĐT</div>`;
@@ -351,7 +363,9 @@
                 if (error) UI.showToast('Lỗi xoá: ' + error.message, true);
                 else {
                     UI.showToast('Đã xoá nhân viên');
-                    this.loadEmployees();
+                    // Xoá cache của tòa nhà này và tải lại
+                    delete this.state.employeesCache[this.state.currentBuildingId];
+                    this.fetchAndUpdateEmployees(this.state.currentBuildingId);
                 }
             }
         };
@@ -365,14 +379,11 @@
             const name = document.getElementById('building-name').value.trim();
             
             btn.innerText = 'Đang lưu...'; btn.disabled = true;
-
             const { error } = await supabaseClient.from('buildings').insert([{ name: name }]);
-
             btn.innerText = 'Lưu Tòa Nhà'; btn.disabled = false;
 
-            if (error) {
-                UI.showToast('Lỗi: ' + error.message, true);
-            } else {
+            if (error) UI.showToast('Lỗi: ' + error.message, true);
+            else {
                 UI.showToast('Đã thêm tòa nhà mới');
                 UI.closeBuildingModal();
                 App.init();
@@ -406,7 +417,9 @@
             else {
                 UI.showToast(isEdit ? 'Đã cập nhật' : 'Đã thêm nhân viên');
                 UI.closeEmployeeModal();
-                App.loadEmployees();
+                // Xoá cache và tải lại ngầm
+                delete App.state.employeesCache[App.state.currentBuildingId];
+                App.fetchAndUpdateEmployees(App.state.currentBuildingId);
             }
         });
 
