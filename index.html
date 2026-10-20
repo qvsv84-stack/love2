@@ -6,8 +6,6 @@
     <title>Quản Lý Nhân Sự</title>
     <!-- Thư viện Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Thư viện SortableJS để kéo thả -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
     <style>
         :root {
@@ -35,10 +33,6 @@
         .building-btn:active { transform: scale(0.95); }
         .building-btn .icon { font-size: 30px; margin-bottom: 10px; }
         .building-btn .name { font-size: 15px; font-weight: 700; color: var(--text); text-align: center; line-height: 1.3;}
-        
-        /* CSS cho SortableJS */
-        .sortable-ghost { opacity: 0.3; background: #e5e5ea; }
-        .sortable-chosen { transform: scale(1.05); box-shadow: 0 10px 20px rgba(0,0,0,0.15); z-index: 100; }
 
         /* === MÀN HÌNH 2: DANH SÁCH NHÂN VIÊN === */
         #view-employees { animation: fadeIn 0.3s; padding-bottom: 80px; }
@@ -88,7 +82,7 @@
     <!-- ================= MÀN HÌNH 1: CHỌN TÒA NHÀ ================= -->
     <div id="view-buildings">
         <h1 class="page-title">Chọn Khu Vực</h1>
-        <p class="page-subtitle">Giữ và kéo để sắp xếp thứ tự</p>
+        <p class="page-subtitle">Danh sách được sắp xếp theo A-Z</p>
         <div id="building-grid" class="building-grid">
             <div class="spinner" style="grid-column: span 2;"></div>
         </div>
@@ -222,11 +216,11 @@
             },
 
             async init() {
-                // Lấy danh sách tòa nhà (Sắp xếp theo sort_order)
+                // Lấy danh sách tòa nhà và SẮP XẾP THEO TÊN A-Z
                 const { data, error } = await supabaseClient
                     .from('buildings')
                     .select('*')
-                    .order('sort_order', { ascending: true });
+                    .order('name', { ascending: true }); // Sắp xếp theo bảng chữ cái
                 
                 if (error) {
                     document.getElementById('building-grid').innerHTML = '<p style="color:red; grid-column: span 2; text-align:center;">Lỗi tải dữ liệu</p>';
@@ -235,7 +229,6 @@
 
                 this.state.buildings = data || [];
                 this.renderBuildings();
-                this.initSortable(); // Kích hoạt tính năng kéo thả
             },
 
             renderBuildings() {
@@ -252,54 +245,12 @@
                 this.state.buildings.forEach((b, index) => {
                     const btn = document.createElement('button');
                     btn.className = 'building-btn';
-                    btn.setAttribute('data-id', b.id); // Gắn ID cho SortableJS
                     btn.innerHTML = `
                         <div class="icon">${icons[index % icons.length]}</div>
                         <div class="name">${b.name}</div>
                     `;
-                    // Ngăn chặn click khi đang kéo thả
-                    btn.onclick = (e) => {
-                        if (!btn.classList.contains('sortable-chosen')) {
-                            this.openBuilding(b.id, b.name);
-                        }
-                    };
+                    btn.onclick = () => this.openBuilding(b.id, b.name);
                     grid.appendChild(btn);
-                });
-            },
-
-            // --- TÍNH NĂNG KÉO THẢ (DRAG & DROP) ---
-            initSortable() {
-                const grid = document.getElementById('building-grid');
-                
-                new Sortable(grid, {
-                    animation: 150,
-                    delay: 200, // Giữ 200ms mới bắt đầu kéo (tránh nhầm với click)
-                    delayOnTouchOnly: true, // Chỉ áp dụng delay trên điện thoại
-                    ghostClass: 'sortable-ghost',
-                    chosenClass: 'sortable-chosen',
-                    onEnd: async (evt) => {
-                        // Lấy danh sách ID mới sau khi thả
-                        const itemEls = Array.from(grid.children);
-                        const updates = [];
-                        
-                        itemEls.forEach((el, index) => {
-                            const id = el.getAttribute('data-id');
-                            if (id) {
-                                updates.push({ id, sort_order: index });
-                            }
-                        });
-
-                        // Cập nhật lên Supabase
-                        try {
-                            const promises = updates.map(u => 
-                                supabaseClient.from('buildings').update({ sort_order: u.sort_order }).eq('id', u.id)
-                            );
-                            await Promise.all(promises);
-                            UI.showToast('Đã cập nhật thứ tự');
-                        } catch (err) {
-                            UI.showToast('Lỗi lưu thứ tự', true);
-                        }
-                    }
                 });
             },
 
@@ -326,7 +277,7 @@
                 
                 this.state.currentBuildingId = null;
                 this.state.currentBuildingName = '';
-                this.init(); // Reload lại để cập nhật nếu có thay đổi
+                this.init(); // Reload lại để cập nhật danh sách mới nhất
             },
 
             async deleteCurrentBuilding() {
@@ -403,17 +354,11 @@
             e.preventDefault();
             const btn = document.getElementById('btn-save-building');
             const name = document.getElementById('building-name').value.trim();
+            
             btn.innerText = 'Đang lưu...'; btn.disabled = true;
 
-            // Tìm sort_order lớn nhất để thêm vào cuối
-            const maxSort = App.state.buildings.length > 0 
-                ? Math.max(...App.state.buildings.map(b => b.sort_order || 0)) 
-                : 0;
-
-            const { error } = await supabaseClient.from('buildings').insert([{ 
-                name: name,
-                sort_order: maxSort + 1 
-            }]);
+            // Không cần sort_order nữa, chỉ insert tên
+            const { error } = await supabaseClient.from('buildings').insert([{ name: name }]);
 
             btn.innerText = 'Lưu Tòa Nhà'; btn.disabled = false;
 
@@ -422,7 +367,7 @@
             } else {
                 UI.showToast('Đã thêm tòa nhà mới');
                 UI.closeBuildingModal();
-                App.init(); // Load lại danh sách
+                App.init(); // Load lại danh sách (sẽ tự động xếp A-Z)
             }
         });
 
