@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
-// MODULE: UI (Xử lý DOM, Toast, Modal)
+// MODULE: UI (Xử lý DOM, Toast, Modal, Drawer)
 // ==========================================
 const UI = {
     showLoader(show) { document.getElementById('global-loader').classList.toggle('hidden', !show); },
@@ -13,8 +13,22 @@ const UI = {
         t.className = `toast show ${isErr ? 'error' : ''}`;
         setTimeout(() => t.classList.remove('show'), 2500);
     },
+    
+    // Quản lý Modal Bottom Sheet
     openModal(id) { document.getElementById(id).classList.add('show'); document.body.style.overflow = 'hidden'; },
     closeModal(id) { document.getElementById(id).classList.remove('show'); document.body.style.overflow = ''; },
+
+    // Quản lý Menu Drawer
+    openDrawer() { 
+        document.getElementById('sidebar').classList.add('open'); 
+        document.getElementById('drawer-overlay').classList.add('show'); 
+        document.body.style.overflow = 'hidden'; 
+    },
+    closeDrawer() { 
+        document.getElementById('sidebar').classList.remove('open'); 
+        document.getElementById('drawer-overlay').classList.remove('show'); 
+        document.body.style.overflow = ''; 
+    },
 
     // Mở Modal Sửa Tòa nhà
     openEditBuildingModal() {
@@ -31,7 +45,8 @@ const UI = {
         document.getElementById('building-modal-title').innerText = 'Thêm Tòa Nhà Mới';
         document.getElementById('building-name').value = '';
         App.state.editingBuildingId = null;
-        this.openModal('modal-building');
+        this.closeDrawer(); // Đóng menu trước khi mở modal
+        setTimeout(() => this.openModal('modal-building'), 300); // Đợi menu đóng xong mới mở modal
     },
 
     openAddAreaModal() {
@@ -118,19 +133,17 @@ const UI = {
 // ==========================================
 const App = {
     state: {
-        buildings: [], // Lưu cache danh sách tòa nhà
+        buildings: [],
         currentBuildingId: null,
         currentAreaId: null,
         areas: [],
         longPressTimer: null,
-        editingBuildingId: null // Lưu ID tòa nhà đang sửa
+        editingBuildingId: null
     },
 
     async init() {
-        // TỐI ƯU: Chỉ gọi API 1 lần để lấy toàn bộ danh sách tòa nhà
         const { data: buildings } = await supabaseClient.from('buildings').select('id, name').order('created_at', { ascending: true });
         
-        // Nếu database trống hoàn toàn, tạo mồi 1 tòa nhà mặc định
         if (!buildings || buildings.length === 0) {
             const { data: newB } = await supabaseClient.from('buildings').insert([{ name: 'Tòa nhà B1' }]).select();
             this.state.buildings = newB;
@@ -138,47 +151,34 @@ const App = {
             this.state.buildings = buildings;
         }
 
-        this.renderBuildingNav();
+        this.renderBuildingSidebar();
         this.switchBuilding(this.state.buildings[0].id);
     },
 
-    // Render thanh Bottom Nav động
-    renderBuildingNav() {
-        const nav = document.getElementById('building-nav');
-        nav.innerHTML = '';
+    // Render danh sách tòa nhà vào Menu Drawer
+    renderBuildingSidebar() {
+        const list = document.getElementById('building-list');
+        list.innerHTML = '';
 
         this.state.buildings.forEach(b => {
-            const btn = document.createElement('button');
-            btn.className = `nav-building ${b.id === this.state.currentBuildingId ? 'active' : ''}`;
-            btn.innerText = b.name;
-            btn.onclick = () => this.switchBuilding(b.id);
-            nav.appendChild(btn);
+            const div = document.createElement('div');
+            div.className = `building-item ${b.id === this.state.currentBuildingId ? 'active' : ''}`;
+            div.innerHTML = `<span>🏢 ${b.name}</span>`;
+            div.onclick = () => this.switchBuilding(b.id);
+            list.appendChild(div);
         });
-
-        // Nút Thêm Tòa Nhà ở cuối thanh Nav
-        const addBtn = document.createElement('button');
-        addBtn.className = 'nav-add-btn';
-        addBtn.innerText = '+';
-        addBtn.onclick = () => UI.openAddBuildingModal();
-        nav.appendChild(addBtn);
     },
 
-    // Chuyển tòa nhà (Nhận ID thay vì Index)
     async switchBuilding(buildingId) {
         this.state.currentBuildingId = buildingId;
+        UI.closeDrawer(); // Chọn xong thì tự động đóng menu
         
-        // Cập nhật UI Nav
-        document.querySelectorAll('.nav-building').forEach(btn => btn.classList.remove('active'));
-        const currentB = this.state.buildings.find(b => b.id === buildingId);
-        
-        // Đánh dấu active cho nút được chọn
-        const navBtns = document.querySelectorAll('.nav-building');
-        this.state.buildings.forEach((b, index) => {
-            if (b.id === buildingId && navBtns[index]) navBtns[index].classList.add('active');
-        });
+        // Cập nhật lại UI của Sidebar
+        this.renderBuildingSidebar();
 
+        const currentB = this.state.buildings.find(b => b.id === buildingId);
         document.getElementById('header-title').innerText = currentB ? currentB.name : 'Lỗi';
-        document.getElementById('btn-edit-building').style.display = 'flex'; // Hiện nút sửa
+        document.getElementById('btn-edit-building').style.display = 'flex';
 
         this.loadAreas();
     },
@@ -345,7 +345,6 @@ const App = {
 // BIND EVENTS & START
 // ==========================================
 
-// Xử lý Lưu Tòa nhà (Thêm mới hoặc Sửa)
 document.getElementById('form-building').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-save-building');
@@ -367,23 +366,25 @@ document.getElementById('form-building').addEventListener('submit', async (e) =>
 
     if (error) return UI.showToast('Lỗi: ' + error.message, true);
     
-    UI.showToast(isEdit ? 'Đã cập nhật tên tòa nhà' : 'Đã thêm tòa nhà mới');
+    UI.showToast(isEdit ? 'Đã cập nhật tên' : 'Đã thêm tòa nhà');
     UI.closeModal('modal-building');
     
-    // Reload lại danh sách tòa nhà để cập nhật giao diện
+    // Load lại danh sách tòa nhà mới
     const { data: newBuildings } = await supabaseClient.from('buildings').select('id, name').order('created_at', { ascending: true });
     App.state.buildings = newBuildings;
-    App.renderBuildingNav();
+    App.renderBuildingSidebar();
     
     if (isEdit) {
-        // Nếu đang sửa tòa nhà hiện tại, cập nhật lại header
         if (App.state.currentBuildingId === App.state.editingBuildingId) {
             document.getElementById('header-title').innerText = name;
         }
+    } else {
+        // Nếu thêm mới, tự động chuyển sang tòa nhà vừa thêm
+        const newlyAdded = newBuildings.find(b => b.name === name);
+        if (newlyAdded) App.switchBuilding(newlyAdded.id);
     }
 });
 
-// Xử lý Thêm Khu vực
 document.getElementById('form-area').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-save-area');
