@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Quản Lý Nhân Sự</title>
+    <!-- Thư viện Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Thư viện SortableJS để kéo thả -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    
     <style>
         :root {
             --primary: #007aff; --success: #34c759; --danger: #ff3b30;
@@ -22,21 +26,25 @@
         .toast.error { background: var(--danger); }
 
         /* === MÀN HÌNH 1: CHỌN TÒA NHÀ === */
-        #view-buildings { padding: 20px; animation: fadeIn 0.3s; }
-        .page-title { font-size: 24px; font-weight: 800; color: var(--primary); margin-bottom: 20px; text-align: center; }
+        #view-buildings { padding: 20px; animation: fadeIn 0.3s; padding-bottom: 80px; }
+        .page-title { font-size: 24px; font-weight: 800; color: var(--primary); margin-bottom: 5px; text-align: center; }
+        .page-subtitle { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 20px; }
+        
         .building-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-        .building-btn { background: var(--card); border: none; padding: 25px 15px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s; }
+        .building-btn { background: var(--card); border: none; padding: 25px 15px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s; touch-action: manipulation; }
         .building-btn:active { transform: scale(0.95); }
         .building-btn .icon { font-size: 30px; margin-bottom: 10px; }
         .building-btn .name { font-size: 15px; font-weight: 700; color: var(--text); text-align: center; line-height: 1.3;}
+        
+        /* CSS cho SortableJS */
+        .sortable-ghost { opacity: 0.3; background: #e5e5ea; }
+        .sortable-chosen { transform: scale(1.05); box-shadow: 0 10px 20px rgba(0,0,0,0.15); z-index: 100; }
 
         /* === MÀN HÌNH 2: DANH SÁCH NHÂN VIÊN === */
         #view-employees { animation: fadeIn 0.3s; padding-bottom: 80px; }
         .header-bar { background: var(--card); padding: 15px 20px; display: flex; align-items: center; gap: 15px; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #e5e5ea; }
         .btn-back { background: none; border: none; font-size: 24px; color: var(--primary); cursor: pointer; padding: 5px; display: flex; align-items: center; font-weight: bold; }
         .header-title { font-size: 18px; font-weight: 700; flex: 1; }
-        
-        /* Nút xoá tòa nhà */
         .btn-delete-building { background: #ffe5e5; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: var(--danger); }
 
         .employee-list { padding: 15px; display: flex; flex-direction: column; gap: 12px; }
@@ -48,7 +56,7 @@
         .btn-edit { color: var(--primary); }
         .btn-delete { color: var(--danger); }
 
-        /* Nút FAB Thêm Nhân Viên */
+        /* Nút FAB */
         .fab { position: fixed; bottom: 30px; right: 20px; padding: 0 20px; height: 56px; border-radius: 28px; background: var(--primary); color: white; font-size: 16px; font-weight: bold; border: none; box-shadow: 0 4px 12px rgba(0,122,255,0.4); z-index: 90; display: flex; align-items: center; gap: 8px; transition: transform 0.1s; }
         .fab:active { transform: scale(0.9); }
         .fab span { font-size: 24px; }
@@ -77,20 +85,25 @@
 
     <div id="toast" class="toast">Thành công!</div>
 
-    <!-- ================= MÀN HÌNH 1: 8 NÚT TÒA NHÀ ================= -->
+    <!-- ================= MÀN HÌNH 1: CHỌN TÒA NHÀ ================= -->
     <div id="view-buildings">
         <h1 class="page-title">Chọn Khu Vực</h1>
+        <p class="page-subtitle">Giữ và kéo để sắp xếp thứ tự</p>
         <div id="building-grid" class="building-grid">
             <div class="spinner" style="grid-column: span 2;"></div>
         </div>
     </div>
+
+    <!-- FAB Thêm Tòa Nhà (Chỉ hiện ở màn hình 1) -->
+    <button class="fab" id="fab-building" onclick="UI.openBuildingModal()">
+        <span>+</span> Thêm Tòa Nhà
+    </button>
 
     <!-- ================= MÀN HÌNH 2: DANH SÁCH NHÂN VIÊN ================= -->
     <div id="view-employees" class="hidden">
         <div class="header-bar">
             <button class="btn-back" onclick="App.goHome()">←</button>
             <div class="header-title" id="current-building-name">Tên tòa nhà</div>
-            <!-- Nút xoá tòa nhà -->
             <button class="btn-delete-building" id="btn-delete-building" onclick="App.deleteCurrentBuilding()">🗑️</button>
         </div>
 
@@ -98,17 +111,35 @@
             <!-- Danh sách nhân viên được JS render -->
         </div>
 
-        <button class="fab" onclick="UI.openEmployeeModal()">
+        <!-- FAB Thêm Nhân Viên (Chỉ hiện ở màn hình 2) -->
+        <button class="fab hidden" id="fab-employee" onclick="UI.openEmployeeModal()">
             <span>+</span> Thêm Nhân Viên
         </button>
     </div>
 
+    <!-- ================= MODAL: THÊM TÒA NHÀ ================= -->
+    <div id="modal-building" class="modal-overlay" onclick="UI.closeBuildingModal()">
+        <div class="bottom-sheet" onclick="event.stopPropagation()">
+            <div class="sheet-header">
+                <h2>Thêm Tòa Nhà Mới</h2>
+                <button class="close-btn" onclick="UI.closeBuildingModal()">✕</button>
+            </div>
+            <form id="form-building">
+                <div class="form-group">
+                    <label>Tên tòa nhà / khu vực</label>
+                    <input type="text" id="building-name" placeholder="VD: Nhà xe, Căng tin..." required maxlength="50">
+                </div>
+                <button type="submit" class="btn-primary" id="btn-save-building">Lưu Tòa Nhà</button>
+            </form>
+        </div>
+    </div>
+
     <!-- ================= MODAL: THÊM/SỬA NHÂN VIÊN ================= -->
-    <div id="modal-employee" class="modal-overlay" onclick="UI.closeModal()">
+    <div id="modal-employee" class="modal-overlay" onclick="UI.closeEmployeeModal()">
         <div class="bottom-sheet" onclick="event.stopPropagation()">
             <div class="sheet-header">
                 <h2 id="modal-emp-title">Thêm Nhân Viên</h2>
-                <button class="close-btn" onclick="UI.closeModal()">✕</button>
+                <button class="close-btn" onclick="UI.closeEmployeeModal()">✕</button>
             </div>
             <form id="form-employee">
                 <div class="form-group">
@@ -139,6 +170,17 @@
                 t.className = `toast show ${isErr ? 'error' : ''}`;
                 setTimeout(() => t.classList.remove('show'), 2500);
             },
+            // Modal Tòa nhà
+            openBuildingModal() {
+                document.getElementById('modal-building').classList.add('show');
+                document.body.style.overflow = 'hidden';
+            },
+            closeBuildingModal() {
+                document.getElementById('modal-building').classList.remove('show');
+                document.body.style.overflow = '';
+                document.getElementById('form-building').reset();
+            },
+            // Modal Nhân viên
             openEmployeeModal(empId = null) {
                 const title = document.getElementById('modal-emp-title');
                 const nameInput = document.getElementById('emp-name');
@@ -160,7 +202,7 @@
                 document.getElementById('modal-employee').classList.add('show');
                 document.body.style.overflow = 'hidden';
             },
-            closeModal() {
+            closeEmployeeModal() {
                 document.getElementById('modal-employee').classList.remove('show');
                 document.body.style.overflow = '';
                 document.getElementById('form-employee').reset();
@@ -180,8 +222,11 @@
             },
 
             async init() {
-                // Lấy danh sách tòa nhà từ DB
-                const { data, error } = await supabaseClient.from('buildings').select('*').order('created_at');
+                // Lấy danh sách tòa nhà (Sắp xếp theo sort_order)
+                const { data, error } = await supabaseClient
+                    .from('buildings')
+                    .select('*')
+                    .order('sort_order', { ascending: true });
                 
                 if (error) {
                     document.getElementById('building-grid').innerHTML = '<p style="color:red; grid-column: span 2; text-align:center;">Lỗi tải dữ liệu</p>';
@@ -190,6 +235,7 @@
 
                 this.state.buildings = data || [];
                 this.renderBuildings();
+                this.initSortable(); // Kích hoạt tính năng kéo thả
             },
 
             renderBuildings() {
@@ -197,21 +243,63 @@
                 grid.innerHTML = '';
 
                 if (this.state.buildings.length === 0) {
-                    grid.innerHTML = '<p style="grid-column: span 2; text-align:center;">Chưa có tòa nhà nào trong DB. Hãy chạy SQL ở Bước 1.</p>';
+                    grid.innerHTML = '<p style="grid-column: span 2; text-align:center;">Chưa có tòa nhà nào. Bấm nút Thêm bên dưới.</p>';
                     return;
                 }
 
-                const icons = ['🏢', '🏫', '🏬', '🏭', '🏗️', '📚', '🏛️', '🏠'];
+                const icons = ['🏢', '🏫', '🏬', '🏭', '🏗️', '📚', '🏛️', '🏠', '🏥', '🏨'];
 
                 this.state.buildings.forEach((b, index) => {
                     const btn = document.createElement('button');
                     btn.className = 'building-btn';
+                    btn.setAttribute('data-id', b.id); // Gắn ID cho SortableJS
                     btn.innerHTML = `
                         <div class="icon">${icons[index % icons.length]}</div>
                         <div class="name">${b.name}</div>
                     `;
-                    btn.onclick = () => this.openBuilding(b.id, b.name);
+                    // Ngăn chặn click khi đang kéo thả
+                    btn.onclick = (e) => {
+                        if (!btn.classList.contains('sortable-chosen')) {
+                            this.openBuilding(b.id, b.name);
+                        }
+                    };
                     grid.appendChild(btn);
+                });
+            },
+
+            // --- TÍNH NĂNG KÉO THẢ (DRAG & DROP) ---
+            initSortable() {
+                const grid = document.getElementById('building-grid');
+                
+                new Sortable(grid, {
+                    animation: 150,
+                    delay: 200, // Giữ 200ms mới bắt đầu kéo (tránh nhầm với click)
+                    delayOnTouchOnly: true, // Chỉ áp dụng delay trên điện thoại
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    onEnd: async (evt) => {
+                        // Lấy danh sách ID mới sau khi thả
+                        const itemEls = Array.from(grid.children);
+                        const updates = [];
+                        
+                        itemEls.forEach((el, index) => {
+                            const id = el.getAttribute('data-id');
+                            if (id) {
+                                updates.push({ id, sort_order: index });
+                            }
+                        });
+
+                        // Cập nhật lên Supabase
+                        try {
+                            const promises = updates.map(u => 
+                                supabaseClient.from('buildings').update({ sort_order: u.sort_order }).eq('id', u.id)
+                            );
+                            await Promise.all(promises);
+                            UI.showToast('Đã cập nhật thứ tự');
+                        } catch (err) {
+                            UI.showToast('Lỗi lưu thứ tự', true);
+                        }
+                    }
                 });
             },
 
@@ -221,36 +309,38 @@
                 document.getElementById('current-building-name').innerText = name;
                 
                 document.getElementById('view-buildings').classList.add('hidden');
+                document.getElementById('fab-building').classList.add('hidden');
+                
                 document.getElementById('view-employees').classList.remove('hidden');
+                document.getElementById('fab-employee').classList.remove('hidden');
                 
                 this.loadEmployees();
             },
 
             goHome() {
                 document.getElementById('view-employees').classList.add('hidden');
+                document.getElementById('fab-employee').classList.add('hidden');
+                
                 document.getElementById('view-buildings').classList.remove('hidden');
+                document.getElementById('fab-building').classList.remove('hidden');
+                
                 this.state.currentBuildingId = null;
                 this.state.currentBuildingName = '';
+                this.init(); // Reload lại để cập nhật nếu có thay đổi
             },
 
-            // --- TÍNH NĂNG XOÁ TÒA NHÀ ---
             async deleteCurrentBuilding() {
                 const bName = this.state.currentBuildingName;
                 const bId = this.state.currentBuildingId;
-                
-                // Cảnh báo kỹ lưỡng vì sẽ xoá cả nhân viên bên trong
                 const confirmMsg = `CẢNH BÁO: Bạn đang xoá tòa nhà "${bName}".\n\nToàn bộ nhân viên thuộc tòa nhà này cũng sẽ bị xoá và KHÔNG THỂ KHÔI PHỤC.\n\nBạn có chắc chắn muốn tiếp tục?`;
                 
                 if (!confirm(confirmMsg)) return;
 
                 const { error } = await supabaseClient.from('buildings').delete().eq('id', bId);
-                
-                if (error) {
-                    UI.showToast('Lỗi xoá: ' + error.message, true);
-                } else {
-                    UI.showToast('Đã xoá tòa nhà thành công');
-                    this.goHome(); // Quay về màn hình chính
-                    this.init();   // Tải lại danh sách các tòa nhà còn lại
+                if (error) UI.showToast('Lỗi xoá: ' + error.message, true);
+                else {
+                    UI.showToast('Đã xoá tòa nhà');
+                    this.goHome();
                 }
             },
 
@@ -298,9 +388,8 @@
                 if (!confirm(`Bạn có chắc muốn xoá nhân viên "${name}"?`)) return;
 
                 const { error } = await supabaseClient.from('employees').delete().eq('id', id);
-                if (error) {
-                    UI.showToast('Lỗi xoá: ' + error.message, true);
-                } else {
+                if (error) UI.showToast('Lỗi xoá: ' + error.message, true);
+                else {
                     UI.showToast('Đã xoá nhân viên');
                     this.loadEmployees();
                 }
@@ -308,7 +397,37 @@
         };
 
         // ==========================================
-        // XỬ LÝ LƯU FORM (THÊM/SỬA)
+        // XỬ LÝ FORM THÊM TÒA NHÀ
+        // ==========================================
+        document.getElementById('form-building').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save-building');
+            const name = document.getElementById('building-name').value.trim();
+            btn.innerText = 'Đang lưu...'; btn.disabled = true;
+
+            // Tìm sort_order lớn nhất để thêm vào cuối
+            const maxSort = App.state.buildings.length > 0 
+                ? Math.max(...App.state.buildings.map(b => b.sort_order || 0)) 
+                : 0;
+
+            const { error } = await supabaseClient.from('buildings').insert([{ 
+                name: name,
+                sort_order: maxSort + 1 
+            }]);
+
+            btn.innerText = 'Lưu Tòa Nhà'; btn.disabled = false;
+
+            if (error) {
+                UI.showToast('Lỗi: ' + error.message, true);
+            } else {
+                UI.showToast('Đã thêm tòa nhà mới');
+                UI.closeBuildingModal();
+                App.init(); // Load lại danh sách
+            }
+        });
+
+        // ==========================================
+        // XỬ LÝ FORM THÊM/SỬA NHÂN VIÊN
         // ==========================================
         document.getElementById('form-employee').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -321,27 +440,19 @@
 
             let error;
             if (isEdit) {
-                const res = await supabaseClient.from('employees')
-                    .update({ name, phone })
-                    .eq('id', App.state.editingEmpId);
+                const res = await supabaseClient.from('employees').update({ name, phone }).eq('id', App.state.editingEmpId);
                 error = res.error;
             } else {
-                const res = await supabaseClient.from('employees')
-                    .insert([{ 
-                        building_id: App.state.currentBuildingId, 
-                        name, 
-                        phone 
-                    }]);
+                const res = await supabaseClient.from('employees').insert([{ building_id: App.state.currentBuildingId, name, phone }]);
                 error = res.error;
             }
 
             btn.innerText = 'Lưu Thông Tin'; btn.disabled = false;
 
-            if (error) {
-                UI.showToast('Lỗi: ' + error.message, true);
-            } else {
-                UI.showToast(isEdit ? 'Đã cập nhật thông tin' : 'Đã thêm nhân viên');
-                UI.closeModal();
+            if (error) UI.showToast('Lỗi: ' + error.message, true);
+            else {
+                UI.showToast(isEdit ? 'Đã cập nhật' : 'Đã thêm nhân viên');
+                UI.closeEmployeeModal();
                 App.loadEmployees();
             }
         });
