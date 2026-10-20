@@ -44,7 +44,12 @@
         .employee-list { padding: 15px; display: flex; flex-direction: column; gap: 12px; }
         .emp-card { background: var(--card); border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
         .emp-info h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-        .emp-info p { font-size: 14px; color: var(--muted); }
+        
+        /* CSS cho link gọi điện */
+        .phone-link { display: inline-flex; align-items: center; font-size: 14px; color: var(--primary); text-decoration: none; font-weight: 500; margin-top: 2px; }
+        .phone-link:active { opacity: 0.5; }
+        .no-phone { font-size: 14px; color: var(--muted); margin-top: 2px; }
+
         .emp-actions { display: flex; gap: 10px; }
         .action-btn { background: #f2f2f7; border: none; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; }
         .btn-edit { color: var(--primary); }
@@ -164,7 +169,6 @@
                 t.className = `toast show ${isErr ? 'error' : ''}`;
                 setTimeout(() => t.classList.remove('show'), 2500);
             },
-            // Modal Tòa nhà
             openBuildingModal() {
                 document.getElementById('modal-building').classList.add('show');
                 document.body.style.overflow = 'hidden';
@@ -174,7 +178,6 @@
                 document.body.style.overflow = '';
                 document.getElementById('form-building').reset();
             },
-            // Modal Nhân viên
             openEmployeeModal(empId = null) {
                 const title = document.getElementById('modal-emp-title');
                 const nameInput = document.getElementById('emp-name');
@@ -216,11 +219,10 @@
             },
 
             async init() {
-                // Lấy danh sách tòa nhà và SẮP XẾP THEO TÊN A-Z
                 const { data, error } = await supabaseClient
                     .from('buildings')
                     .select('*')
-                    .order('name', { ascending: true }); // Sắp xếp theo bảng chữ cái
+                    .order('name', { ascending: true });
                 
                 if (error) {
                     document.getElementById('building-grid').innerHTML = '<p style="color:red; grid-column: span 2; text-align:center;">Lỗi tải dữ liệu</p>';
@@ -277,7 +279,7 @@
                 
                 this.state.currentBuildingId = null;
                 this.state.currentBuildingName = '';
-                this.init(); // Reload lại để cập nhật danh sách mới nhất
+                this.init();
             },
 
             async deleteCurrentBuilding() {
@@ -319,12 +321,19 @@
                 }
 
                 data.forEach(emp => {
+                    // Xử lý chuỗi SĐT: Xoá các ký tự không phải số (dấu cách, gạch ngang)
+                    const rawPhone = emp.phone ? emp.phone.replace(/[^0-9+]/g, '') : '';
+                    // Nếu có SĐT thì hiển thị link, không thì hiển thị chữ mờ
+                    const phoneHtml = emp.phone 
+                        ? `<a href="tel:${rawPhone}" class="phone-link">📞 ${emp.phone}</a>`
+                        : `<div class="no-phone">📞 Chưa có SĐT</div>`;
+
                     const card = document.createElement('div');
                     card.className = 'emp-card';
                     card.innerHTML = `
                         <div class="emp-info">
                             <h3>${emp.name}</h3>
-                            <p>📞 ${emp.phone || 'Chưa có SĐT'}</p>
+                            ${phoneHtml}
                         </div>
                         <div class="emp-actions">
                             <button class="action-btn btn-edit" onclick="UI.openEmployeeModal('${emp.id}')">✏️</button>
@@ -357,7 +366,6 @@
             
             btn.innerText = 'Đang lưu...'; btn.disabled = true;
 
-            // Không cần sort_order nữa, chỉ insert tên
             const { error } = await supabaseClient.from('buildings').insert([{ name: name }]);
 
             btn.innerText = 'Lưu Tòa Nhà'; btn.disabled = false;
@@ -367,7 +375,7 @@
             } else {
                 UI.showToast('Đã thêm tòa nhà mới');
                 UI.closeBuildingModal();
-                App.init(); // Load lại danh sách (sẽ tự động xếp A-Z)
+                App.init();
             }
         });
 
