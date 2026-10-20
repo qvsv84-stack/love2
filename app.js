@@ -6,23 +6,39 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // MODULE: UI (Xử lý DOM, Toast, Modal)
 // ==========================================
 const UI = {
-    showLoader(show) {
-        document.getElementById('global-loader').classList.toggle('hidden', !show);
-    },
+    showLoader(show) { document.getElementById('global-loader').classList.toggle('hidden', !show); },
     showToast(msg, isErr = false) {
         const t = document.getElementById('toast');
         t.innerText = msg;
         t.className = `toast show ${isErr ? 'error' : ''}`;
         setTimeout(() => t.classList.remove('show'), 2500);
     },
-    openModal(id) {
-        document.getElementById(id).classList.add('show');
-        document.body.style.overflow = 'hidden'; // Chặn scroll body
+    openModal(id) { document.getElementById(id).classList.add('show'); document.body.style.overflow = 'hidden'; },
+    closeModal(id) { document.getElementById(id).classList.remove('show'); document.body.style.overflow = ''; },
+
+    // Mở Modal Sửa Tòa nhà
+    openEditBuildingModal() {
+        const currentB = App.state.buildings.find(b => b.id === App.state.currentBuildingId);
+        if (!currentB) return;
+        document.getElementById('building-modal-title').innerText = 'Sửa Tên Tòa Nhà';
+        document.getElementById('building-name').value = currentB.name;
+        App.state.editingBuildingId = currentB.id;
+        this.openModal('modal-building');
     },
-    closeModal(id) {
-        document.getElementById(id).classList.remove('show');
-        document.body.style.overflow = ''; // Mở lại scroll
+
+    // Mở Modal Thêm Tòa nhà
+    openAddBuildingModal() {
+        document.getElementById('building-modal-title').innerText = 'Thêm Tòa Nhà Mới';
+        document.getElementById('building-name').value = '';
+        App.state.editingBuildingId = null;
+        this.openModal('modal-building');
     },
+
+    openAddAreaModal() {
+        document.getElementById('area-name').value = '';
+        this.openModal('modal-area');
+    },
+
     addScheduleRow(time = '', content = '') {
         const container = document.getElementById('schedule-rows');
         const wrapper = document.createElement('div');
@@ -41,19 +57,15 @@ const UI = {
 
         wrapper.appendChild(deleteBtn);
         wrapper.appendChild(row);
-        
-        // Tương tác vuốt xoá
         this.bindSwipeToDelete(row, wrapper, 60, () => wrapper.remove());
         container.appendChild(wrapper);
 
-        // UX: Tự động cuộn xuống cuối khi thêm dòng mới
         setTimeout(() => {
             const modalBody = document.querySelector('#modal-schedule .bottom-sheet');
             if (modalBody) modalBody.scrollTop = modalBody.scrollHeight;
         }, 50);
     },
 
-    // Hàm dùng chung xử lý vuốt (Swipe)
     bindSwipeToDelete(element, wrapper, deleteBtnWidth, onDelete) {
         let startX = 0, startY = 0, currentX = 0;
         let isDragging = false, isOpen = false;
@@ -61,25 +73,16 @@ const UI = {
         wrapper.querySelector('.swipe-delete-btn, .schedule-row-delete').addEventListener('click', onDelete);
 
         element.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-            isDragging = false;
-            element.style.transition = 'none';
+            startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+            isDragging = false; element.style.transition = 'none';
         }, { passive: true });
 
         element.addEventListener('touchmove', (e) => {
             if (!startX || !startY) return;
             const deltaX = e.touches[0].clientX - startX;
             const deltaY = e.touches[0].clientY - startY;
-
-            // Nếu vuốt dọc nhiều hơn ngang -> Cho phép scroll trang, không vuốt xóa
             if (!isDragging && Math.abs(deltaY) > Math.abs(deltaX)) return; 
-            
-            // Nếu vuốt ngang nhiều hơn -> Kích hoạt xóa
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                isDragging = true;
-                e.preventDefault(); // Chặn scroll khi đang vuốt xóa
-            }
+            if (Math.abs(deltaX) > Math.abs(deltaY)) { isDragging = true; e.preventDefault(); }
 
             if (isDragging) {
                 currentX = deltaX;
@@ -95,17 +98,14 @@ const UI = {
             if (isDragging) {
                 let moveX = isOpen ? currentX - deleteBtnWidth : currentX;
                 if (moveX < -deleteBtnWidth / 2) {
-                    element.style.transform = `translateX(-${deleteBtnWidth}px)`;
-                    isOpen = true;
+                    element.style.transform = `translateX(-${deleteBtnWidth}px)`; isOpen = true;
                 } else {
-                    element.style.transform = `translateX(0)`;
-                    isOpen = false;
+                    element.style.transform = `translateX(0)`; isOpen = false;
                 }
             }
             startX = 0; startY = 0;
         });
         
-        // Click ra ngoài để đóng
         element.addEventListener('click', (e) => {
             if (isDragging) { e.preventDefault(); e.stopPropagation(); return; }
             if (isOpen) { element.style.transform = 'translateX(0)'; isOpen = false; e.preventDefault(); }
@@ -118,35 +118,68 @@ const UI = {
 // ==========================================
 const App = {
     state: {
+        buildings: [], // Lưu cache danh sách tòa nhà
         currentBuildingId: null,
         currentAreaId: null,
         areas: [],
         longPressTimer: null,
+        editingBuildingId: null // Lưu ID tòa nhà đang sửa
     },
 
     async init() {
-        // Đảm bảo luôn có 5 toà nhà
-        const { data: buildings } = await supabaseClient.from('buildings').select('*').order('name');
-        if (!buildings || buildings.length < 5) {
-            for (let i = 1; i <= 5; i++) {
-                const bName = `Tòa nhà B${i}`;
-                if (!buildings || !buildings.find(b => b.name === bName)) {
-                    await supabaseClient.from('buildings').insert([{ name: bName }]);
-                }
-            }
+        // TỐI ƯU: Chỉ gọi API 1 lần để lấy toàn bộ danh sách tòa nhà
+        const { data: buildings } = await supabaseClient.from('buildings').select('id, name').order('created_at', { ascending: true });
+        
+        // Nếu database trống hoàn toàn, tạo mồi 1 tòa nhà mặc định
+        if (!buildings || buildings.length === 0) {
+            const { data: newB } = await supabaseClient.from('buildings').insert([{ name: 'Tòa nhà B1' }]).select();
+            this.state.buildings = newB;
+        } else {
+            this.state.buildings = buildings;
         }
-        this.switchBuilding(1);
+
+        this.renderBuildingNav();
+        this.switchBuilding(this.state.buildings[0].id);
     },
 
-    async switchBuilding(index) {
-        document.querySelectorAll('.nav-building').forEach(btn => btn.classList.remove('active'));
-        document.querySelector(`.nav-building[data-index="${index}"]`).classList.add('active');
-        document.getElementById('header-title').innerText = `Tòa Nhà B${index}`;
+    // Render thanh Bottom Nav động
+    renderBuildingNav() {
+        const nav = document.getElementById('building-nav');
+        nav.innerHTML = '';
 
-        const { data: bData } = await supabaseClient.from('buildings').select('id').eq('name', `Tòa nhà B${index}`).limit(1).single();
-        if (!bData) return;
+        this.state.buildings.forEach(b => {
+            const btn = document.createElement('button');
+            btn.className = `nav-building ${b.id === this.state.currentBuildingId ? 'active' : ''}`;
+            btn.innerText = b.name;
+            btn.onclick = () => this.switchBuilding(b.id);
+            nav.appendChild(btn);
+        });
+
+        // Nút Thêm Tòa Nhà ở cuối thanh Nav
+        const addBtn = document.createElement('button');
+        addBtn.className = 'nav-add-btn';
+        addBtn.innerText = '+';
+        addBtn.onclick = () => UI.openAddBuildingModal();
+        nav.appendChild(addBtn);
+    },
+
+    // Chuyển tòa nhà (Nhận ID thay vì Index)
+    async switchBuilding(buildingId) {
+        this.state.currentBuildingId = buildingId;
         
-        this.state.currentBuildingId = bData.id;
+        // Cập nhật UI Nav
+        document.querySelectorAll('.nav-building').forEach(btn => btn.classList.remove('active'));
+        const currentB = this.state.buildings.find(b => b.id === buildingId);
+        
+        // Đánh dấu active cho nút được chọn
+        const navBtns = document.querySelectorAll('.nav-building');
+        this.state.buildings.forEach((b, index) => {
+            if (b.id === buildingId && navBtns[index]) navBtns[index].classList.add('active');
+        });
+
+        document.getElementById('header-title').innerText = currentB ? currentB.name : 'Lỗi';
+        document.getElementById('btn-edit-building').style.display = 'flex'; // Hiện nút sửa
+
         this.loadAreas();
     },
 
@@ -154,13 +187,9 @@ const App = {
         const listEl = document.getElementById('area-list');
         listEl.innerHTML = '<div class="skeleton-card"></div><div class="skeleton-card"></div>';
 
-        // TỐI ƯU: Lấy luôn cả Schedules và Tasks trong 1 câu query duy nhất
         const { data, error } = await supabaseClient
             .from('areas')
-            .select(`
-                id, name, type,
-                schedules ( id, start_time, tasks ( name ) )
-            `)
+            .select(`id, name, type, schedules ( id, start_time, tasks ( name ) )`)
             .eq('building_id', this.state.currentBuildingId)
             .order('created_at', { ascending: true });
 
@@ -178,15 +207,9 @@ const App = {
         }
 
         data.forEach(area => {
-            // Sắp xếp schedule theo giờ
             const sortedSchedules = (area.schedules || []).sort((a, b) => a.start_time.localeCompare(b.start_time));
-            
             let scheduleHtml = sortedSchedules.length > 0 
-                ? sortedSchedules.map(s => `
-                    <div class="schedule-item">
-                        <span class="schedule-time">${s.start_time.substring(0,5)}</span>
-                        <span>${s.tasks?.name || 'N/A'}</span>
-                    </div>`).join('')
+                ? sortedSchedules.map(s => `<div class="schedule-item"><span class="schedule-time">${s.start_time.substring(0,5)}</span><span>${s.tasks?.name || 'N/A'}</span></div>`).join('')
                 : '<div style="color:#aaa; font-style:italic;">Chưa có giờ làm việc (Nhấn giữ để thêm)</div>';
 
             const wrapper = document.createElement('div');
@@ -199,55 +222,36 @@ const App = {
             const card = document.createElement('div');
             card.className = 'area-card';
             card.innerHTML = `
-                <div class="area-title">
-                    ${area.name}
-                    <span class="area-type-badge">${area.type === 'INDOOR' ? '🏢 Trong nhà' : '🌳 Ngoài trời'}</span>
-                </div>
+                <div class="area-title">${area.name}<span class="area-type-badge">${area.type === 'INDOOR' ? '🏢 Trong nhà' : '🌳 Ngoài trời'}</span></div>
                 <div class="area-schedules">${scheduleHtml}</div>
             `;
 
             wrapper.appendChild(deleteBtn);
             wrapper.appendChild(card);
             
-            // Gắn sự kiện Vuốt Xóa
             UI.bindSwipeToDelete(card, wrapper, 80, () => this.deleteArea(area.id, area.name));
-
-            // Gắn sự kiện Nhấn giữ
             this.bindLongPress(card, area);
-
             listEl.appendChild(wrapper);
         });
     },
 
     bindLongPress(element, area) {
         let startX = 0, startY = 0;
-        
         const startPress = (e) => {
             const touch = e.touches ? e.touches[0] : e;
-            startX = touch.clientX;
-            startY = touch.clientY;
-            
-            element.classList.add('pressed'); // Hiệu ứng visual
-            
+            startX = touch.clientX; startY = touch.clientY;
+            element.classList.add('pressed');
             this.state.longPressTimer = setTimeout(() => {
-                if (navigator.vibrate) navigator.vibrate(50); // Rung phản hồi
+                if (navigator.vibrate) navigator.vibrate(50);
                 element.classList.remove('pressed');
                 this.openScheduleModal(area);
             }, 800);
         };
-        
-        const cancelPress = () => {
-            clearTimeout(this.state.longPressTimer);
-            element.classList.remove('pressed');
-        };
-
+        const cancelPress = () => { clearTimeout(this.state.longPressTimer); element.classList.remove('pressed'); };
         const handleMove = (e) => {
             if (!this.state.longPressTimer) return;
             const touch = e.touches ? e.touches[0] : e;
-            // Nếu ngón tay di chuyển quá 10px (vuốt) -> Hủy nhấn giữ
-            if (Math.abs(touch.clientX - startX) > 10 || Math.abs(touch.clientY - startY) > 10) {
-                cancelPress();
-            }
+            if (Math.abs(touch.clientX - startX) > 10 || Math.abs(touch.clientY - startY) > 10) cancelPress();
         };
 
         element.addEventListener('touchstart', startPress);
@@ -262,11 +266,9 @@ const App = {
 
     async deleteArea(areaId, areaName) {
         if (!confirm(`Xoá khu vực "${areaName}"?\nMọi giờ làm việc bên trong cũng sẽ bị xoá.`)) return;
-        
         UI.showLoader(true);
         const { error } = await supabaseClient.from('areas').delete().eq('id', areaId);
         UI.showLoader(false);
-        
         if (error) UI.showToast('Lỗi xoá: ' + error.message, true);
         else { UI.showToast('Đã xoá khu vực'); this.loadAreas(); }
     },
@@ -275,16 +277,11 @@ const App = {
         this.state.currentAreaId = area.id;
         document.getElementById('schedule-area-title').innerText = `Giờ làm việc: ${area.name}`;
         UI.openModal('modal-schedule');
-        
         const rowsContainer = document.getElementById('schedule-rows');
         rowsContainer.innerHTML = '';
-
         const existing = area.schedules || [];
-        if (existing.length > 0) {
-            existing.forEach(s => UI.addScheduleRow(s.start_time.substring(0,5), s.tasks?.name || ''));
-        } else {
-            UI.addScheduleRow();
-        }
+        if (existing.length > 0) existing.forEach(s => UI.addScheduleRow(s.start_time.substring(0,5), s.tasks?.name || ''));
+        else UI.addScheduleRow();
     },
 
     async saveSchedules() {
@@ -296,13 +293,11 @@ const App = {
         UI.showLoader(true);
 
         try {
-            // 1. Thu thập dữ liệu từ form (Giữ nguyên các dòng trùng giờ)
             const formData = Array.from(rows).map(row => ({
                 time: row.querySelector('.input-time').value,
                 taskName: row.querySelector('.input-task').value.trim()
             })).filter(item => item.time && item.taskName);
 
-            // 2. Xoá tất cả lịch trình cũ của khu vực này
             await supabaseClient.from('schedules').delete().eq('area_id', this.state.currentAreaId);
 
             if (formData.length === 0) {
@@ -312,21 +307,17 @@ const App = {
                 return;
             }
 
-            // 3. Lấy danh sách các Task hiện có (Tối ưu Bulk)
             const uniqueTaskNames = [...new Set(formData.map(f => f.taskName))];
             const { data: existingTasks } = await supabaseClient.from('tasks').select('id, name').in('name', uniqueTaskNames);
-            
             const taskMap = new Map(existingTasks.map(t => [t.name, t.id]));
             const newTaskNames = uniqueTaskNames.filter(name => !taskMap.has(name));
 
-            // 4. Insert các Task mới (nếu có) - Bulk Insert
             if (newTaskNames.length > 0) {
                 const newTasksPayload = newTaskNames.map(name => ({ name }));
                 const { data: createdTasks } = await supabaseClient.from('tasks').insert(newTasksPayload).select();
                 createdTasks.forEach(t => taskMap.set(t.name, t.id));
             }
 
-            // 5. Tạo payload Schedules và Bulk Insert (Không chặn trùng giờ)
             const schedulesPayload = formData.map(item => ({
                 area_id: this.state.currentAreaId,
                 task_id: taskMap.get(item.taskName),
@@ -353,23 +344,58 @@ const App = {
 // ==========================================
 // BIND EVENTS & START
 // ==========================================
+
+// Xử lý Lưu Tòa nhà (Thêm mới hoặc Sửa)
+document.getElementById('form-building').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-building');
+    const name = document.getElementById('building-name').value.trim();
+    const isEdit = App.state.editingBuildingId !== null;
+
+    btn.innerText = 'Đang lưu...'; btn.disabled = true;
+
+    let error;
+    if (isEdit) {
+        const res = await supabaseClient.from('buildings').update({ name }).eq('id', App.state.editingBuildingId);
+        error = res.error;
+    } else {
+        const res = await supabaseClient.from('buildings').insert([{ name }]);
+        error = res.error;
+    }
+
+    btn.innerText = 'Lưu Tòa Nhà'; btn.disabled = false;
+
+    if (error) return UI.showToast('Lỗi: ' + error.message, true);
+    
+    UI.showToast(isEdit ? 'Đã cập nhật tên tòa nhà' : 'Đã thêm tòa nhà mới');
+    UI.closeModal('modal-building');
+    
+    // Reload lại danh sách tòa nhà để cập nhật giao diện
+    const { data: newBuildings } = await supabaseClient.from('buildings').select('id, name').order('created_at', { ascending: true });
+    App.state.buildings = newBuildings;
+    App.renderBuildingNav();
+    
+    if (isEdit) {
+        // Nếu đang sửa tòa nhà hiện tại, cập nhật lại header
+        if (App.state.currentBuildingId === App.state.editingBuildingId) {
+            document.getElementById('header-title').innerText = name;
+        }
+    }
+});
+
+// Xử lý Thêm Khu vực
 document.getElementById('form-area').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-save-area');
     const name = document.getElementById('area-name').value.trim();
     const type = document.getElementById('area-type').value;
     
-    // Check trùng tên khu vực (Vẫn giữ để tránh tạo 2 khu vực cùng tên)
     if (App.state.areas.some(a => a.name.toLowerCase() === name.toLowerCase())) {
         return UI.showToast('Tên khu vực này đã tồn tại!', true);
     }
 
     btn.innerText = 'Đang lưu...'; btn.disabled = true;
-    
-    const { error } = await supabaseClient.from('areas').insert([{ 
-        building_id: App.state.currentBuildingId, name, type 
-    }]);
-
+    const { error } = await supabaseClient.from('areas').insert([{ building_id: App.state.currentBuildingId, name, type }]);
     btn.innerText = 'Tạo Khu Vực'; btn.disabled = false;
 
     if (error) UI.showToast('Lỗi: ' + error.message, true);
