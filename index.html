@@ -3,495 +3,508 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Quản Lý Nhân Sự - Pro</title>
+    <title>Giám sát vệ sinh - ĐH XH&NV</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <style>
         :root {
             --primary: #007aff; --success: #34c759; --danger: #ff3b30;
-            --bg: #f2f2f7; --card: #ffffff; --text: #1c1c1e; --muted: #8e8e93;
+            --bg: #f2f2f7; --card: #fff; --text: #1c1c1e; --muted: #8e8e93;
+            --nav-h: 62px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: var(--text); overflow-x: hidden; }
 
-        .hidden { display: none !important; }
-        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; visibility: hidden; transition: 0.3s; z-index: 9999; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
-        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
-        .toast.error { background: var(--danger); }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* ===== HEADER ===== */
+        .app-header {
+            background: linear-gradient(135deg, #007aff 0%, #0051d5 100%);
+            color: #fff; padding: 16px 20px 20px; text-align: center;
+            box-shadow: 0 3px 14px rgba(0,122,255,0.35);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .app-header h1 {
+            font-size: 19px; font-weight: 800; line-height: 1.25; letter-spacing: 0.3px;
+        }
+        .app-header h1 .sub {
+            display: block; font-size: 13.5px; font-weight: 600;
+            opacity: 0.94; margin-top: 3px; letter-spacing: 0.2px;
+        }
+
+        /* ===== VIEWS ===== */
+        .view {
+            display: none; padding: 16px;
+            padding-bottom: calc(var(--nav-h) + 90px);
+            animation: fadeIn 0.25s;
+        }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        /* MÀN HÌNH 1 */
-        #view-buildings { padding: 20px; padding-bottom: 80px; }
-        .page-title { font-size: 24px; font-weight: 800; color: var(--primary); margin-bottom: 5px; text-align: center; }
-        .page-subtitle { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 20px; }
-        .building-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-        .building-btn { background: var(--card); border: none; padding: 25px 15px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s; touch-action: manipulation; animation: fadeIn 0.3s; }
-        .building-btn:active { transform: scale(0.95); background: #f8f8f8; }
-        .building-btn .icon { font-size: 30px; margin-bottom: 10px; }
-        .building-btn .name { font-size: 15px; font-weight: 700; color: var(--text); text-align: center; line-height: 1.3;}
+        .section-title {
+            font-size: 12px; color: var(--muted); text-transform: uppercase;
+            letter-spacing: 0.5px; font-weight: 700; margin: 4px 4px 12px;
+        }
 
-        /* MÀN HÌNH 2 */
-        #view-employees { padding-bottom: 80px; }
-        .header-bar { background: var(--card); padding: 15px 20px; display: flex; align-items: center; gap: 15px; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #e5e5ea; }
-        .btn-back { background: none; border: none; font-size: 24px; color: var(--primary); cursor: pointer; padding: 5px; display: flex; align-items: center; font-weight: bold; }
-        .header-title { font-size: 18px; font-weight: 700; flex: 1; }
-        .btn-delete-building { background: #ffe5e5; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: var(--danger); }
+        /* ===== BOTTOM NAV ===== */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: var(--card); display: flex; height: var(--nav-h);
+            padding-bottom: env(safe-area-inset-bottom);
+            border-top: 1px solid #e5e5ea; z-index: 150;
+            box-shadow: 0 -2px 14px rgba(0,0,0,0.05);
+        }
+        .nav-item {
+            flex: 1; background: none; border: none; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
+            gap: 2px; color: var(--muted); font-size: 11px; font-weight: 600;
+            cursor: pointer; transition: color 0.2s;
+        }
+        .nav-item .nav-icon { font-size: 22px; line-height: 1; transition: transform 0.2s; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item.active .nav-icon { transform: scale(1.15); }
 
-        .employee-list { padding: 15px; display: flex; flex-direction: column; gap: 12px; }
-        .emp-card { background: var(--card); border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); animation: fadeIn 0.3s; }
-        .emp-info h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; word-break: break-word; }
-        
-        .phone-link { display: inline-flex; align-items: center; font-size: 14px; color: var(--primary); text-decoration: none; font-weight: 500; margin-top: 2px; }
+        /* ===== TOAST ===== */
+        .toast {
+            position: fixed; top: 20px; left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: #333; color: #fff; padding: 10px 20px;
+            border-radius: 20px; font-size: 14px; opacity: 0; visibility: hidden;
+            transition: 0.3s; z-index: 9999;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+        .toast.error { background: var(--danger); }
+
+        /* ===== FAB ===== */
+        .fab {
+            position: fixed; bottom: calc(var(--nav-h) + 16px); right: 20px;
+            padding: 0 20px; height: 52px; border-radius: 26px;
+            background: var(--primary); color: #fff; font-size: 15px; font-weight: 700;
+            border: none; box-shadow: 0 4px 14px rgba(0,122,255,0.45);
+            z-index: 90; display: flex; align-items: center; gap: 6px;
+        }
+        .fab:active { transform: scale(0.92); }
+        .fab span { font-size: 22px; }
+        .fab.hidden { display: none; }
+
+        /* ===== CARDS ===== */
+        .card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .card-btn {
+            background: var(--card); border: none; padding: 22px 12px;
+            border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 8px; cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+        }
+        .card-btn:active { transform: scale(0.95); background: #f8f8f8; }
+        .card-btn .icon { font-size: 28px; }
+        .card-btn .name { font-size: 14px; font-weight: 700; text-align: center; line-height: 1.3; word-break: break-word; }
+
+        /* ===== EMPLOYEE LIST ===== */
+        .emp-list { display: flex; flex-direction: column; gap: 10px; }
+        .emp-card {
+            background: var(--card); border-radius: 12px; padding: 14px;
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+        .emp-info { flex: 1; min-width: 0; }
+        .emp-info h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; word-break: break-word; }
+        .emp-info .role { font-size: 12px; color: var(--muted); margin-bottom: 3px; font-weight: 500; }
+        .phone-link {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 600;
+        }
         .phone-link:active { opacity: 0.5; }
-        .no-phone { font-size: 14px; color: var(--muted); margin-top: 2px; }
 
-        .emp-actions { display: flex; gap: 10px; }
-        .action-btn { background: #f2f2f7; border: none; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; }
-        .btn-edit { color: var(--primary); }
-        .btn-delete { color: var(--danger); }
+        /* ===== SEARCH ===== */
+        .search-bar {
+            width: 100%; padding: 12px 16px; border-radius: 12px;
+            border: none; background: #fff; font-size: 15px;
+            margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); outline: none;
+        }
+        .search-bar:focus { box-shadow: 0 0 0 2px var(--primary); }
 
-        /* Skeleton Loading */
-        .skeleton-card { height: 76px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 12px; }
+        /* ===== EMPTY & SKELETON ===== */
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+        .empty-state .icon { font-size: 48px; margin-bottom: 10px; display: block; opacity: 0.5; }
+        .skeleton-card {
+            height: 68px;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%; animation: shimmer 1.5s infinite;
+            border-radius: 12px; margin-bottom: 10px;
+        }
 
-        /* FAB */
-        .fab { position: fixed; bottom: 30px; right: 20px; padding: 0 20px; height: 56px; border-radius: 28px; background: var(--primary); color: white; font-size: 16px; font-weight: bold; border: none; box-shadow: 0 4px 12px rgba(0,122,255,0.4); z-index: 90; display: flex; align-items: center; gap: 8px; transition: transform 0.1s; }
-        .fab:active { transform: scale(0.9); }
-        .fab span { font-size: 24px; }
+        /* ===== SCHEDULE ===== */
+        .day-tabs {
+            display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px;
+            padding-bottom: 4px; scrollbar-width: none;
+        }
+        .day-tabs::-webkit-scrollbar { display: none; }
+        .day-chip {
+            flex: 0 0 auto; padding: 10px 14px; border-radius: 12px;
+            background: #fff; border: none; font-size: 13px; font-weight: 700;
+            color: var(--muted); cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            transition: all 0.2s;
+        }
+        .day-chip.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(0,122,255,0.35); }
 
-        /* Modals */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; opacity: 0; visibility: hidden; transition: 0.3s; display: flex; align-items: flex-end; }
+        .class-card {
+            background: var(--card); border-radius: 12px; padding: 14px;
+            margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            border-left: 4px solid var(--primary);
+        }
+        .class-card .time { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+        .class-card .subject { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+        .class-card .room { font-size: 13px; color: var(--muted); }
+
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            z-index: 200; opacity: 0; visibility: hidden; transition: 0.3s;
+            display: flex; align-items: flex-end;
+        }
         .modal-overlay.show { opacity: 1; visibility: visible; }
-        .bottom-sheet { background: var(--card); width: 100%; border-radius: 20px 20px 0 0; padding: 20px; transform: translateY(100%); transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+        .bottom-sheet {
+            background: var(--card); width: 100%; border-radius: 20px 20px 0 0;
+            padding: 20px; transform: translateY(100%);
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1);
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+        }
         .modal-overlay.show .bottom-sheet { transform: translateY(0); }
-        .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .close-btn { background: #e5e5ea; border: none; width: 30px; height: 30px; border-radius: 15px; font-weight: bold; color: var(--muted); }
-        
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
-        input { width: 100%; padding: 14px; border: 1px solid #d1d1d6; border-radius: 10px; font-size: 16px; background: #f9f9fb; outline: none; -webkit-appearance: none; transition: border 0.2s; }
-        input:focus { border-color: var(--primary); background: #fff; }
-        
-        .btn-primary { width: 100%; background: var(--primary); color: white; padding: 15px; border-radius: 10px; border: none; font-weight: 600; font-size: 16px; margin-top: 10px; }
+        .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .sheet-header h2 { font-size: 18px; font-weight: 700; }
+        .close-btn {
+            background: #e5e5ea; border: none; width: 30px; height: 30px;
+            border-radius: 15px; font-weight: bold; color: var(--muted); cursor: pointer;
+        }
+        .form-group { margin-bottom: 14px; }
+        .form-group label {
+            display: block; font-size: 12px; color: var(--muted);
+            margin-bottom: 5px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .form-group input {
+            width: 100%; padding: 13px; border: 1px solid #d1d1d6;
+            border-radius: 10px; font-size: 15px; background: #f9f9fb;
+            outline: none; -webkit-appearance: none;
+        }
+        .form-group input:focus { border-color: var(--primary); background: #fff; }
+        .btn-primary {
+            width: 100%; background: var(--primary); color: #fff;
+            padding: 14px; border-radius: 10px; border: none;
+            font-weight: 600; font-size: 15px; margin-top: 6px; cursor: pointer;
+        }
         .btn-primary:disabled { opacity: 0.6; }
     </style>
 </head>
 <body>
 
+    <header class="app-header">
+        <h1>
+            Giám sát vệ sinh
+            <span class="sub">ĐH Xã Hội và Nhân Văn</span>
+        </h1>
+    </header>
+
     <div id="toast" class="toast">Thành công!</div>
 
-    <!-- MÀN HÌNH 1 -->
-    <div id="view-buildings">
-        <h1 class="page-title">Chọn Khu Vực</h1>
-        <p class="page-subtitle">Dữ liệu được xếp A-Z</p>
-        <div id="building-grid" class="building-grid">
-            <div class="skeleton-card" style="height: 100px;"></div>
-            <div class="skeleton-card" style="height: 100px;"></div>
+    <!-- ===== TAB 1: CÔNG TRÌNH ===== -->
+    <section id="view-cong-trinh" class="view active">
+        <p class="section-title">Khu vực / Công trình</p>
+        <div id="grid-cong-trinh" class="card-grid">
+            <div class="skeleton-card" style="height:100px;"></div>
+            <div class="skeleton-card" style="height:100px;"></div>
         </div>
-    </div>
+    </section>
 
-    <button class="fab" id="fab-building" onclick="UI.openBuildingModal()">
-        <span>+</span> Thêm Tòa Nhà
+    <!-- ===== TAB 2: NHÂN SỰ ===== -->
+    <section id="view-nhan-su" class="view">
+        <input type="text" id="search-nhan-su" class="search-bar" placeholder="🔍 Tìm tên / SĐT...">
+        <p class="section-title">Danh sách nhân sự</p>
+        <div id="list-nhan-su" class="emp-list">
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+        </div>
+    </section>
+
+    <!-- ===== TAB 3: LỊCH HỌC ===== -->
+    <section id="view-lich-hoc" class="view">
+        <p class="section-title">Lịch học tuần này</p>
+        <div id="day-tabs" class="day-tabs"></div>
+        <div id="list-lich-hoc"></div>
+    </section>
+
+    <!-- FAB -->
+    <button class="fab" id="fab-cong-trinh" onclick="UI.openModal('modal-cong-trinh')">
+        <span>+</span> Thêm
     </button>
 
-    <!-- MÀN HÌNH 2 -->
-    <div id="view-employees" class="hidden">
-        <div class="header-bar">
-            <button class="btn-back" id="btn-back">←</button>
-            <div class="header-title" id="current-building-name">Tên tòa nhà</div>
-            <button class="btn-delete-building" id="btn-delete-building">🗑️</button>
+    <!-- MODAL: CÔNG TRÌNH -->
+    <div id="modal-cong-trinh" class="modal-overlay" onclick="UI.closeModal('modal-cong-trinh')">
+        <div class="bottom-sheet" onclick="event.stopPropagation()">
+            <div class="sheet-header">
+                <h2>Thêm Công Trình</h2>
+                <button class="close-btn" onclick="UI.closeModal('modal-cong-trinh')">✕</button>
+            </div>
+            <form id="form-cong-trinh">
+                <div class="form-group">
+                    <label>Tên công trình / khu vực</label>
+                    <input type="text" id="ct-name" placeholder="VD: Nhà A, Sân trường..." required maxlength="50">
+                </div>
+                <button type="submit" class="btn-primary" id="btn-save-ct">Lưu Công Trình</button>
+            </form>
         </div>
+    </div>
 
-        <div id="employee-list" class="employee-list"></div>
-
-        <button class="fab hidden" id="fab-employee" onclick="UI.openEmployeeModal()">
-            <span>+</span> Thêm Nhân Viên
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-tab="cong-trinh">
+            <span class="nav-icon">🏢</span>
+            <span>Công trình</span>
         </button>
-    </div>
+        <button class="nav-item" data-tab="nhan-su">
+            <span class="nav-icon">👥</span>
+            <span>Nhân sự</span>
+        </button>
+        <button class="nav-item" data-tab="lich-hoc">
+            <span class="nav-icon">📅</span>
+            <span>Lịch học</span>
+        </button>
+    </nav>
 
-    <!-- MODALS -->
-    <div id="modal-building" class="modal-overlay" onclick="UI.closeBuildingModal()">
-        <div class="bottom-sheet" onclick="event.stopPropagation()">
-            <div class="sheet-header">
-                <h2>Thêm Tòa Nhà Mới</h2>
-                <button class="close-btn" onclick="UI.closeBuildingModal()">✕</button>
-            </div>
-            <form id="form-building">
-                <div class="form-group">
-                    <label>Tên tòa nhà / khu vực</label>
-                    <input type="text" id="building-name" placeholder="VD: Nhà xe, Căng tin..." required maxlength="50">
-                </div>
-                <button type="submit" class="btn-primary" id="btn-save-building">Lưu Tòa Nhà</button>
-            </form>
-        </div>
-    </div>
+<script>
+// ============================================================
+// 1. CONFIG & UTILS
+// ============================================================
+const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    <div id="modal-employee" class="modal-overlay" onclick="UI.closeEmployeeModal()">
-        <div class="bottom-sheet" onclick="event.stopPropagation()">
-            <div class="sheet-header">
-                <h2 id="modal-emp-title">Thêm Nhân Viên</h2>
-                <button class="close-btn" onclick="UI.closeEmployeeModal()">✕</button>
-            </div>
-            <form id="form-employee">
-                <div class="form-group">
-                    <label>Tên nhân viên</label>
-                    <input type="text" id="emp-name" placeholder="VD: Nguyễn Văn A" required maxlength="50">
-                </div>
-                <div class="form-group">
-                    <label>Số điện thoại</label>
-                    <input type="tel" id="emp-phone" placeholder="VD: 0901234567" required maxlength="15" pattern="[0-9+\s\-]+">
-                </div>
-                <button type="submit" class="btn-primary" id="btn-save-emp">Lưu Thông Tin</button>
-            </form>
-        </div>
-    </div>
+// ⚠️ SỬA TÊN BẢNG NHÂN SỰ CỦA BẠN Ở ĐÂY
+const TABLE_NHAN_SU = 'nhan_su';    // ← đổi thành tên bảng thật của bạn
+const TABLE_CONG_TRINH = 'cong_trinh';
 
-    <script>
-        // ==========================================
-        // 1. CONFIG & UTILS (Chống XSS, Haptic)
-        // ==========================================
-        const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const Utils = {
+    escapeHTML(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>'"]/g, t => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[t]));
+    },
+    cleanPhone(p) { return p ? String(p).replace(/[^0-9+]/g, '') : ''; },
+    vibrate(ms = 10) { if (navigator.vibrate) navigator.vibrate(ms); }
+};
 
-        const Utils = {
-            // Ngăn chặn mã độc XSS
-            escapeHTML(str) {
-                if (!str) return '';
-                return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
-            },
-            // Rung phản hồi (Haptic Feedback) trên iOS/Android
-            vibrate(ms = 10) {
-                if (navigator.vibrate) navigator.vibrate(ms);
-            },
-            // Format số điện thoại để gọi
-            cleanPhone(phone) {
-                return phone ? phone.replace(/[^0-9+]/g, '') : '';
-            }
+// ============================================================
+// 2. UI MODULE
+// ============================================================
+const UI = {
+    els: {},
+    init() {
+        this.els = {
+            toast: document.getElementById('toast'),
+            gridCT: document.getElementById('grid-cong-trinh'),
+            listNS: document.getElementById('list-nhan-su'),
+            searchNS: document.getElementById('search-nhan-su'),
+            dayTabs: document.getElementById('day-tabs'),
+            listLH: document.getElementById('list-lich-hoc'),
+            fabCT: document.getElementById('fab-cong-trinh'),
         };
+    },
+    showToast(msg, isErr = false) {
+        const t = this.els.toast;
+        t.innerText = msg;
+        t.className = `toast show ${isErr ? 'error' : ''}`;
+        setTimeout(() => t.classList.remove('show'), 2500);
+    },
+    openModal(id) { document.getElementById(id).classList.add('show'); document.body.style.overflow = 'hidden'; },
+    closeModal(id) { document.getElementById(id).classList.remove('show'); document.body.style.overflow = ''; },
+    switchTab(tab) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(`view-${tab}`).classList.add('active');
+        document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
+        // FAB chỉ hiện ở tab Công trình
+        this.els.fabCT.classList.toggle('hidden', tab !== 'cong-trinh');
+        Utils.vibrate();
+    }
+};
 
-        // ==========================================
-        // 2. UI MODULE (Quản lý DOM & Modals)
-        // ==========================================
-        const UI = {
-            els: {}, // Cache DOM Elements
-            init() {
-                this.els = {
-                    viewB: document.getElementById('view-buildings'),
-                    viewE: document.getElementById('view-employees'),
-                    grid: document.getElementById('building-grid'),
-                    list: document.getElementById('employee-list'),
-                    fabB: document.getElementById('fab-building'),
-                    fabE: document.getElementById('fab-employee'),
-                    title: document.getElementById('current-building-name'),
-                    toast: document.getElementById('toast'),
-                };
-            },
-            showToast(msg, isErr = false) {
-                const t = this.els.toast;
-                t.innerText = msg;
-                t.className = `toast show ${isErr ? 'error' : ''}`;
-                setTimeout(() => t.classList.remove('show'), 2500);
-            },
-            openBuildingModal() { document.getElementById('modal-building').classList.add('show'); document.body.style.overflow = 'hidden'; },
-            closeBuildingModal() { document.getElementById('modal-building').classList.remove('show'); document.body.style.overflow = ''; document.getElementById('form-building').reset(); },
-            openEmployeeModal(emp = null) {
-                const title = document.getElementById('modal-emp-title');
-                const nameInput = document.getElementById('emp-name');
-                const phoneInput = document.getElementById('emp-phone');
-                
-                if (emp) {
-                    title.innerText = 'Sửa Thông Tin';
-                    nameInput.value = emp.name;
-                    phoneInput.value = emp.phone || '';
-                    App.state.editingEmpId = emp.id;
-                } else {
-                    title.innerText = 'Thêm Nhân Viên';
-                    nameInput.value = '';
-                    phoneInput.value = '';
-                    App.state.editingEmpId = null;
-                }
-                document.getElementById('modal-employee').classList.add('show');
-                document.body.style.overflow = 'hidden';
-            },
-            closeEmployeeModal() { document.getElementById('modal-employee').classList.remove('show'); document.body.style.overflow = ''; document.getElementById('form-employee').reset(); }
-        };
+// ============================================================
+// 3. APP MODULE
+// ============================================================
+const App = {
+    state: {
+        congTrinh: [],
+        nhanSu: [],
+        lichHoc: [],
+        selectedDay: new Date().getDay() || 7, // 1=T2 ... 7=CN
+    },
 
-        // ==========================================
-        // 3. APP MODULE (Xử lý Logic & Data)
-        // ==========================================
-        const App = {
-            state: {
-                buildings: [],
-                currentBuildingId: null,
-                currentBuildingName: '',
-                employeesCache: {},
-                editingEmpId: null
-            },
-            reqCounter: 0, // Ngăn chặn Race Condition
+    async init() {
+        // Load song song 3 tab
+        this.loadCongTrinh();
+        this.loadNhanSu();
+        this.renderLichHoc();
+    },
 
-            async init() {
-                const { data } = await supabaseClient.from('buildings').select('*').order('name', { ascending: true });
-                this.state.buildings = data || [];
-                this.renderBuildings();
-            },
+    // ---------- CÔNG TRÌNH ----------
+    async loadCongTrinh() {
+        const { data, error } = await supabaseClient
+            .from(TABLE_CONG_TRINH).select('*').order('name', { ascending: true });
 
-            renderBuildings() {
-                const grid = UI.els.grid;
-                grid.innerHTML = '';
+        if (error) {
+            // Nếu bảng chưa tồn tại, hiện rỗng chứ không báo lỗi
+            this.renderCongTrinh([]);
+            return;
+        }
+        this.state.congTrinh = data || [];
+        this.renderCongTrinh(this.state.congTrinh);
+    },
+    renderCongTrinh(data) {
+        const el = UI.els.gridCT;
+        if (!data.length) {
+            el.innerHTML = `<div class="empty-state" style="grid-column:span 2"><span class="icon">🏢</span>Chưa có công trình nào.<br>Nhấn "+ Thêm" để bắt đầu.</div>`;
+            return;
+        }
+        const icons = ['🏢','🏫','🏬','🏭','🏗️','📚','🏛️','🏠','🏥','🏨'];
+        el.innerHTML = data.map((b, i) => `
+            <button class="card-btn" data-id="${b.id}">
+                <div class="icon">${icons[i % icons.length]}</div>
+                <div class="name">${Utils.escapeHTML(b.name)}</div>
+            </button>
+        `).join('');
+    },
 
-                if (this.state.buildings.length === 0) {
-                    grid.innerHTML = '<p style="grid-column: span 2; text-align:center; padding: 20px;">Chưa có tòa nhà nào.</p>';
-                    return;
-                }
+    // ---------- NHÂN SỰ ----------
+    async loadNhanSu() {
+        // CÁCH LẤY DATA NHÂN SỰ QUA SUPABASE (SQL bên dưới)
+        const { data, error } = await supabaseClient
+            .from(TABLE_NHAN_SU)
+            .select('*')
+            .order('ho_ten', { ascending: true });
 
-                const icons = ['🏢', '🏫', '🏬', '🏭', '🏗️', '📚', '🏛️', '🏠', '🏥', '🏨'];
-                const fragment = document.createDocumentFragment(); // Tối ưu Reflow
+        if (error) {
+            UI.els.listNS.innerHTML = `<div class="empty-state"><span class="icon">⚠️</span>Lỗi tải nhân sự:<br>${Utils.escapeHTML(error.message)}</div>`;
+            return;
+        }
+        this.state.nhanSu = data || [];
+        this.renderNhanSu(this.state.nhanSu);
+    },
+    renderNhanSu(data) {
+        const el = UI.els.listNS;
+        if (!data.length) {
+            el.innerHTML = `<div class="empty-state"><span class="icon">👥</span>Chưa có nhân sự nào.</div>`;
+            return;
+        }
+        el.innerHTML = data.map(emp => {
+            // Tự nhận diện tên cột (linh hoạt với schema của bạn)
+            const name = emp.ho_ten || emp.name || emp.ten || '(Không tên)';
+            const phone = emp.sdt || emp.phone || emp.dien_thoai || '';
+            const role = emp.chuc_vu || emp.role || '';
+            const area = emp.khu_vuc || emp.area || '';
 
-                this.state.buildings.forEach((b, index) => {
-                    const btn = document.createElement('button');
-                    btn.className = 'building-btn';
-                    btn.innerHTML = `
-                        <div class="icon">${icons[index % icons.length]}</div>
-                        <div class="name">${Utils.escapeHTML(b.name)}</div>
-                    `;
-                    // Dùng Event Listener thay vì onclick inline
-                    btn.addEventListener('click', () => {
-                        Utils.vibrate();
-                        this.openBuilding(b.id, b.name);
-                    });
-                    fragment.appendChild(btn);
-                });
-                grid.appendChild(fragment);
-            },
+            const phoneHtml = phone
+                ? `<a href="tel:${Utils.cleanPhone(phone)}" class="phone-link">📞 ${Utils.escapeHTML(phone)}</a>`
+                : `<div style="font-size:13px;color:var(--muted)">📞 Chưa có SĐT</div>`;
 
-            openBuilding(id, name) {
-                this.state.currentBuildingId = id;
-                this.state.currentBuildingName = name;
-                UI.els.title.innerText = name;
-                
-                UI.els.viewB.classList.add('hidden');
-                UI.els.fabB.classList.add('hidden');
-                UI.els.viewE.classList.remove('hidden');
-                UI.els.fabE.classList.remove('hidden');
-                
-                if (this.state.employeesCache[id]) {
-                    this.renderEmployees(this.state.employeesCache[id]);
-                    this.fetchEmployees(id, true); 
-                } else {
-                    UI.els.list.innerHTML = `<div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>`;
-                    this.fetchEmployees(id, false);
-                }
-            },
-
-            goHome() {
-                Utils.vibrate();
-                UI.els.viewE.classList.add('hidden');
-                UI.els.fabE.classList.add('hidden');
-                UI.els.viewB.classList.remove('hidden');
-                UI.els.fabB.classList.remove('hidden');
-                this.state.currentBuildingId = null;
-            },
-
-            async fetchEmployees(buildingId, isBackground = false) {
-                // Ngăn chặn Race Condition: Lưu lại request hiện tại
-                const currentReq = ++this.reqCounter;
-
-                const { data, error } = await supabaseClient
-                    .from('employees')
-                    .select('id, name, phone, created_at')
-                    .eq('building_id', buildingId)
-                    .order('created_at', { ascending: false });
-
-                // Nếu request này không phải là request mới nhất (user đã chuyển sang tòa nhà khác) -> Hủy bỏ
-                if (currentReq !== this.reqCounter) return;
-
-                if (error) {
-                    if (!isBackground) UI.els.list.innerHTML = '<p style="text-align:center; color:red;">Lỗi tải dữ liệu</p>';
-                    return;
-                }
-
-                this.state.employeesCache[buildingId] = data || [];
-                
-                if (this.state.currentBuildingId === buildingId) {
-                    this.renderEmployees(data);
-                }
-            },
-
-            renderEmployees(data) {
-                const listEl = UI.els.list;
-                listEl.innerHTML = '';
-
-                if (data.length === 0) {
-                    listEl.innerHTML = '<p style="text-align:center; color:#888; margin-top:30px;">Chưa có nhân viên nào.</p>';
-                    return;
-                }
-
-                const fragment = document.createDocumentFragment();
-
-                data.forEach(emp => {
-                    const rawPhone = Utils.cleanPhone(emp.phone);
-                    const phoneHtml = emp.phone 
-                        ? `<a href="tel:${rawPhone}" class="phone-link">📞 ${Utils.escapeHTML(emp.phone)}</a>`
-                        : `<div class="no-phone">📞 Chưa có SĐT</div>`;
-
-                    const card = document.createElement('div');
-                    card.className = 'emp-card';
-                    card.innerHTML = `
-                        <div class="emp-info">
-                            <h3>${Utils.escapeHTML(emp.name)}</h3>
-                            ${phoneHtml}
-                        </div>
-                        <div class="emp-actions">
-                            <button class="action-btn btn-edit" data-id="${emp.id}">✏️</button>
-                            <button class="action-btn btn-delete" data-id="${emp.id}" data-name="${Utils.escapeHTML(emp.name)}">🗑️</button>
-                        </div>
-                    `;
-                    fragment.appendChild(card);
-                });
-                listEl.appendChild(fragment);
-            },
-
-            // --- OPTIMISTIC UI: XÓA TỨC THỜI ---
-            async deleteEmployee(id, name) {
-                if (!confirm(`Bạn có chắc muốn xoá nhân viên "${name}"?`)) return;
-                Utils.vibrate(50);
-
-                const bId = this.state.currentBuildingId;
-                const originalData = [...this.state.employeesCache[bId]];
-
-                // 1. XÓA TRÊN UI NGAY LẬP TỨC (Optimistic)
-                this.state.employeesCache[bId] = originalData.filter(e => e.id !== id);
-                this.renderEmployees(this.state.employeesCache[bId]);
-
-                // 2. GỌI API NGẦM
-                const { error } = await supabaseClient.from('employees').delete().eq('id', id);
-                
-                if (error) {
-                    // 3. NẾU LỖI -> KHÔI PHỤC LẠI DỮ LIỆU
-                    UI.showToast('Lỗi xoá: ' + error.message, true);
-                    this.state.employeesCache[bId] = originalData;
-                    this.renderEmployees(originalData);
-                } else {
-                    UI.showToast('Đã xoá nhân viên');
-                }
-            },
-
-            async deleteCurrentBuilding() {
-                const bName = this.state.currentBuildingName;
-                const bId = this.state.currentBuildingId;
-                if (!confirm(`CẢNH BÁO: Bạn đang xoá tòa nhà "${bName}".\n\nToàn bộ nhân viên cũng sẽ bị xoá.`)) return;
-
-                const { error } = await supabaseClient.from('buildings').delete().eq('id', bId);
-                if (error) UI.showToast('Lỗi xoá: ' + error.message, true);
-                else {
-                    UI.showToast('Đã xoá tòa nhà');
-                    delete this.state.employeesCache[bId];
-                    this.goHome();
-                    this.init();
-                }
-            }
-        };
-
-        // ==========================================
-        // 4. EVENT DELEGATION (Tối ưu bộ nhớ)
-        // ==========================================
-        document.getElementById('btn-back').addEventListener('click', () => App.goHome());
-        document.getElementById('btn-delete-building').addEventListener('click', () => App.deleteCurrentBuilding());
-
-        // Ủy quyền sự kiện cho danh sách nhân viên (Chỉ gắn 1 listener duy nhất)
-        document.getElementById('employee-list').addEventListener('click', (e) => {
-            const btnEdit = e.target.closest('.btn-edit');
-            const btnDelete = e.target.closest('.btn-delete');
-
-            if (btnEdit) {
-                const id = btnEdit.dataset.id;
-                const emp = App.state.employeesCache[App.state.currentBuildingId].find(x => x.id === id);
-                if (emp) UI.openEmployeeModal(emp);
-            } else if (btnDelete) {
-                Utils.vibrate();
-                App.deleteEmployee(btnDelete.dataset.id, btnDelete.dataset.name);
-            }
+            return `
+                <div class="emp-card">
+                    <div class="emp-info">
+                        <h3>${Utils.escapeHTML(name)}</h3>
+                        ${role ? `<div class="role">${Utils.escapeHTML(role)}${area ? ' • ' + Utils.escapeHTML(area) : ''}</div>` : ''}
+                        ${phoneHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
+    filterNhanSu(keyword) {
+        const k = keyword.trim().toLowerCase();
+        if (!k) return this.renderNhanSu(this.state.nhanSu);
+        const filtered = this.state.nhanSu.filter(e => {
+            const name = (e.ho_ten || e.name || '').toLowerCase();
+            const phone = String(e.sdt || e.phone || '');
+            return name.includes(k) || phone.includes(k);
         });
+        this.renderNhanSu(filtered);
+    },
 
-        // Form Thêm Tòa Nhà
-        document.getElementById('form-building').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('btn-save-building');
-            const name = document.getElementById('building-name').value.trim();
-            if (!name) return;
+    // ---------- LỊCH HỌC (mẫu - bạn có thể nối Supabase sau) ----------
+    renderLichHoc() {
+        const days = [
+            { id: 1, label: 'T2' }, { id: 2, label: 'T3' }, { id: 3, label: 'T4' },
+            { id: 4, label: 'T5' }, { id: 5, label: 'T6' }, { id: 6, label: 'T7' },
+            { id: 7, label: 'CN' }
+        ];
+        UI.els.dayTabs.innerHTML = days.map(d =>
+            `<button class="day-chip ${d.id === this.state.selectedDay ? 'active' : ''}" data-day="${d.id}">${d.label}</button>`
+        ).join('');
 
-            btn.innerText = 'Đang lưu...'; btn.disabled = true;
-            const { error } = await supabaseClient.from('buildings').insert([{ name }]);
-            
-            btn.innerText = 'Lưu Tòa Nhà'; btn.disabled = false;
+        // Dữ liệu mẫu — thay bằng fetch Supabase nếu có bảng lich_hoc
+        const sample = [
+            { day: 1, time: '07:00 - 09:30', subject: 'Triết học Mác - Lênin', room: 'Hội trường A' },
+            { day: 1, time: '09:45 - 12:15', subject: 'Xã hội học đại cương', room: 'P.203 nhà B' },
+            { day: 3, time: '13:00 - 15:30', subject: 'Tâm lý học', room: 'P.105 nhà C' },
+            { day: 5, time: '07:00 - 09:30', subject: 'Văn học Việt Nam', room: 'P.301 nhà A' },
+        ];
+        const list = sample.filter(s => s.day === this.state.selectedDay);
+        UI.els.listLH.innerHTML = list.length
+            ? list.map(c => `
+                <div class="class-card">
+                    <div class="time">⏰ ${c.time}</div>
+                    <div class="subject">${c.subject}</div>
+                    <div class="room">📍 ${c.room}</div>
+                </div>
+            `).join('')
+            : `<div class="empty-state"><span class="icon">📅</span>Không có lịch học</div>`;
+    },
 
-            if (error) UI.showToast('Lỗi: ' + error.message, true);
-            else {
-                Utils.vibrate();
-                UI.showToast('Đã thêm tòa nhà mới');
-                UI.closeBuildingModal();
-                App.init();
-            }
-        });
+    // ---------- FORM CÔNG TRÌNH ----------
+    async saveCongTrinh(name) {
+        const btn = document.getElementById('btn-save-ct');
+        btn.disabled = true; btn.innerText = 'Đang lưu...';
+        const { error } = await supabaseClient.from(TABLE_CONG_TRINH).insert([{ name }]);
+        btn.disabled = false; btn.innerText = 'Lưu Công Trình';
+        if (error) { UI.showToast('Lỗi: ' + error.message, true); return; }
+        Utils.vibrate();
+        UI.showToast('Đã thêm công trình');
+        UI.closeModal('modal-cong-trinh');
+        document.getElementById('form-cong-trinh').reset();
+        this.loadCongTrinh();
+    }
+};
 
-        // Form Thêm/Sửa Nhân Viên
-        document.getElementById('form-employee').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('btn-save-emp');
-            const name = document.getElementById('emp-name').value.trim();
-            const phone = document.getElementById('emp-phone').value.trim();
-            const isEdit = App.state.editingEmpId !== null;
-            const bId = App.state.currentBuildingId;
+// ============================================================
+// 4. EVENT LISTENERS
+// ============================================================
+UI.init();
 
-            if (!name) return;
-            btn.innerText = 'Đang lưu...'; btn.disabled = true;
+// Tab switching
+document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => UI.switchTab(btn.dataset.tab));
+});
 
-            // OPTIMISTIC UI: Tạo dữ liệu giả để render Ut ngay lập tức
-            const tempId = 'temp-' + Date.now();
-            const optimisticEmp = { id: isEdit ? App.state.editingEmpId : tempId, name, phone };
-            
-            const currentCache = [...(App.state.employeesCache[bId] || [])];
-            if (isEdit) {
-                const index = currentCache.findIndex(x => x.id === optimisticEmp.id);
-                if (index !== -1) currentCache[index] = optimisticEmp;
-            } else {
-                currentCache.unshift(optimisticEmp); // Thêm lên đầu
-            }
-            
-            App.state.employeesCache[bId] = currentCache;
-            App.renderEmployees(currentCache);
-            UI.closeEmployeeModal();
+// Day tabs (Lịch học)
+UI.els.dayTabs.addEventListener('click', e => {
+    const chip = e.target.closest('.day-chip');
+    if (!chip) return;
+    App.state.selectedDay = parseInt(chip.dataset.day);
+    App.renderLichHoc();
+});
 
-            // GỌI API
-            let error;
-            if (isEdit) {
-                const res = await supabaseClient.from('employees').update({ name, phone }).eq('id', optimisticEmp.id);
-                error = res.error;
-            } else {
-                const res = await supabaseClient.from('employees').insert([{ building_id: bId, name, phone }]);
-                error = res.error;
-            }
+// Search nhân sự (debounce nhẹ)
+let searchTimer;
+UI.els.searchNS.addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => App.filterNhanSu(e.target.value), 250);
+});
 
-            btn.innerText = 'Lưu Thông Tin'; btn.disabled = false;
+// Form công trình
+document.getElementById('form-cong-trinh').addEventListener('submit', e => {
+    e.preventDefault();
+    const name = document.getElementById('ct-name').value.trim();
+    if (name) App.saveCongTrinh(name);
+});
 
-            if (error) {
-                UI.showToast('Lỗi: ' + error.message, true);
-                // Rollback nếu lỗi (Tải lại từ đầu)
-                delete App.state.employeesCache[bId];
-                App.fetchEmployees(bId);
-            } else {
-               ils.vibrate();
-                UI.showToast(isEdit ? 'Đã cập nhật' : 'Đã thêm nhân viên');
-                // Đồng bộ lại ngầm để lấy ID thật từ DB (thay thế tempId)
-                App.fetchEmployees(bId, true);
-            }
-        });
-
-        // Khởi chạy
-        UI.init();
-        App.init();
-    </script>
+// Khởi động
+App.init();
+</script>
 </body>
 </html>
