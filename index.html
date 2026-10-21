@@ -14,27 +14,18 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: var(--text); overflow-x: hidden; }
 
-        /* ===== HEADER ===== */
+        /* HEADER */
         .app-header {
             background: linear-gradient(135deg, #007aff 0%, #0051d5 100%);
             color: #fff; padding: 16px 20px 20px; text-align: center;
             box-shadow: 0 3px 14px rgba(0,122,255,0.35);
             position: sticky; top: 0; z-index: 100;
         }
-        .app-header h1 {
-            font-size: 19px; font-weight: 800; line-height: 1.25; letter-spacing: 0.3px;
-        }
-        .app-header h1 .sub {
-            display: block; font-size: 13.5px; font-weight: 600;
-            opacity: 0.94; margin-top: 3px; letter-spacing: 0.2px;
-        }
+        .app-header h1 { font-size: 19px; font-weight: 800; line-height: 1.25; letter-spacing: 0.3px; }
+        .app-header h1 .sub { display: block; font-size: 13.5px; font-weight: 600; opacity: 0.94; margin-top: 3px; }
 
-        /* ===== VIEWS ===== */
-        .view {
-            display: none; padding: 16px;
-            padding-bottom: calc(var(--nav-h) + 90px);
-            animation: fadeIn 0.25s;
-        }
+        /* VIEWS */
+        .view { display: none; padding: 16px; padding-bottom: calc(var(--nav-h) + 90px); animation: fadeIn 0.25s; }
         .view.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
@@ -44,7 +35,7 @@
             letter-spacing: 0.5px; font-weight: 700; margin: 4px 4px 12px;
         }
 
-        /* ===== BOTTOM NAV ===== */
+        /* BOTTOM NAV */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: var(--card); display: flex; height: var(--nav-h);
@@ -62,18 +53,18 @@
         .nav-item.active { color: var(--primary); }
         .nav-item.active .nav-icon { transform: scale(1.15); }
 
-        /* ===== TOAST ===== */
+        /* TOAST */
         .toast {
             position: fixed; top: 20px; left: 50%;
             transform: translateX(-50%) translateY(-20px);
             background: #333; color: #fff; padding: 10px 20px;
             border-radius: 20px; font-size: 14px; opacity: 0; visibility: hidden;
-            transition: 0.3s; z-index: 9999;
+            transition: 0.3s; z-index: 9999; max-width: 90%;
         }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
         .toast.error { background: var(--danger); }
 
-        /* ===== FAB ===== */
+        /* FAB */
         .fab {
             position: fixed; bottom: calc(var(--nav-h) + 16px); right: 20px;
             padding: 0 20px; height: 52px; border-radius: 26px;
@@ -83,46 +74,38 @@
         }
         .fab:active { transform: scale(0.92); }
         .fab span { font-size: 22px; }
-        .fab.hidden { display: none; }
 
-        /* ===== CARDS ===== */
-        .card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        .card-btn {
-            background: var(--card); border: none; padding: 22px 12px;
-            border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; gap: 8px; cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
+        /* LIST */
+        .list { display: flex; flex-direction: column; gap: 10px; }
+        .list-item {
+            background: var(--card); border-radius: 12px;
+            padding: 14px 16px; display: flex; align-items: center;
+            gap: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
         }
-        .card-btn:active { transform: scale(0.95); background: #f8f8f8; }
-        .card-btn .icon { font-size: 28px; }
-        .card-btn .name { font-size: 14px; font-weight: 700; text-align: center; line-height: 1.3; word-break: break-word; }
+        .list-item .content { flex: 1; min-width: 0; }
+        .list-item .title { font-size: 15px; font-weight: 700; word-break: break-word; }
+        .list-item .subtitle { font-size: 13px; color: var(--muted); margin-top: 3px; }
+        .list-item .phone { font-size: 13px; color: var(--primary); font-weight: 600; text-decoration: none; margin-top: 3px; display: inline-block; }
+        .btn-del {
+            background: #ffe5e5; border: none; width: 36px; height: 36px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 15px; cursor: pointer; color: var(--danger); flex-shrink: 0;
+        }
+        .btn-del:active { transform: scale(0.9); }
 
-        /* ===== EMPLOYEE LIST ===== */
-        .emp-list { display: flex; flex-direction: column; gap: 10px; }
-        .emp-card {
-            background: var(--card); border-radius: 12px; padding: 14px;
-            display: flex; justify-content: space-between; align-items: center;
-            gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        /* ASSIGNMENT CARD */
+        .assignment-card {
+            background: var(--card); border-radius: 12px;
+            padding: 14px 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            border-left: 4px solid var(--primary);
+            display: flex; justify-content: space-between; align-items: center; gap: 10px;
         }
-        .emp-info { flex: 1; min-width: 0; }
-        .emp-info h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; word-break: break-word; }
-        .emp-info .role { font-size: 12px; color: var(--muted); margin-bottom: 3px; font-weight: 500; }
-        .phone-link {
-            display: inline-flex; align-items: center; gap: 4px;
-            font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 600;
-        }
-        .phone-link:active { opacity: 0.5; }
+        .as-content { flex: 1; min-width: 0; }
+        .as-location { font-size: 15px; font-weight: 800; margin-bottom: 6px; color: var(--text); }
+        .as-staff { font-size: 14px; font-weight: 600; }
+        .as-staff a { color: var(--primary); text-decoration: none; }
 
-        /* ===== SEARCH ===== */
-        .search-bar {
-            width: 100%; padding: 12px 16px; border-radius: 12px;
-            border: none; background: #fff; font-size: 15px;
-            margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); outline: none;
-        }
-        .search-bar:focus { box-shadow: 0 0 0 2px var(--primary); }
-
-        /* ===== EMPTY & SKELETON ===== */
+        /* EMPTY & SKELETON */
         .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
         .empty-state .icon { font-size: 48px; margin-bottom: 10px; display: block; opacity: 0.5; }
         .skeleton-card {
@@ -132,30 +115,7 @@
             border-radius: 12px; margin-bottom: 10px;
         }
 
-        /* ===== SCHEDULE ===== */
-        .day-tabs {
-            display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px;
-            padding-bottom: 4px; scrollbar-width: none;
-        }
-        .day-tabs::-webkit-scrollbar { display: none; }
-        .day-chip {
-            flex: 0 0 auto; padding: 10px 14px; border-radius: 12px;
-            background: #fff; border: none; font-size: 13px; font-weight: 700;
-            color: var(--muted); cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-            transition: all 0.2s;
-        }
-        .day-chip.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(0,122,255,0.35); }
-
-        .class-card {
-            background: var(--card); border-radius: 12px; padding: 14px;
-            margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-            border-left: 4px solid var(--primary);
-        }
-        .class-card .time { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
-        .class-card .subject { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
-        .class-card .room { font-size: 13px; color: var(--muted); }
-
-        /* ===== MODAL ===== */
+        /* MODAL */
         .modal-overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,0.5);
             z-index: 200; opacity: 0; visibility: hidden; transition: 0.3s;
@@ -181,12 +141,18 @@
             margin-bottom: 5px; font-weight: 700;
             text-transform: uppercase; letter-spacing: 0.3px;
         }
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%; padding: 13px; border: 1px solid #d1d1d6;
             border-radius: 10px; font-size: 15px; background: #f9f9fb;
             outline: none; -webkit-appearance: none;
         }
-        .form-group input:focus { border-color: var(--primary); background: #fff; }
+        .form-group select {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3e%3cpath fill='%238e8e93' d='M6 9L1 4h10z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 36px;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: var(--primary); background-color: #fff; }
         .btn-primary {
             width: 100%; background: var(--primary); color: #fff;
             padding: 14px; border-radius: 10px; border: none;
@@ -197,314 +163,487 @@
 </head>
 <body>
 
-    <header class="app-header">
-        <h1>
-            Giám sát vệ sinh
-            <span class="sub">ĐH Xã Hội và Nhân Văn</span>
-        </h1>
-    </header>
+<header class="app-header">
+    <h1>
+        Giám sát vệ sinh
+        <span class="sub">ĐH Xã Hội và Nhân Văn</span>
+    </h1>
+</header>
 
-    <div id="toast" class="toast">Thành công!</div>
+<div id="toast" class="toast">Thành công!</div>
 
-    <!-- ===== TAB 1: CÔNG TRÌNH ===== -->
-    <section id="view-cong-trinh" class="view active">
-        <p class="section-title">Khu vực / Công trình</p>
-        <div id="grid-cong-trinh" class="card-grid">
-            <div class="skeleton-card" style="height:100px;"></div>
-            <div class="skeleton-card" style="height:100px;"></div>
-        </div>
-    </section>
-
-    <!-- ===== TAB 2: NHÂN SỰ ===== -->
-    <section id="view-nhan-su" class="view">
-        <input type="text" id="search-nhan-su" class="search-bar" placeholder="🔍 Tìm tên / SĐT...">
-        <p class="section-title">Danh sách nhân sự</p>
-        <div id="list-nhan-su" class="emp-list">
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-        </div>
-    </section>
-
-    <!-- ===== TAB 3: LỊCH HỌC ===== -->
-    <section id="view-lich-hoc" class="view">
-        <p class="section-title">Lịch học tuần này</p>
-        <div id="day-tabs" class="day-tabs"></div>
-        <div id="list-lich-hoc"></div>
-    </section>
-
-    <!-- FAB -->
-    <button class="fab" id="fab-cong-trinh" onclick="UI.openModal('modal-cong-trinh')">
-        <span>+</span> Thêm
-    </button>
-
-    <!-- MODAL: CÔNG TRÌNH -->
-    <div id="modal-cong-trinh" class="modal-overlay" onclick="UI.closeModal('modal-cong-trinh')">
-        <div class="bottom-sheet" onclick="event.stopPropagation()">
-            <div class="sheet-header">
-                <h2>Thêm Công Trình</h2>
-                <button class="close-btn" onclick="UI.closeModal('modal-cong-trinh')">✕</button>
-            </div>
-            <form id="form-cong-trinh">
-                <div class="form-group">
-                    <label>Tên công trình / khu vực</label>
-                    <input type="text" id="ct-name" placeholder="VD: Nhà A, Sân trường..." required maxlength="50">
-                </div>
-                <button type="submit" class="btn-primary" id="btn-save-ct">Lưu Công Trình</button>
-            </form>
-        </div>
+<!-- ===== TAB 1: CÔNG TRÌNH ===== -->
+<section id="view-cong-trinh" class="view active">
+    <p class="section-title">Danh sách toà nhà</p>
+    <div id="list-toa-nha" class="list">
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
     </div>
+</section>
 
-    <nav class="bottom-nav">
-        <button class="nav-item active" data-tab="cong-trinh">
-            <span class="nav-icon">🏢</span>
-            <span>Công trình</span>
-        </button>
-        <button class="nav-item" data-tab="nhan-su">
-            <span class="nav-icon">👥</span>
-            <span>Nhân sự</span>
-        </button>
-        <button class="nav-item" data-tab="lich-hoc">
-            <span class="nav-icon">📅</span>
-            <span>Lịch học</span>
-        </button>
-    </nav>
+<!-- ===== TAB 2: KHU VỰC ===== -->
+<section id="view-khu-vuc" class="view">
+    <p class="section-title">Danh sách khu vực</p>
+    <div id="list-khu-vuc" class="list">
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+    </div>
+</section>
+
+<!-- ===== TAB 3: NHÂN SỰ ===== -->
+<section id="view-nhan-su" class="view">
+    <p class="section-title">Nhân viên vệ sinh</p>
+    <div id="list-nhan-su" class="list">
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+    </div>
+</section>
+
+<!-- ===== TAB 4: QUẢN LÝ ===== -->
+<section id="view-quan-ly" class="view">
+    <p class="section-title">Phân công vệ sinh</p>
+    <div id="list-phan-cong" class="list">
+        <div class="skeleton-card"></div>
+    </div>
+</section>
+
+<!-- FAB (dynamic) -->
+<button class="fab" id="main-fab"><span>+</span> Thêm</button>
+
+<!-- ===== MODAL: TOÀ NHÀ ===== -->
+<div id="modal-toa-nha" class="modal-overlay" onclick="UI.closeModal('modal-toa-nha')">
+    <div class="bottom-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-header">
+            <h2>Thêm Toà Nhà</h2>
+            <button class="close-btn" onclick="UI.closeModal('modal-toa-nha')">✕</button>
+        </div>
+        <form id="form-toa-nha">
+            <div class="form-group">
+                <label>Tên toà nhà</label>
+                <input type="text" id="tn-ten" placeholder="VD: A, B, C..." required maxlength="50">
+            </div>
+            <button type="submit" class="btn-primary" id="btn-save-tn">Lưu Toà Nhà</button>
+        </form>
+    </div>
+</div>
+
+<!-- ===== MODAL: KHU VỰC ===== -->
+<div id="modal-khu-vuc" class="modal-overlay" onclick="UI.closeModal('modal-khu-vuc')">
+    <div class="bottom-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-header">
+            <h2>Thêm Khu Vực</h2>
+            <button class="close-btn" onclick="UI.closeModal('modal-khu-vuc')">✕</button>
+        </div>
+        <form id="form-khu-vuc">
+            <div class="form-group">
+                <label>Tên khu vực</label>
+                <input type="text" id="kv-ten" placeholder="VD: tầng 1, sân thượng..." required maxlength="50">
+            </div>
+            <button type="submit" class="btn-primary" id="btn-save-kv">Lưu Khu Vực</button>
+        </form>
+    </div>
+</div>
+
+<!-- ===== MODAL: NHÂN SỰ ===== -->
+<div id="modal-nhan-su" class="modal-overlay" onclick="UI.closeModal('modal-nhan-su')">
+    <div class="bottom-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-header">
+            <h2>Thêm Nhân Viên</h2>
+            <button class="close-btn" onclick="UI.closeModal('modal-nhan-su')">✕</button>
+        </div>
+        <form id="form-nhan-su">
+            <div class="form-group">
+                <label>Họ tên</label>
+                <input type="text" id="ns-ten" placeholder="VD: Lê Minh Thư" required maxlength="50">
+            </div>
+            <div class="form-group">
+                <label>Số điện thoại</label>
+                <input type="tel" id="ns-sdt" placeholder="VD: 0123456789" required maxlength="15">
+            </div>
+            <button type="submit" class="btn-primary" id="btn-save-ns">Lưu Nhân Viên</button>
+        </form>
+    </div>
+</div>
+
+<!-- ===== MODAL: PHÂN CÔNG ===== -->
+<div id="modal-phan-cong" class="modal-overlay" onclick="UI.closeModal('modal-phan-cong')">
+    <div class="bottom-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-header">
+            <h2>Phân Công Vệ Sinh</h2>
+            <button class="close-btn" onclick="UI.closeModal('modal-phan-cong')">✕</button>
+        </div>
+        <form id="form-phan-cong">
+            <div class="form-group">
+                <label>Toà nhà</label>
+                <select id="pc-toa-nha" required></select>
+            </div>
+            <div class="form-group">
+                <label>Khu vực</label>
+                <select id="pc-khu-vuc" required></select>
+            </div>
+            <div class="form-group">
+                <label>Nhân viên</label>
+                <select id="pc-nhan-su" required></select>
+            </div>
+            <button type="submit" class="btn-primary" id="btn-save-pc">Lưu Phân Công</button>
+        </form>
+    </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+    <button class="nav-item active" data-tab="cong-trinh">
+        <span class="nav-icon">🏢</span>
+        <span>Công trình</span>
+    </button>
+    <button class="nav-item" data-tab="khu-vuc">
+        <span class="nav-icon">📍</span>
+        <span>Khu vực</span>
+    </button>
+    <button class="nav-item" data-tab="nhan-su">
+        <span class="nav-icon">👤</span>
+        <span>Nhân sự</span>
+    </button>
+    <button class="nav-item" data-tab="quan-ly">
+        <span class="nav-icon">📋</span>
+        <span>Quản lý</span>
+    </button>
+</nav>
 
 <script>
 // ============================================================
-// 1. CONFIG & UTILS
+// 1. CONFIG
 // ============================================================
 const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ⚠️ SỬA TÊN BẢNG NHÂN SỰ CỦA BẠN Ở ĐÂY
-const TABLE_NHAN_SU = 'nhan_su';    // ← đổi thành tên bảng thật của bạn
-const TABLE_CONG_TRINH = 'cong_trinh';
-
 const Utils = {
-    escapeHTML(str) {
-        if (!str) return '';
-        return String(str).replace(/[&<>'"]/g, t => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[t]));
-    },
+    escape(str) { return String(str ?? '').replace(/[&<>'"]/g, t => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[t])); },
     cleanPhone(p) { return p ? String(p).replace(/[^0-9+]/g, '') : ''; },
     vibrate(ms = 10) { if (navigator.vibrate) navigator.vibrate(ms); }
 };
 
 // ============================================================
-// 2. UI MODULE
+// 2. STATE
+// ============================================================
+const State = {
+    toaNha: [],
+    khuVuc: [],
+    nhanSu: [],
+    phanCong: [],
+    currentTab: 'cong-trinh'
+};
+
+// ============================================================
+// 3. UI
 // ============================================================
 const UI = {
-    els: {},
-    init() {
-        this.els = {
-            toast: document.getElementById('toast'),
-            gridCT: document.getElementById('grid-cong-trinh'),
-            listNS: document.getElementById('list-nhan-su'),
-            searchNS: document.getElementById('search-nhan-su'),
-            dayTabs: document.getElementById('day-tabs'),
-            listLH: document.getElementById('list-lich-hoc'),
-            fabCT: document.getElementById('fab-cong-trinh'),
-        };
-    },
     showToast(msg, isErr = false) {
-        const t = this.els.toast;
+        const t = document.getElementById('toast');
         t.innerText = msg;
         t.className = `toast show ${isErr ? 'error' : ''}`;
         setTimeout(() => t.classList.remove('show'), 2500);
     },
-    openModal(id) { document.getElementById(id).classList.add('show'); document.body.style.overflow = 'hidden'; },
-    closeModal(id) { document.getElementById(id).classList.remove('show'); document.body.style.overflow = ''; },
+    openModal(id) {
+        document.getElementById(id).classList.add('show');
+        document.body.style.overflow = 'hidden';
+        if (id === 'modal-phan-cong') populatePhanCongSelects();
+    },
+    closeModal(id) {
+        document.getElementById(id).classList.remove('show');
+        document.body.style.overflow = '';
+        const form = document.querySelector(`#${id} form`);
+        if (form) form.reset();
+    },
     switchTab(tab) {
+        State.currentTab = tab;
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(`view-${tab}`).classList.add('active');
         document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
-        // FAB chỉ hiện ở tab Công trình
-        this.els.fabCT.classList.toggle('hidden', tab !== 'cong-trinh');
+        updateFab();
         Utils.vibrate();
     }
 };
 
 // ============================================================
-// 3. APP MODULE
+// 4. RENDER
 // ============================================================
-const App = {
-    state: {
-        congTrinh: [],
-        nhanSu: [],
-        lichHoc: [],
-        selectedDay: new Date().getDay() || 7, // 1=T2 ... 7=CN
-    },
-
-    async init() {
-        // Load song song 3 tab
-        this.loadCongTrinh();
-        this.loadNhanSu();
-        this.renderLichHoc();
-    },
-
-    // ---------- CÔNG TRÌNH ----------
-    async loadCongTrinh() {
-        const { data, error } = await supabaseClient
-            .from(TABLE_CONG_TRINH).select('*').order('name', { ascending: true });
-
-        if (error) {
-            // Nếu bảng chưa tồn tại, hiện rỗng chứ không báo lỗi
-            this.renderCongTrinh([]);
-            return;
-        }
-        this.state.congTrinh = data || [];
-        this.renderCongTrinh(this.state.congTrinh);
-    },
-    renderCongTrinh(data) {
-        const el = UI.els.gridCT;
-        if (!data.length) {
-            el.innerHTML = `<div class="empty-state" style="grid-column:span 2"><span class="icon">🏢</span>Chưa có công trình nào.<br>Nhấn "+ Thêm" để bắt đầu.</div>`;
-            return;
-        }
-        const icons = ['🏢','🏫','🏬','🏭','🏗️','📚','🏛️','🏠','🏥','🏨'];
-        el.innerHTML = data.map((b, i) => `
-            <button class="card-btn" data-id="${b.id}">
-                <div class="icon">${icons[i % icons.length]}</div>
-                <div class="name">${Utils.escapeHTML(b.name)}</div>
-            </button>
-        `).join('');
-    },
-
-    // ---------- NHÂN SỰ ----------
-    async loadNhanSu() {
-        // CÁCH LẤY DATA NHÂN SỰ QUA SUPABASE (SQL bên dưới)
-        const { data, error } = await supabaseClient
-            .from(TABLE_NHAN_SU)
-            .select('*')
-            .order('ho_ten', { ascending: true });
-
-        if (error) {
-            UI.els.listNS.innerHTML = `<div class="empty-state"><span class="icon">⚠️</span>Lỗi tải nhân sự:<br>${Utils.escapeHTML(error.message)}</div>`;
-            return;
-        }
-        this.state.nhanSu = data || [];
-        this.renderNhanSu(this.state.nhanSu);
-    },
-    renderNhanSu(data) {
-        const el = UI.els.listNS;
-        if (!data.length) {
-            el.innerHTML = `<div class="empty-state"><span class="icon">👥</span>Chưa có nhân sự nào.</div>`;
-            return;
-        }
-        el.innerHTML = data.map(emp => {
-            // Tự nhận diện tên cột (linh hoạt với schema của bạn)
-            const name = emp.ho_ten || emp.name || emp.ten || '(Không tên)';
-            const phone = emp.sdt || emp.phone || emp.dien_thoai || '';
-            const role = emp.chuc_vu || emp.role || '';
-            const area = emp.khu_vuc || emp.area || '';
-
-            const phoneHtml = phone
-                ? `<a href="tel:${Utils.cleanPhone(phone)}" class="phone-link">📞 ${Utils.escapeHTML(phone)}</a>`
-                : `<div style="font-size:13px;color:var(--muted)">📞 Chưa có SĐT</div>`;
-
-            return `
-                <div class="emp-card">
-                    <div class="emp-info">
-                        <h3>${Utils.escapeHTML(name)}</h3>
-                        ${role ? `<div class="role">${Utils.escapeHTML(role)}${area ? ' • ' + Utils.escapeHTML(area) : ''}</div>` : ''}
-                        ${phoneHtml}
-                    </div>
-                </div>
-            `;
-        }).join('');
-    },
-    filterNhanSu(keyword) {
-        const k = keyword.trim().toLowerCase();
-        if (!k) return this.renderNhanSu(this.state.nhanSu);
-        const filtered = this.state.nhanSu.filter(e => {
-            const name = (e.ho_ten || e.name || '').toLowerCase();
-            const phone = String(e.sdt || e.phone || '');
-            return name.includes(k) || phone.includes(k);
-        });
-        this.renderNhanSu(filtered);
-    },
-
-    // ---------- LỊCH HỌC (mẫu - bạn có thể nối Supabase sau) ----------
-    renderLichHoc() {
-        const days = [
-            { id: 1, label: 'T2' }, { id: 2, label: 'T3' }, { id: 3, label: 'T4' },
-            { id: 4, label: 'T5' }, { id: 5, label: 'T6' }, { id: 6, label: 'T7' },
-            { id: 7, label: 'CN' }
-        ];
-        UI.els.dayTabs.innerHTML = days.map(d =>
-            `<button class="day-chip ${d.id === this.state.selectedDay ? 'active' : ''}" data-day="${d.id}">${d.label}</button>`
-        ).join('');
-
-        // Dữ liệu mẫu — thay bằng fetch Supabase nếu có bảng lich_hoc
-        const sample = [
-            { day: 1, time: '07:00 - 09:30', subject: 'Triết học Mác - Lênin', room: 'Hội trường A' },
-            { day: 1, time: '09:45 - 12:15', subject: 'Xã hội học đại cương', room: 'P.203 nhà B' },
-            { day: 3, time: '13:00 - 15:30', subject: 'Tâm lý học', room: 'P.105 nhà C' },
-            { day: 5, time: '07:00 - 09:30', subject: 'Văn học Việt Nam', room: 'P.301 nhà A' },
-        ];
-        const list = sample.filter(s => s.day === this.state.selectedDay);
-        UI.els.listLH.innerHTML = list.length
-            ? list.map(c => `
-                <div class="class-card">
-                    <div class="time">⏰ ${c.time}</div>
-                    <div class="subject">${c.subject}</div>
-                    <div class="room">📍 ${c.room}</div>
-                </div>
-            `).join('')
-            : `<div class="empty-state"><span class="icon">📅</span>Không có lịch học</div>`;
-    },
-
-    // ---------- FORM CÔNG TRÌNH ----------
-    async saveCongTrinh(name) {
-        const btn = document.getElementById('btn-save-ct');
-        btn.disabled = true; btn.innerText = 'Đang lưu...';
-        const { error } = await supabaseClient.from(TABLE_CONG_TRINH).insert([{ name }]);
-        btn.disabled = false; btn.innerText = 'Lưu Công Trình';
-        if (error) { UI.showToast('Lỗi: ' + error.message, true); return; }
-        Utils.vibrate();
-        UI.showToast('Đã thêm công trình');
-        UI.closeModal('modal-cong-trinh');
-        document.getElementById('form-cong-trinh').reset();
-        this.loadCongTrinh();
+function renderToaNha() {
+    const el = document.getElementById('list-toa-nha');
+    if (!State.toaNha.length) {
+        el.innerHTML = `<div class="empty-state"><span class="icon">🏢</span>Chưa có toà nhà nào.<br>Bấm "+ Thêm" để tạo.</div>`;
+        return;
     }
-};
+    el.innerHTML = State.toaNha.map(t => `
+        <div class="list-item">
+            <div class="content">
+                <div class="title">🏢 ${Utils.escape(t.ten)}</div>
+            </div>
+            <button class="btn-del" data-del="toa_nha" data-id="${t.id}" data-name="${Utils.escape(t.ten)}">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function renderKhuVuc() {
+    const el = document.getElementById('list-khu-vuc');
+    if (!State.khuVuc.length) {
+        el.innerHTML = `<div class="empty-state"><span class="icon">📍</span>Chưa có khu vực nào.<br>Bấm "+ Thêm" để tạo.</div>`;
+        return;
+    }
+    el.innerHTML = State.khuVuc.map(k => `
+        <div class="list-item">
+            <div class="content">
+                <div class="title">📍 ${Utils.escape(k.ten)}</div>
+            </div>
+            <button class="btn-del" data-del="khu_vuc" data-id="${k.id}" data-name="${Utils.escape(k.ten)}">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function renderNhanSu() {
+    const el = document.getElementById('list-nhan-su');
+    if (!State.nhanSu.length) {
+        el.innerHTML = `<div class="empty-state"><span class="icon">👤</span>Chưa có nhân viên nào.<br>Bấm "+ Thêm" để tạo.</div>`;
+        return;
+    }
+    el.innerHTML = State.nhanSu.map(n => `
+        <div class="list-item">
+            <div class="content">
+                <div class="title">👤 ${Utils.escape(n.ho_ten)}</div>
+                ${n.sdt
+                    ? `<a class="phone" href="tel:${Utils.cleanPhone(n.sdt)}">📞 ${Utils.escape(n.sdt)}</a>`
+                    : `<div class="subtitle">Chưa có SĐT</div>`}
+            </div>
+            <button class="btn-del" data-del="nhan_su" data-id="${n.id}" data-name="${Utils.escape(n.ho_ten)}">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function renderPhanCong() {
+    const el = document.getElementById('list-phan-cong');
+    if (!State.phanCong.length) {
+        el.innerHTML = `<div class="empty-state"><span class="icon">📋</span>Chưa có phân công nào.<br>Bấm "+ Phân công" để thiết lập.</div>`;
+        return;
+    }
+    el.innerHTML = State.phanCong.map(p => {
+        const t = State.toaNha.find(x => x.id === p.toa_nha_id);
+        const k = State.khuVuc.find(x => x.id === p.khu_vuc_id);
+        const n = State.nhanSu.find(x => x.id === p.nhan_su_id);
+        const location = `${t ? Utils.escape(t.ten) : '(đã xoá)'} - ${k ? Utils.escape(k.ten) : '(đã xoá)'}`;
+        const staffName = n ? Utils.escape(n.ho_ten) : '(đã xoá)';
+        const staffPhone = n && n.sdt ? Utils.escape(n.sdt) : '';
+        const staffDisplay = staffPhone
+            ? `${staffName} - <a href="tel:${Utils.cleanPhone(n.sdt)}">${staffPhone}</a>`
+            : staffName;
+        return `
+            <div class="assignment-card">
+                <div class="as-content">
+                    <div class="as-location">${location}</div>
+                    <div class="as-staff">${staffDisplay}</div>
+                </div>
+                <button class="btn-del" data-del="phan_cong" data-id="${p.id}" data-name="${location}">🗑️</button>
+            </div>
+        `;
+    }).join('');
+}
 
 // ============================================================
-// 4. EVENT LISTENERS
+// 5. FAB (contextual)
 // ============================================================
-UI.init();
+function updateFab() {
+    const fab = document.getElementById('main-fab');
+    const config = {
+        'cong-trinh': { label: 'Thêm toà nhà',  open: () => UI.openModal('modal-toa-nha') },
+        'khu-vuc':    { label: 'Thêm khu vực',  open: () => UI.openModal('modal-khu-vuc') },
+        'nhan-su':    { label: 'Thêm nhân viên', open: () => UI.openModal('modal-nhan-su') },
+        'quan-ly':    { label: 'Phân công',     open: () => UI.openModal('modal-phan-cong') },
+    };
+    const c = config[State.currentTab];
+    fab.innerHTML = `<span>+</span> ${c.label}`;
+    fab.onclick = c.open;
+}
 
-// Tab switching
+// ============================================================
+// 6. FETCH
+// ============================================================
+async function loadToaNha() {
+    const { data, error } = await supabaseClient.from('toa_nha').select('*').order('ten');
+    if (error) { UI.showToast('Lỗi toà nhà: ' + error.message, true); return; }
+    State.toaNha = data || [];
+    renderToaNha();
+}
+
+async function loadKhuVuc() {
+    const { data, error } = await supabaseClient.from('khu_vuc').select('*').order('ten');
+    if (error) { UI.showToast('Lỗi khu vực: ' + error.message, true); return; }
+    State.khuVuc = data || [];
+    renderKhuVuc();
+}
+
+async function loadNhanSu() {
+    const { data, error } = await supabaseClient.from('nhan_su').select('*').order('ho_ten');
+    if (error) { UI.showToast('Lỗi nhân sự: ' + error.message, true); return; }
+    State.nhanSu = data || [];
+    renderNhanSu();
+}
+
+async function loadPhanCong() {
+    const { data, error } = await supabaseClient.from('phan_cong').select('*').order('created_at', { ascending: false });
+    if (error) { UI.showToast('Lỗi phân công: ' + error.message, true); return; }
+    State.phanCong = data || [];
+    renderPhanCong();
+}
+
+// ============================================================
+// 7. POPULATE SELECTS (modal phân công)
+// ============================================================
+function populatePhanCongSelects() {
+    const selT = document.getElementById('pc-toa-nha');
+    const selK = document.getElementById('pc-khu-vuc');
+    const selN = document.getElementById('pc-nhan-su');
+
+    selT.innerHTML = State.toaNha.length
+        ? State.toaNha.map(t => `<option value="${t.id}">${Utils.escape(t.ten)}</option>`).join('')
+        : `<option value="">— Chưa có toà nhà —</option>`;
+
+    selK.innerHTML = State.khuVuc.length
+        ? State.khuVuc.map(k => `<option value="${k.id}">${Utils.escape(k.ten)}</option>`).join('')
+        : `<option value="">— Chưa có khu vực —</option>`;
+
+    selN.innerHTML = State.nhanSu.length
+        ? State.nhanSu.map(n => `<option value="${n.id}">${Utils.escape(n.ho_ten)}${n.sdt ? ' - ' + Utils.escape(n.sdt) : ''}</option>`).join('')
+        : `<option value="">— Chưa có nhân viên —</option>`;
+}
+
+// ============================================================
+// 8. DELETE
+// ============================================================
+async function deleteItem(table, id, name) {
+    const labels = { toa_nha: 'toà nhà', khu_vuc: 'khu vực', nhan_su: 'nhân viên', phan_cong: 'phân công' };
+    if (!confirm(`Xoá ${labels[table]} "${name}"?\nCác phân công liên quan cũng sẽ bị xoá.`)) return;
+
+    Utils.vibrate();
+    const { error } = await supabaseClient.from(table).delete().eq('id', id);
+    if (error) {
+        UI.showToast('Lỗi xoá: ' + error.message, true);
+        return;
+    }
+    UI.showToast('Đã xoá');
+
+    // Refresh toàn bộ (vì cascade ảnh hưởng bảng khác)
+    await refreshAll();
+}
+
+// ============================================================
+// 9. EVENT LISTENERS
+// ============================================================
 document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => UI.switchTab(btn.dataset.tab));
 });
 
-// Day tabs (Lịch học)
-UI.els.dayTabs.addEventListener('click', e => {
-    const chip = e.target.closest('.day-chip');
-    if (!chip) return;
-    App.state.selectedDay = parseInt(chip.dataset.day);
-    App.renderLichHoc();
+// Delete buttons (event delegation)
+document.body.addEventListener('click', e => {
+    const btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    deleteItem(btn.dataset.del, btn.dataset.id, btn.dataset.name);
 });
 
-// Search nhân sự (debounce nhẹ)
-let searchTimer;
-UI.els.searchNS.addEventListener('input', e => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => App.filterNhanSu(e.target.value), 250);
-});
-
-// Form công trình
-document.getElementById('form-cong-trinh').addEventListener('submit', e => {
+// Form: toà nhà
+document.getElementById('form-toa-nha').addEventListener('submit', async e => {
     e.preventDefault();
-    const name = document.getElementById('ct-name').value.trim();
-    if (name) App.saveCongTrinh(name);
+    const btn = document.getElementById('btn-save-tn');
+    const ten = document.getElementById('tn-ten').value.trim();
+    if (!ten) return;
+    btn.disabled = true; btn.innerText = 'Đang lưu...';
+    const { error } = await supabaseClient.from('toa_nha').insert([{ ten }]);
+    btn.disabled = false; btn.innerText = 'Lưu Toà Nhà';
+    if (error) { UI.showToast('Lỗi: ' + error.message, true); return; }
+    UI.showToast('Đã thêm toà nhà');
+    UI.closeModal('modal-toa-nha');
+    Utils.vibrate();
+    await loadToaNha();
 });
 
-// Khởi động
-App.init();
+// Form: khu vực
+document.getElementById('form-khu-vuc').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-kv');
+    const ten = document.getElementById('kv-ten').value.trim();
+    if (!ten) return;
+    btn.disabled = true; btn.innerText = 'Đang lưu...';
+    const { error } = await supabaseClient.from('khu_vuc').insert([{ ten }]);
+    btn.disabled = false; btn.innerText = 'Lưu Khu Vực';
+    if (error) { UI.showToast('Lỗi: ' + error.message, true); return; }
+    UI.showToast('Đã thêm khu vực');
+    UI.closeModal('modal-khu-vuc');
+    Utils.vibrate();
+    await loadKhuVuc();
+});
+
+// Form: nhân sự
+document.getElementById('form-nhan-su').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-ns');
+    const ho_ten = document.getElementById('ns-ten').value.trim();
+    const sdt = document.getElementById('ns-sdt').value.trim();
+    if (!ho_ten) return;
+    btn.disabled = true; btn.innerText = 'Đang lưu...';
+    const { error } = await supabaseClient.from('nhan_su').insert([{ ho_ten, sdt }]);
+    btn.disabled = false; btn.innerText = 'Lưu Nhân Viên';
+    if (error) { UI.showToast('Lỗi: ' + error.message, true); return; }
+    UI.showToast('Đã thêm nhân viên');
+    UI.closeModal('modal-nhan-su');
+    Utils.vibrate();
+    await loadNhanSu();
+});
+
+// Form: phân công
+document.getElementById('form-phan-cong').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-pc');
+    const toa_nha_id = document.getElementById('pc-toa-nha').value;
+    const khu_vuc_id = document.getElementById('pc-khu-vuc').value;
+    const nhan_su_id = document.getElementById('pc-nhan-su').value;
+
+    if (!toa_nha_id || !khu_vuc_id || !nhan_su_id) {
+        UI.showToast('Vui lòng chọn đủ 3 mục', true);
+        return;
+    }
+
+    btn.disabled = true; btn.innerText = 'Đang lưu...';
+    const { error } = await supabaseClient.from('phan_cong').insert([{ toa_nha_id, khu_vuc_id, nhan_su_id }]);
+    btn.disabled = false; btn.innerText = 'Lưu Phân Công';
+
+    if (error) {
+        if (error.code === '23505') {
+            UI.showToast('Phân công này đã tồn tại', true);
+        } else {
+            UI.showToast('Lỗi: ' + error.message, true);
+        }
+        return;
+    }
+    UI.showToast('Đã phân công');
+    UI.closeModal('modal-phan-cong');
+    Utils.vibrate();
+    await loadPhanCong();
+});
+
+// ============================================================
+// 10. INIT
+// ============================================================
+async function refreshAll() {
+    await Promise.all([loadToaNha(), loadKhuVuc(), loadNhanSu()]);
+    await loadPhanCong();
+}
+
+async function init() {
+    updateFab();
+    await refreshAll();
+}
+
+init();
 </script>
 </body>
 </html>
