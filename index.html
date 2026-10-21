@@ -129,44 +129,78 @@
         .btn-action:active { transform: scale(0.9); }
 
         /* =========================================
-           GIAO DIỆN QUẢN LÝ (GOM NHÓM TOÀ NHÀ)
+           GIAO DIỆN QUẢN LÝ (GOM NHÓM 2 CẤP)
            ========================================= */
         .building-group {
             background: var(--card);
             border-radius: 16px;
             margin-bottom: 16px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            overflow: hidden; /* Giữ header và item không bị tràn góc */
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            overflow: hidden;
         }
         .building-header {
-            background: #f8f8fb;
+            background: linear-gradient(135deg, #e8f0ff, #dde7ff);
             padding: 12px 16px;
             font-size: 15px;
             font-weight: 800;
-            color: var(--text);
-            border-bottom: 1px solid #e5e5ea;
+            color: var(--primary);
+            border-bottom: 1px solid #d5dff5;
             display: flex;
             align-items: center;
             gap: 8px;
         }
         .building-assignments {
-            padding: 12px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             gap: 8px;
-            background: #fcfcfd; /* Màu nền hơi khác để nổi bật các item bên trong */
         }
-        
-        /* Ghi đè style list-item khi nằm trong group */
-        .building-group .list-item {
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-            border: 1px solid #f0f0f5;
+
+        /* Khu vực (sub-card trong toà nhà) */
+        .area-group {
+            background: #fafbff;
+            border-radius: 12px;
+            border: 1px solid #e8ecf7;
+            overflow: hidden;
+        }
+        .area-header {
+            background: #f0f4ff;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #3a5aa8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .area-count {
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 600;
             background: #fff;
-            padding: 12px 14px;
+            padding: 2px 8px;
+            border-radius: 10px;
         }
-        .building-group .list-item:active { background: #f5f5fa; }
-        
-        .empty-group { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; font-style: italic; }
+        .area-employees {
+            padding: 6px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        /* Override style list-item trong group */
+        .building-group .list-item {
+            background: #fff;
+            border-radius: 8px;
+            padding: 10px 12px;
+            box-shadow: none;
+            border: 1px solid #eef1f8;
+            gap: 10px;
+        }
+        .building-group .list-item:active { background: #f5f8ff; }
+        .building-group .btn-action {
+            width: 32px; height: 32px; font-size: 13px;
+        }
 
         /* EMPTY & SKELETON */
         .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
@@ -253,7 +287,7 @@
 <!-- FAB (Thêm mới) -->
 <button class="fab" id="main-fab"><span>+</span> Thêm</button>
 
-<!-- BULK DELETE BAR (Thanh xoá nhiều) -->
+<!-- BULK DELETE BAR -->
 <div class="bulk-bar" id="bulk-bar">
     <span class="count" id="bulk-count">Đã chọn 0</span>
     <button class="btn-bulk-del" id="btn-bulk-del">🗑️ Xoá</button>
@@ -506,7 +540,9 @@ function renderNhanSu() {
     `).join('');
 }
 
-// CẬP NHẬT: Render Phân công theo nhóm Toà nhà (Khung mềm)
+/* ============================================================
+   RENDER QUẢN LÝ: GOM NHÓM 2 CẤP (Toà nhà → Khu vực → Nhân viên)
+   ============================================================ */
 function renderPhanCong() {
     const el = document.getElementById('list-phan-cong');
     if (!State.phanCong.length) {
@@ -514,69 +550,85 @@ function renderPhanCong() {
         return;
     }
 
-    // 1. Tạo object gom nhóm theo toa_nha_id
+    // Gom nhóm: toa_nha_id -> { ten, areas: { khu_vuc_id: { ten, items } } }
     const grouped = {};
-    State.toaNha.forEach(t => { grouped[t.id] = { ten: t.ten, items: [] }; });
-    const unassignedItems = [];
+    State.toaNha.forEach(t => { grouped[t.id] = { ten: t.ten, areas: {} }; });
+    const unassigned = [];
 
     State.phanCong.forEach(p => {
-        if (grouped[p.toa_nha_id]) {
-            grouped[p.toa_nha_id].items.push(p);
-        } else {
-            unassignedItems.push(p);
+        if (!grouped[p.toa_nha_id]) { unassigned.push(p); return; }
+        const b = grouped[p.toa_nha_id];
+        if (!b.areas[p.khu_vuc_id]) {
+            const kv = State.khuVuc.find(x => x.id === p.khu_vuc_id);
+            b.areas[p.khu_vuc_id] = { ten: kv ? kv.ten : '(khu vực đã xoá)', items: [] };
         }
+        b.areas[p.khu_vuc_id].items.push(p);
     });
 
-    // Helper render 1 item phân công
-    const renderItem = (p) => {
-        const k = State.khuVuc.find(x => x.id === p.khu_vuc_id);
+    // Render 1 dòng nhân viên (bên trong khung khu vực)
+    const renderEmployee = (p) => {
         const n = State.nhanSu.find(x => x.id === p.nhan_su_id);
-        
-        // Lấy tên khu vực và nhân viên
-        const location = k ? Utils.escape(k.ten) : '(khu vực đã xoá)';
-        const staffName = n ? Utils.escape(n.ho_ten) : '(nhân viên đã xoá)';
-        const staffPhone = n && n.sdt ? Utils.escape(n.sdt) : '';
-        const staffDisplay = staffPhone ? `${staffName} - <a href="tel:${Utils.cleanPhone(n.sdt)}">${staffPhone}</a>` : staffName;
-        
+        const name = n ? Utils.escape(n.ho_ten) : '(nhân viên đã xoá)';
+        const phone = n && n.sdt ? Utils.escape(n.sdt) : '';
+        const phoneHtml = phone
+            ? `<a class="phone" href="tel:${Utils.cleanPhone(n.sdt)}">📞 ${phone}</a>`
+            : `<div class="subtitle">Chưa có SĐT</div>`;
         return `
-            <div class="list-item" data-id="${p.id}" data-type="phan_cong" data-name="📍 ${location} - ${staffName}">
+            <div class="list-item" data-id="${p.id}" data-type="phan_cong">
                 <div class="checkbox-wrapper ${State.selectedIds.has(p.id) ? 'checked' : ''}"></div>
                 <div class="content">
-                    <div class="title" style="font-size: 14px; margin-bottom: 2px;">📍 ${location}</div>
-                    <div class="subtitle" style="color:var(--text); font-weight:600;">👤 ${staffDisplay}</div>
+                    <div class="title" style="font-size:14px;">👤 ${name}</div>
+                    ${phoneHtml}
                 </div>
                 <div class="actions">
-                    <button class="btn-action btn-del" data-del="phan_cong" data-id="${p.id}" data-name="📍 ${location} - ${staffName}">🗑️</button>
+                    <button class="btn-action btn-edit" data-edit="phan_cong" data-id="${p.id}">✏️</button>
+                    <button class="btn-action btn-del" data-del="phan_cong" data-id="${p.id}" data-name="${name}">🗑️</button>
                 </div>
             </div>
         `;
     };
 
-    // 2. Duyệt qua các toà nhà và render khung
+    // Render từng toà nhà
     let html = '';
-    for (const [id, data] of Object.entries(grouped)) {
-        if (data.items.length === 0) continue; // Bỏ qua toà nhà chưa có phân công
+    for (const [bId, bData] of Object.entries(grouped)) {
+        const areaEntries = Object.entries(bData.areas)
+            .sort((a, b) => a[1].ten.localeCompare(b[1].ten, 'vi'));
 
-        html += `
-            <div class="building-group">
-                <div class="building-header">🏢 Toà ${Utils.escape(data.ten)}</div>
-                <div class="building-assignments">
-                    ${data.items.map(p => renderItem(p)).join('')}
+        if (areaEntries.length === 0) continue;
+
+        html += `<div class="building-group">
+            <div class="building-header">🏢 Toà ${Utils.escape(bData.ten)}</div>
+            <div class="building-assignments">`;
+
+        areaEntries.forEach(([kId, aData]) => {
+            // Sắp xếp nhân viên A-Z trong cùng khu vực
+            aData.items.sort((a, b) => {
+                const na = State.nhanSu.find(x => x.id === a.nhan_su_id)?.ho_ten || '';
+                const nb = State.nhanSu.find(x => x.id === b.nhan_su_id)?.ho_ten || '';
+                return na.localeCompare(nb, 'vi');
+            });
+            html += `<div class="area-group">
+                <div class="area-header">
+                    <span>📍 ${Utils.escape(aData.ten)}</span>
+                    <span class="area-count">${aData.items.length} người</span>
                 </div>
-            </div>
-        `;
+                <div class="area-employees">
+                    ${aData.items.map(renderEmployee).join('')}
+                </div>
+            </div>`;
+        });
+
+        html += `</div></div>`;
     }
 
-    // 3. Render các item bị mồ côi (nếu toà nhà bị xoá lỗi)
-    if (unassignedItems.length > 0) {
-        html += `
-            <div class="building-group">
-                <div class="building-header" style="color:var(--danger)">⚠️ Không xác định</div>
-                <div class="building-assignments">
-                    ${unassignedItems.map(p => renderItem(p)).join('')}
-                </div>
+    // Phân công bị "mồ côi" (do toà nhà bị xoá nhưng lỗi cascade)
+    if (unassigned.length > 0) {
+        html += `<div class="building-group">
+            <div class="building-header" style="color:var(--danger); background:#ffe5e5;">⚠️ Không xác định</div>
+            <div class="building-assignments">
+                ${unassigned.map(renderEmployee).join('')}
             </div>
-        `;
+        </div>`;
     }
 
     el.innerHTML = html;
@@ -675,6 +727,7 @@ document.querySelectorAll('.btn-select-mode').forEach(btn => {
 });
 
 document.body.addEventListener('click', e => {
+    // 1. Nút Sửa
     const btnEdit = e.target.closest('.btn-edit');
     if (btnEdit) {
         const id = btnEdit.dataset.id;
@@ -700,9 +753,20 @@ document.body.addEventListener('click', e => {
             document.getElementById('ns-sdt').value = item.sdt || '';
             UI.openModal('modal-nhan-su', true);
         }
+        else if (type === 'phan_cong') {
+            const item = State.phanCong.find(x => x.id === id);
+            if (!item) return;
+            UI.openModal('modal-phan-cong', true); // populate selects
+            // Set giá trị sau khi populate
+            document.getElementById('edit-id-pc').value = id;
+            document.getElementById('pc-toa-nha').value = item.toa_nha_id;
+            document.getElementById('pc-khu-vuc').value = item.khu_vuc_id;
+            document.getElementById('pc-nhan-su').value = item.nhan_su_id;
+        }
         return;
     }
 
+    // 2. Nút Xoá đơn
     const btnDel = e.target.closest('.btn-del');
     if (btnDel) {
         if(!confirm(`Xoá "${btnDel.dataset.name}"?`)) return;
@@ -715,9 +779,10 @@ document.body.addEventListener('click', e => {
         return;
     }
 
+    // 3. Chọn nhiều
     if (State.isSelectMode) {
         const listItem = e.target.closest('.list-item');
-        if (listItem) {
+        if (listItem && listItem.dataset.id) {
             const id = listItem.dataset.id;
             const cb = listItem.querySelector('.checkbox-wrapper');
             if (State.selectedIds.has(id)) {
@@ -733,6 +798,7 @@ document.body.addEventListener('click', e => {
     }
 });
 
+// Xoá nhiều
 document.getElementById('btn-bulk-del').addEventListener('click', async () => {
     if (State.selectedIds.size === 0) return;
     if (!confirm(`Xoá ${State.selectedIds.size} mục đã chọn?`)) return;
@@ -759,7 +825,7 @@ document.getElementById('btn-bulk-del').addEventListener('click', async () => {
 });
 
 // ============================================================
-// 8. FORM SUBMITS (Xử lý cả Thêm & Sửa)
+// 8. FORM SUBMITS
 // ============================================================
 document.getElementById('form-toa-nha').addEventListener('submit', async e => {
     e.preventDefault();
@@ -847,7 +913,7 @@ document.getElementById('form-phan-cong').addEventListener('submit', async e => 
         else UI.showToast('Lỗi: ' + error.message, true);
         return;
     }
-    UI.showToast(id ? 'Đã cập nhật' : 'Đã phân công');
+    UI.showToast(id ? 'Đã cập nhật phân công' : 'Đã phân công');
     UI.closeModal('modal-phan-cong');
     Utils.vibrate();
     loadPhanCong();
