@@ -8,6 +8,7 @@
     <style>
         :root {
             --primary: #007aff; --success: #34c759; --danger: #ff3b30;
+            --red: #dc2626; --red-dark: #991b1b;
             --bg: #f2f2f7; --card: #fff; --text: #1c1c1e; --muted: #8e8e93;
             --nav-h: 62px;
         }
@@ -64,7 +65,7 @@
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
         .toast.error { background: var(--danger); }
 
-        /* FAB & BULK DELETE BAR */
+        /* FAB & BULK DELETE */
         .fab {
             position: fixed; bottom: calc(var(--nav-h) + 16px); right: 20px;
             padding: 0 20px; height: 52px; border-radius: 26px;
@@ -88,7 +89,7 @@
         .bulk-bar .count { font-size: 15px; font-weight: 700; }
         .bulk-bar .btn-bulk-del { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 8px 16px; border-radius: 16px; font-weight: 700; font-size: 14px; cursor: pointer; }
 
-        /* LIST */
+        /* ===== LIST CHUNG ===== */
         .list { display: flex; flex-direction: column; gap: 10px; }
         .list-item {
             background: var(--card); border-radius: 12px;
@@ -109,7 +110,6 @@
         .list-item .checkbox-wrapper.checked::after {
             content: '✓'; color: #fff; font-size: 14px; font-weight: bold;
         }
-
         .selection-mode .list-item .checkbox-wrapper { display: flex; }
         .selection-mode .list-item .actions { display: none; }
 
@@ -129,87 +129,128 @@
         .btn-action:active { transform: scale(0.9); }
 
         /* =========================================
-           GIAO DIỆN QUẢN LÝ (GOM NHÓM 2 CẤP)
+           GIAO DIỆN QUẢN LÝ - COMPACT 2 CẤP
            ========================================= */
         .building-group {
             background: var(--card);
-            border-radius: 16px;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 4px rgba(220,38,38,0.12);
+            border: 1px solid #fecaca;
             overflow: hidden;
         }
         .building-header {
-            background: linear-gradient(135deg, #e8f0ff, #dde7ff);
-            padding: 12px 16px;
-            font-size: 15px;
-            font-weight: 800;
-            color: var(--primary);
-            border-bottom: 1px solid #d5dff5;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .building-assignments {
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        /* Khu vực (sub-card trong toà nhà) */
-        .area-group {
-            background: #fafbff;
-            border-radius: 12px;
-            border: 1px solid #e8ecf7;
-            overflow: hidden;
-        }
-        .area-header {
-            background: #f0f4ff;
-            padding: 8px 12px;
-            font-size: 13px;
+            background: linear-gradient(135deg, #e63946, #a4161a);
+            color: #fff;
+            padding: 10px 14px;
+            font-size: 13.5px;
             font-weight: 700;
-            color: #3a5aa8;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
         }
-        .area-count {
-            font-size: 11px;
-            color: var(--muted);
-            font-weight: 600;
-            background: #fff;
-            padding: 2px 8px;
-            border-radius: 10px;
+        .building-header:active { opacity: 0.92; }
+        .building-header .bh-title { display: flex; align-items: center; gap: 6px; }
+        .building-header .bh-toggle {
+            font-size: 9px; transition: transform 0.2s;
+            display: inline-block; opacity: 0.9;
         }
-        .area-employees {
-            padding: 6px 8px;
+        .building-group.collapsed .bh-toggle { transform: rotate(-90deg); }
+        .building-header .bh-meta {
+            font-size: 10.5px; font-weight: 500; opacity: 0.88;
+            white-space: nowrap;
+        }
+        .building-group.collapsed .building-content { display: none; }
+
+        .building-content { padding: 2px 0 4px; }
+
+        /* Khu vực: dòng nhỏ, không khung */
+        .area-section + .area-section { border-top: 1px dashed #f0f0f5; }
+
+        .area-header {
+            font-size: 10.5px;
+            font-weight: 800;
+            color: #a4161a;
+            padding: 8px 14px 3px;
             display: flex;
-            flex-direction: column;
+            align-items: center;
             gap: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .area-header .area-count {
+            font-size: 9.5px;
+            background: #fee2e2;
+            color: #a4161a;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-weight: 700;
+            letter-spacing: 0;
         }
 
-        /* Override style list-item trong group */
-        .building-group .list-item {
-            background: #fff;
-            border-radius: 8px;
-            padding: 10px 12px;
-            box-shadow: none;
-            border: 1px solid #eef1f8;
-            gap: 10px;
+        /* Nhân viên: 1 dòng duy nhất */
+        .employee-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px 7px 20px;
+            border-top: 1px solid #f7f7fa;
         }
-        .building-group .list-item:active { background: #f5f8ff; }
-        .building-group .btn-action {
-            width: 32px; height: 32px; font-size: 13px;
+        .employee-row:active { background: #fafbfd; }
+
+        .employee-row .checkbox-wrapper {
+            display: none;
+            align-items: center; justify-content: center;
+            width: 20px; height: 20px;
+            border: 2px solid #c7c7cc; border-radius: 50%;
+            flex-shrink: 0;
         }
+        .employee-row .checkbox-wrapper.checked { background: var(--primary); border-color: var(--primary); }
+        .employee-row .checkbox-wrapper.checked::after {
+            content: '✓'; color: #fff; font-size: 11px; font-weight: bold;
+        }
+        .selection-mode .employee-row .checkbox-wrapper { display: flex; }
+        .selection-mode .employee-row .emp-actions { display: none; }
+
+        .employee-row .emp-name {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text);
+            flex-shrink: 0;
+            max-width: 55%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .employee-row .emp-phone {
+            font-size: 12.5px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .selection-mode .employee-row .emp-phone { pointer-events: none; }
+        .employee-row .emp-phone.no-phone { color: #c7c7cc; font-style: italic; }
+
+        .employee-row .emp-actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .btn-mini {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #f2f2f7; border: none; font-size: 12px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0;
+        }
+        .btn-mini:active { transform: scale(0.9); }
 
         /* EMPTY & SKELETON */
         .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
         .empty-state .icon { font-size: 48px; margin-bottom: 10px; display: block; opacity: 0.5; }
-        .skeleton-card {
-            height: 68px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%; animation: shimmer 1.5s infinite;
-            border-radius: 12px; margin-bottom: 10px;
-        }
 
         /* MODAL */
         .modal-overlay {
@@ -240,161 +281,90 @@
 <body>
 
 <header class="app-header">
-    <h1>
-        Giám sát vệ sinh
-        <span class="sub">ĐH Xã Hội và Nhân Văn</span>
-    </h1>
+    <h1>Giám sát vệ sinh<span class="sub">ĐH Xã Hội và Nhân Văn</span></h1>
 </header>
 
 <div id="toast" class="toast">Thành công!</div>
 
-<!-- ===== TAB 1: CÔNG TRÌNH ===== -->
 <section id="view-cong-trinh" class="view active">
-    <div class="section-header">
-        <span class="section-title">Danh sách toà nhà</span>
-        <button class="btn-select-mode" data-tab="cong-trinh">Chọn</button>
-    </div>
+    <div class="section-header"><span class="section-title">Danh sách toà nhà</span><button class="btn-select-mode" data-tab="cong-trinh">Chọn</button></div>
     <div id="list-toa-nha" class="list"></div>
 </section>
 
-<!-- ===== TAB 2: KHU VỰC ===== -->
 <section id="view-khu-vuc" class="view">
-    <div class="section-header">
-        <span class="section-title">Danh sách khu vực</span>
-        <button class="btn-select-mode" data-tab="khu-vuc">Chọn</button>
-    </div>
+    <div class="section-header"><span class="section-title">Danh sách khu vực</span><button class="btn-select-mode" data-tab="khu-vuc">Chọn</button></div>
     <div id="list-khu-vuc" class="list"></div>
 </section>
 
-<!-- ===== TAB 3: NHÂN SỰ ===== -->
 <section id="view-nhan-su" class="view">
-    <div class="section-header">
-        <span class="section-title">Nhân viên vệ sinh</span>
-        <button class="btn-select-mode" data-tab="nhan-su">Chọn</button>
-    </div>
+    <div class="section-header"><span class="section-title">Nhân viên vệ sinh</span><button class="btn-select-mode" data-tab="nhan-su">Chọn</button></div>
     <div id="list-nhan-su" class="list"></div>
 </section>
 
-<!-- ===== TAB 4: QUẢN LÝ ===== -->
 <section id="view-quan-ly" class="view">
-    <div class="section-header">
-        <span class="section-title">Phân công vệ sinh</span>
-        <button class="btn-select-mode" data-tab="quan-ly">Chọn</button>
-    </div>
+    <div class="section-header"><span class="section-title">Phân công vệ sinh</span><button class="btn-select-mode" data-tab="quan-ly">Chọn</button></div>
     <div id="list-phan-cong" class="list"></div>
 </section>
 
-<!-- FAB (Thêm mới) -->
 <button class="fab" id="main-fab"><span>+</span> Thêm</button>
-
-<!-- BULK DELETE BAR -->
 <div class="bulk-bar" id="bulk-bar">
     <span class="count" id="bulk-count">Đã chọn 0</span>
     <button class="btn-bulk-del" id="btn-bulk-del">🗑️ Xoá</button>
 </div>
 
-<!-- ===== MODAL: TOÀ NHÀ ===== -->
+<!-- MODALS -->
 <div id="modal-toa-nha" class="modal-overlay" onclick="UI.closeModal('modal-toa-nha')">
     <div class="bottom-sheet" onclick="event.stopPropagation()">
-        <div class="sheet-header">
-            <h2 id="title-toa-nha">Thêm Toà Nhà</h2>
-            <button class="close-btn" onclick="UI.closeModal('modal-toa-nha')">✕</button>
-        </div>
+        <div class="sheet-header"><h2 id="title-toa-nha">Thêm Toà Nhà</h2><button class="close-btn" onclick="UI.closeModal('modal-toa-nha')">✕</button></div>
         <form id="form-toa-nha">
             <input type="hidden" id="edit-id-tn">
-            <div class="form-group">
-                <label>Tên toà nhà</label>
-                <input type="text" id="tn-ten" placeholder="VD: A, B, C..." required maxlength="50">
-            </div>
+            <div class="form-group"><label>Tên toà nhà</label><input type="text" id="tn-ten" placeholder="VD: A, B, C..." required maxlength="50"></div>
             <button type="submit" class="btn-primary" id="btn-save-tn">Lưu Toà Nhà</button>
         </form>
     </div>
 </div>
 
-<!-- ===== MODAL: KHU VỰC ===== -->
 <div id="modal-khu-vuc" class="modal-overlay" onclick="UI.closeModal('modal-khu-vuc')">
     <div class="bottom-sheet" onclick="event.stopPropagation()">
-        <div class="sheet-header">
-            <h2 id="title-khu-vuc">Thêm Khu Vực</h2>
-            <button class="close-btn" onclick="UI.closeModal('modal-khu-vuc')">✕</button>
-        </div>
+        <div class="sheet-header"><h2 id="title-khu-vuc">Thêm Khu Vực</h2><button class="close-btn" onclick="UI.closeModal('modal-khu-vuc')">✕</button></div>
         <form id="form-khu-vuc">
             <input type="hidden" id="edit-id-kv">
-            <div class="form-group">
-                <label>Tên khu vực</label>
-                <input type="text" id="kv-ten" placeholder="VD: tầng 1, sân thượng..." required maxlength="50">
-            </div>
+            <div class="form-group"><label>Tên khu vực</label><input type="text" id="kv-ten" placeholder="VD: tầng 1, sân thượng..." required maxlength="50"></div>
             <button type="submit" class="btn-primary" id="btn-save-kv">Lưu Khu Vực</button>
         </form>
     </div>
 </div>
 
-<!-- ===== MODAL: NHÂN SỰ ===== -->
 <div id="modal-nhan-su" class="modal-overlay" onclick="UI.closeModal('modal-nhan-su')">
     <div class="bottom-sheet" onclick="event.stopPropagation()">
-        <div class="sheet-header">
-            <h2 id="title-nhan-su">Thêm Nhân Viên</h2>
-            <button class="close-btn" onclick="UI.closeModal('modal-nhan-su')">✕</button>
-        </div>
+        <div class="sheet-header"><h2 id="title-nhan-su">Thêm Nhân Viên</h2><button class="close-btn" onclick="UI.closeModal('modal-nhan-su')">✕</button></div>
         <form id="form-nhan-su">
             <input type="hidden" id="edit-id-ns">
-            <div class="form-group">
-                <label>Họ tên</label>
-                <input type="text" id="ns-ten" placeholder="VD: Lê Minh Thư" required maxlength="50">
-            </div>
-            <div class="form-group">
-                <label>Số điện thoại</label>
-                <input type="tel" id="ns-sdt" placeholder="VD: 0123456789" required maxlength="15">
-            </div>
+            <div class="form-group"><label>Họ tên</label><input type="text" id="ns-ten" placeholder="VD: Lê Minh Thư" required maxlength="50"></div>
+            <div class="form-group"><label>Số điện thoại</label><input type="tel" id="ns-sdt" placeholder="VD: 0123456789" required maxlength="15"></div>
             <button type="submit" class="btn-primary" id="btn-save-ns">Lưu Nhân Viên</button>
         </form>
     </div>
 </div>
 
-<!-- ===== MODAL: PHÂN CÔNG ===== -->
 <div id="modal-phan-cong" class="modal-overlay" onclick="UI.closeModal('modal-phan-cong')">
     <div class="bottom-sheet" onclick="event.stopPropagation()">
-        <div class="sheet-header">
-            <h2 id="title-phan-cong">Phân Công Vệ Sinh</h2>
-            <button class="close-btn" onclick="UI.closeModal('modal-phan-cong')">✕</button>
-        </div>
+        <div class="sheet-header"><h2 id="title-phan-cong">Phân Công Vệ Sinh</h2><button class="close-btn" onclick="UI.closeModal('modal-phan-cong')">✕</button></div>
         <form id="form-phan-cong">
             <input type="hidden" id="edit-id-pc">
-            <div class="form-group">
-                <label>Toà nhà</label>
-                <select id="pc-toa-nha" required></select>
-            </div>
-            <div class="form-group">
-                <label>Khu vực</label>
-                <select id="pc-khu-vuc" required></select>
-            </div>
-            <div class="form-group">
-                <label>Nhân viên</label>
-                <select id="pc-nhan-su" required></select>
-            </div>
+            <div class="form-group"><label>Toà nhà</label><select id="pc-toa-nha" required></select></div>
+            <div class="form-group"><label>Khu vực</label><select id="pc-khu-vuc" required></select></div>
+            <div class="form-group"><label>Nhân viên</label><select id="pc-nhan-su" required></select></div>
             <button type="submit" class="btn-primary" id="btn-save-pc">Lưu Phân Công</button>
         </form>
     </div>
 </div>
 
-<!-- BOTTOM NAV -->
 <nav class="bottom-nav">
-    <button class="nav-item active" data-tab="cong-trinh">
-        <span class="nav-icon">🏢</span>
-        <span>Công trình</span>
-    </button>
-    <button class="nav-item" data-tab="khu-vuc">
-        <span class="nav-icon">📍</span>
-        <span>Khu vực</span>
-    </button>
-    <button class="nav-item" data-tab="nhan-su">
-        <span class="nav-icon">👤</span>
-        <span>Nhân sự</span>
-    </button>
-    <button class="nav-item" data-tab="quan-ly">
-        <span class="nav-icon">📋</span>
-        <span>Quản lý</span>
-    </button>
+    <button class="nav-item active" data-tab="cong-trinh"><span class="nav-icon">🏢</span><span>Công trình</span></button>
+    <button class="nav-item" data-tab="khu-vuc"><span class="nav-icon">📍</span><span>Khu vực</span></button>
+    <button class="nav-item" data-tab="nhan-su"><span class="nav-icon">👤</span><span>Nhân sự</span></button>
+    <button class="nav-item" data-tab="quan-ly"><span class="nav-icon">📋</span><span>Quản lý</span></button>
 </nav>
 
 <script>
@@ -418,7 +388,8 @@ const State = {
     toaNha: [], khuVuc: [], nhanSu: [], phanCong: [],
     currentTab: 'cong-trinh',
     isSelectMode: false,
-    selectedIds: new Set()
+    selectedIds: new Set(),
+    collapsedBuildings: new Set()  // Lưu các toà đang thu gọn
 };
 
 // ============================================================
@@ -435,22 +406,17 @@ const UI = {
         document.getElementById(id).classList.add('show');
         document.body.style.overflow = 'hidden';
         if (id === 'modal-phan-cong') populatePhanCongSelects();
-        
-        if (id === 'modal-toa-nha') {
-            document.getElementById('title-toa-nha').innerText = isEdit ? 'Sửa Toà Nhà' : 'Thêm Toà Nhà';
-            document.getElementById('btn-save-tn').innerText = isEdit ? 'Cập Nhật' : 'Lưu Toà Nhà';
-        }
-        if (id === 'modal-khu-vuc') {
-            document.getElementById('title-khu-vuc').innerText = isEdit ? 'Sửa Khu Vực' : 'Thêm Khu Vực';
-            document.getElementById('btn-save-kv').innerText = isEdit ? 'Cập Nhật' : 'Lưu Khu Vực';
-        }
-        if (id === 'modal-nhan-su') {
-            document.getElementById('title-nhan-su').innerText = isEdit ? 'Sửa Nhân Viên' : 'Thêm Nhân Viên';
-            document.getElementById('btn-save-ns').innerText = isEdit ? 'Cập Nhật' : 'Lưu Nhân Viên';
-        }
-        if (id === 'modal-phan-cong') {
-            document.getElementById('title-phan-cong').innerText = isEdit ? 'Sửa Phân Công' : 'Phân Công Vệ Sinh';
-            document.getElementById('btn-save-pc').innerText = isEdit ? 'Cập Nhật' : 'Lưu Phân Công';
+        const map = {
+            'modal-toa-nha':    ['title-toa-nha',    'btn-save-tn', 'Toà Nhà',    'Lưu Toà Nhà'],
+            'modal-khu-vuc':    ['title-khu-vuc',    'btn-save-kv', 'Khu Vực',    'Lưu Khu Vực'],
+            'modal-nhan-su':    ['title-nhan-su',    'btn-save-ns', 'Nhân Viên',  'Lưu Nhân Viên'],
+            'modal-phan-cong':  ['title-phan-cong',  'btn-save-pc', 'Phân Công',  'Lưu Phân Công'],
+        };
+        if (map[id]) {
+            const [titleId, btnId, label, defaultBtn] = map[id];
+            document.getElementById(titleId).innerText = (isEdit ? 'Sửa ' : (id === 'modal-phan-cong' ? '' : 'Thêm ')) + label;
+            if (id === 'modal-phan-cong' && !isEdit) document.getElementById(titleId).innerText = 'Phân Công Vệ Sinh';
+            document.getElementById(btnId).innerText = isEdit ? 'Cập Nhật' : defaultBtn;
         }
     },
     closeModal(id) {
@@ -466,7 +432,6 @@ const UI = {
         State.isSelectMode = false;
         State.selectedIds.clear();
         updateSelectModeUI();
-
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(`view-${tab}`).classList.add('active');
@@ -477,29 +442,22 @@ const UI = {
 };
 
 // ============================================================
-// 4. RENDER FUNCTIONS
+// 4. RENDER - 3 TAB ĐẦU (giữ nguyên style)
 // ============================================================
 function getActionButtons(type, id, name) {
-    return `
-        <div class="actions">
-            <button class="btn-action btn-edit" data-edit="${type}" data-id="${id}">✏️</button>
-            <button class="btn-action btn-del" data-del="${type}" data-id="${id}" data-name="${Utils.escape(name)}">🗑️</button>
-        </div>
-    `;
+    return `<div class="actions">
+        <button class="btn-action btn-edit" data-edit="${type}" data-id="${id}">✏️</button>
+        <button class="btn-action btn-del" data-del="${type}" data-id="${id}" data-name="${Utils.escape(name)}">🗑️</button>
+    </div>`;
 }
 
 function renderToaNha() {
     const el = document.getElementById('list-toa-nha');
-    if (!State.toaNha.length) {
-        el.innerHTML = `<div class="empty-state"><span class="icon">🏢</span>Chưa có toà nhà nào.</div>`;
-        return;
-    }
+    if (!State.toaNha.length) return el.innerHTML = `<div class="empty-state"><span class="icon">🏢</span>Chưa có toà nhà nào.</div>`;
     el.innerHTML = State.toaNha.map(t => `
         <div class="list-item" data-id="${t.id}" data-type="toa_nha" data-name="${Utils.escape(t.ten)}">
             <div class="checkbox-wrapper ${State.selectedIds.has(t.id) ? 'checked' : ''}"></div>
-            <div class="content">
-                <div class="title">🏢 ${Utils.escape(t.ten)}</div>
-            </div>
+            <div class="content"><div class="title">🏢 ${Utils.escape(t.ten)}</div></div>
             ${getActionButtons('toa_nha', t.id, t.ten)}
         </div>
     `).join('');
@@ -507,16 +465,11 @@ function renderToaNha() {
 
 function renderKhuVuc() {
     const el = document.getElementById('list-khu-vuc');
-    if (!State.khuVuc.length) {
-        el.innerHTML = `<div class="empty-state"><span class="icon">📍</span>Chưa có khu vực nào.</div>`;
-        return;
-    }
+    if (!State.khuVuc.length) return el.innerHTML = `<div class="empty-state"><span class="icon">📍</span>Chưa có khu vực nào.</div>`;
     el.innerHTML = State.khuVuc.map(k => `
         <div class="list-item" data-id="${k.id}" data-type="khu_vuc" data-name="${Utils.escape(k.ten)}">
             <div class="checkbox-wrapper ${State.selectedIds.has(k.id) ? 'checked' : ''}"></div>
-            <div class="content">
-                <div class="title">📍 ${Utils.escape(k.ten)}</div>
-            </div>
+            <div class="content"><div class="title">📍 ${Utils.escape(k.ten)}</div></div>
             ${getActionButtons('khu_vuc', k.id, k.ten)}
         </div>
     `).join('');
@@ -524,10 +477,7 @@ function renderKhuVuc() {
 
 function renderNhanSu() {
     const el = document.getElementById('list-nhan-su');
-    if (!State.nhanSu.length) {
-        el.innerHTML = `<div class="empty-state"><span class="icon">👤</span>Chưa có nhân viên nào.</div>`;
-        return;
-    }
+    if (!State.nhanSu.length) return el.innerHTML = `<div class="empty-state"><span class="icon">👤</span>Chưa có nhân viên nào.</div>`;
     el.innerHTML = State.nhanSu.map(n => `
         <div class="list-item" data-id="${n.id}" data-type="nhan_su" data-name="${Utils.escape(n.ho_ten)}">
             <div class="checkbox-wrapper ${State.selectedIds.has(n.id) ? 'checked' : ''}"></div>
@@ -540,17 +490,16 @@ function renderNhanSu() {
     `).join('');
 }
 
-/* ============================================================
-   RENDER QUẢN LÝ: GOM NHÓM 2 CẤP (Toà nhà → Khu vực → Nhân viên)
-   ============================================================ */
+// ============================================================
+// 5. RENDER QUẢN LÝ - COMPACT
+// ============================================================
 function renderPhanCong() {
     const el = document.getElementById('list-phan-cong');
     if (!State.phanCong.length) {
-        el.innerHTML = `<div class="empty-state"><span class="icon">📋</span>Chưa có phân công nào.</div>`;
-        return;
+        return el.innerHTML = `<div class="empty-state"><span class="icon">📋</span>Chưa có phân công nào.<br>Bấm "+ Phân công" để thiết lập.</div>`;
     }
 
-    // Gom nhóm: toa_nha_id -> { ten, areas: { khu_vuc_id: { ten, items } } }
+    // Gom nhóm 2 cấp
     const grouped = {};
     State.toaNha.forEach(t => { grouped[t.id] = { ten: t.ten, areas: {} }; });
     const unassigned = [];
@@ -565,69 +514,64 @@ function renderPhanCong() {
         b.areas[p.khu_vuc_id].items.push(p);
     });
 
-    // Render 1 dòng nhân viên (bên trong khung khu vực)
+    // Render 1 dòng nhân viên (compact)
     const renderEmployee = (p) => {
         const n = State.nhanSu.find(x => x.id === p.nhan_su_id);
-        const name = n ? Utils.escape(n.ho_ten) : '(nhân viên đã xoá)';
+        const name = n ? Utils.escape(n.ho_ten) : '(đã xoá)';
         const phone = n && n.sdt ? Utils.escape(n.sdt) : '';
         const phoneHtml = phone
-            ? `<a class="phone" href="tel:${Utils.cleanPhone(n.sdt)}">📞 ${phone}</a>`
-            : `<div class="subtitle">Chưa có SĐT</div>`;
+            ? `<a class="emp-phone" href="tel:${Utils.cleanPhone(n.sdt)}">${phone}</a>`
+            : `<span class="emp-phone no-phone">Chưa có SĐT</span>`;
         return `
-            <div class="list-item" data-id="${p.id}" data-type="phan_cong">
+            <div class="employee-row" data-id="${p.id}">
                 <div class="checkbox-wrapper ${State.selectedIds.has(p.id) ? 'checked' : ''}"></div>
-                <div class="content">
-                    <div class="title" style="font-size:14px;">👤 ${name}</div>
-                    ${phoneHtml}
-                </div>
-                <div class="actions">
-                    <button class="btn-action btn-edit" data-edit="phan_cong" data-id="${p.id}">✏️</button>
-                    <button class="btn-action btn-del" data-del="phan_cong" data-id="${p.id}" data-name="${name}">🗑️</button>
+                <div class="emp-name">${name}</div>
+                ${phoneHtml}
+                <div class="emp-actions">
+                    <button class="btn-mini btn-edit" data-edit="phan_cong" data-id="${p.id}">✏️</button>
+                    <button class="btn-mini btn-del" data-del="phan_cong" data-id="${p.id}" data-name="${name}">🗑️</button>
                 </div>
             </div>
         `;
     };
 
-    // Render từng toà nhà
     let html = '';
     for (const [bId, bData] of Object.entries(grouped)) {
-        const areaEntries = Object.entries(bData.areas)
-            .sort((a, b) => a[1].ten.localeCompare(b[1].ten, 'vi'));
-
+        const areaEntries = Object.entries(bData.areas).sort((a, b) => a[1].ten.localeCompare(b[1].ten, 'vi'));
         if (areaEntries.length === 0) continue;
+        const totalEmp = areaEntries.reduce((s, [, a]) => s + a.items.length, 0);
+        const isCollapsed = State.collapsedBuildings.has(bId);
 
-        html += `<div class="building-group">
-            <div class="building-header">🏢 Toà ${Utils.escape(bData.ten)}</div>
-            <div class="building-assignments">`;
+        html += `<div class="building-group ${isCollapsed ? 'collapsed' : ''}">
+            <div class="building-header" data-toggle="${bId}">
+                <div class="bh-title"><span class="bh-toggle">▼</span><span>🏢 Toà ${Utils.escape(bData.ten)}</span></div>
+                <span class="bh-meta">${areaEntries.length} khu · ${totalEmp} người</span>
+            </div>
+            <div class="building-content">`;
 
         areaEntries.forEach(([kId, aData]) => {
-            // Sắp xếp nhân viên A-Z trong cùng khu vực
             aData.items.sort((a, b) => {
                 const na = State.nhanSu.find(x => x.id === a.nhan_su_id)?.ho_ten || '';
                 const nb = State.nhanSu.find(x => x.id === b.nhan_su_id)?.ho_ten || '';
                 return na.localeCompare(nb, 'vi');
             });
-            html += `<div class="area-group">
-                <div class="area-header">
-                    <span>📍 ${Utils.escape(aData.ten)}</span>
-                    <span class="area-count">${aData.items.length} người</span>
-                </div>
-                <div class="area-employees">
-                    ${aData.items.map(renderEmployee).join('')}
-                </div>
+            html += `<div class="area-section">
+                <div class="area-header">📍 ${Utils.escape(aData.ten)} <span class="area-count">${aData.items.length}</span></div>
+                ${aData.items.map(renderEmployee).join('')}
             </div>`;
         });
 
         html += `</div></div>`;
     }
 
-    // Phân công bị "mồ côi" (do toà nhà bị xoá nhưng lỗi cascade)
     if (unassigned.length > 0) {
-        html += `<div class="building-group">
-            <div class="building-header" style="color:var(--danger); background:#ffe5e5;">⚠️ Không xác định</div>
-            <div class="building-assignments">
-                ${unassigned.map(renderEmployee).join('')}
+        const isCollapsed = State.collapsedBuildings.has('__unassigned__');
+        html += `<div class="building-group ${isCollapsed ? 'collapsed' : ''}">
+            <div class="building-header" data-toggle="__unassigned__" style="background:linear-gradient(135deg,#4b5563,#374151)">
+                <div class="bh-title"><span class="bh-toggle">▼</span><span>⚠️ Không xác định</span></div>
+                <span class="bh-meta">${unassigned.length} người</span>
             </div>
+            <div class="building-content">${unassigned.map(renderEmployee).join('')}</div>
         </div>`;
     }
 
@@ -635,15 +579,15 @@ function renderPhanCong() {
 }
 
 // ============================================================
-// 5. UI HELPERS (FAB & Chọn nhiều)
+// 6. UI HELPERS
 // ============================================================
 function updateFab() {
     const fab = document.getElementById('main-fab');
     const config = {
-        'cong-trinh': { label: 'Thêm toà nhà',  open: () => UI.openModal('modal-toa-nha') },
-        'khu-vuc':    { label: 'Thêm khu vực',  open: () => UI.openModal('modal-khu-vuc') },
+        'cong-trinh': { label: 'Thêm toà nhà',   open: () => UI.openModal('modal-toa-nha') },
+        'khu-vuc':    { label: 'Thêm khu vực',   open: () => UI.openModal('modal-khu-vuc') },
         'nhan-su':    { label: 'Thêm nhân viên', open: () => UI.openModal('modal-nhan-su') },
-        'quan-ly':    { label: 'Phân công',     open: () => UI.openModal('modal-phan-cong') },
+        'quan-ly':    { label: 'Phân công',      open: () => UI.openModal('modal-phan-cong') },
     };
     const c = config[State.currentTab];
     fab.innerHTML = `<span>+</span> ${c.label}`;
@@ -658,20 +602,15 @@ function updateSelectModeUI() {
 
     if (State.isSelectMode) {
         view.classList.add('selection-mode');
-        btnSelect.innerText = 'Huỷ';
-        btnSelect.classList.add('cancel');
-        bulkBar.classList.add('show');
-        fab.classList.add('hidden');
+        btnSelect.innerText = 'Huỷ'; btnSelect.classList.add('cancel');
+        bulkBar.classList.add('show'); fab.classList.add('hidden');
     } else {
         view.classList.remove('selection-mode');
-        btnSelect.innerText = 'Chọn';
-        btnSelect.classList.remove('cancel');
-        bulkBar.classList.remove('show');
-        fab.classList.remove('hidden');
+        btnSelect.innerText = 'Chọn'; btnSelect.classList.remove('cancel');
+        bulkBar.classList.remove('show'); fab.classList.remove('hidden');
         State.selectedIds.clear();
     }
     updateBulkCount();
-    
     if (State.currentTab === 'cong-trinh') renderToaNha();
     if (State.currentTab === 'khu-vuc') renderKhuVuc();
     if (State.currentTab === 'nhan-su') renderNhanSu();
@@ -683,36 +622,21 @@ function updateBulkCount() {
 }
 
 // ============================================================
-// 6. FETCH
+// 7. FETCH
 // ============================================================
-async function loadToaNha() {
-    const { data } = await supabaseClient.from('toa_nha').select('*').order('ten');
-    State.toaNha = data || []; renderToaNha();
-}
-async function loadKhuVuc() {
-    const { data } = await supabaseClient.from('khu_vuc').select('*').order('ten');
-    State.khuVuc = data || []; renderKhuVuc();
-}
-async function loadNhanSu() {
-    const { data } = await supabaseClient.from('nhan_su').select('*').order('ho_ten');
-    State.nhanSu = data || []; renderNhanSu();
-}
-async function loadPhanCong() {
-    const { data } = await supabaseClient.from('phan_cong').select('*').order('created_at', { ascending: false });
-    State.phanCong = data || []; renderPhanCong();
-}
+async function loadToaNha() { const { data } = await supabaseClient.from('toa_nha').select('*').order('ten'); State.toaNha = data || []; renderToaNha(); }
+async function loadKhuVuc() { const { data } = await supabaseClient.from('khu_vuc').select('*').order('ten'); State.khuVuc = data || []; renderKhuVuc(); }
+async function loadNhanSu() { const { data } = await supabaseClient.from('nhan_su').select('*').order('ho_ten'); State.nhanSu = data || []; renderNhanSu(); }
+async function loadPhanCong() { const { data } = await supabaseClient.from('phan_cong').select('*').order('created_at', { ascending: false }); State.phanCong = data || []; renderPhanCong(); }
 
 function populatePhanCongSelects() {
-    const selT = document.getElementById('pc-toa-nha');
-    const selK = document.getElementById('pc-khu-vuc');
-    const selN = document.getElementById('pc-nhan-su');
-    selT.innerHTML = State.toaNha.map(t => `<option value="${t.id}">${Utils.escape(t.ten)}</option>`).join('');
-    selK.innerHTML = State.khuVuc.map(k => `<option value="${k.id}">${Utils.escape(k.ten)}</option>`).join('');
-    selN.innerHTML = State.nhanSu.map(n => `<option value="${n.id}">${Utils.escape(n.ho_ten)}${n.sdt ? ' - ' + Utils.escape(n.sdt) : ''}</option>`).join('');
+    document.getElementById('pc-toa-nha').innerHTML = State.toaNha.map(t => `<option value="${t.id}">${Utils.escape(t.ten)}</option>`).join('');
+    document.getElementById('pc-khu-vuc').innerHTML = State.khuVuc.map(k => `<option value="${k.id}">${Utils.escape(k.ten)}</option>`).join('');
+    document.getElementById('pc-nhan-su').innerHTML = State.nhanSu.map(n => `<option value="${n.id}">${Utils.escape(n.ho_ten)}${n.sdt ? ' - ' + Utils.escape(n.sdt) : ''}</option>`).join('');
 }
 
 // ============================================================
-// 7. EVENT LISTENERS
+// 8. EVENT LISTENERS
 // ============================================================
 document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => UI.switchTab(btn.dataset.tab));
@@ -727,37 +651,32 @@ document.querySelectorAll('.btn-select-mode').forEach(btn => {
 });
 
 document.body.addEventListener('click', e => {
-    // 1. Nút Sửa
+    // 1. Nút Edit
     const btnEdit = e.target.closest('.btn-edit');
     if (btnEdit) {
         const id = btnEdit.dataset.id;
         const type = btnEdit.dataset.edit;
         Utils.vibrate();
-        
         if (type === 'toa_nha') {
             const item = State.toaNha.find(x => x.id === id);
             document.getElementById('edit-id-tn').value = id;
             document.getElementById('tn-ten').value = item.ten;
             UI.openModal('modal-toa-nha', true);
-        } 
-        else if (type === 'khu_vuc') {
+        } else if (type === 'khu_vuc') {
             const item = State.khuVuc.find(x => x.id === id);
             document.getElementById('edit-id-kv').value = id;
             document.getElementById('kv-ten').value = item.ten;
             UI.openModal('modal-khu-vuc', true);
-        }
-        else if (type === 'nhan_su') {
+        } else if (type === 'nhan_su') {
             const item = State.nhanSu.find(x => x.id === id);
             document.getElementById('edit-id-ns').value = id;
             document.getElementById('ns-ten').value = item.ho_ten;
             document.getElementById('ns-sdt').value = item.sdt || '';
             UI.openModal('modal-nhan-su', true);
-        }
-        else if (type === 'phan_cong') {
+        } else if (type === 'phan_cong') {
             const item = State.phanCong.find(x => x.id === id);
             if (!item) return;
-            UI.openModal('modal-phan-cong', true); // populate selects
-            // Set giá trị sau khi populate
+            UI.openModal('modal-phan-cong', true);
             document.getElementById('edit-id-pc').value = id;
             document.getElementById('pc-toa-nha').value = item.toa_nha_id;
             document.getElementById('pc-khu-vuc').value = item.khu_vuc_id;
@@ -766,172 +685,120 @@ document.body.addEventListener('click', e => {
         return;
     }
 
-    // 2. Nút Xoá đơn
+    // 2. Nút Xoá
     const btnDel = e.target.closest('.btn-del');
     if (btnDel) {
-        if(!confirm(`Xoá "${btnDel.dataset.name}"?`)) return;
+        if (!confirm(`Xoá "${btnDel.dataset.name}"?`)) return;
         Utils.vibrate();
         const table = btnDel.dataset.del;
-        supabaseClient.from(table).delete().eq('id', btnDel.dataset.id).then(({error}) => {
-            if(error) UI.showToast('Lỗi xoá: ' + error.message, true);
+        supabaseClient.from(table).delete().eq('id', btnDel.dataset.id).then(({ error }) => {
+            if (error) UI.showToast('Lỗi xoá: ' + error.message, true);
             else { UI.showToast('Đã xoá'); refreshAll(); }
         });
         return;
     }
 
-    // 3. Chọn nhiều
+    // 3. Toggle collapse toà nhà
+    const header = e.target.closest('.building-header[data-toggle]');
+    if (header) {
+        const bId = header.dataset.toggle;
+        const group = header.closest('.building-group');
+        group.classList.toggle('collapsed');
+        if (group.classList.contains('collapsed')) State.collapsedBuildings.add(bId);
+        else State.collapsedBuildings.delete(bId);
+        Utils.vibrate(5);
+        return;
+    }
+
+    // 4. Chọn nhiều
     if (State.isSelectMode) {
-        const listItem = e.target.closest('.list-item');
-        if (listItem && listItem.dataset.id) {
-            const id = listItem.dataset.id;
-            const cb = listItem.querySelector('.checkbox-wrapper');
-            if (State.selectedIds.has(id)) {
-                State.selectedIds.delete(id);
-                cb.classList.remove('checked');
-            } else {
-                State.selectedIds.add(id);
-                cb.classList.add('checked');
-            }
+        const row = e.target.closest('.employee-row[data-id], .list-item[data-id]');
+        if (row) {
+            const id = row.dataset.id;
+            const cb = row.querySelector('.checkbox-wrapper');
+            if (State.selectedIds.has(id)) { State.selectedIds.delete(id); cb.classList.remove('checked'); }
+            else { State.selectedIds.add(id); cb.classList.add('checked'); }
             Utils.vibrate();
             updateBulkCount();
         }
     }
 });
 
-// Xoá nhiều
 document.getElementById('btn-bulk-del').addEventListener('click', async () => {
     if (State.selectedIds.size === 0) return;
     if (!confirm(`Xoá ${State.selectedIds.size} mục đã chọn?`)) return;
-
     const btn = document.getElementById('btn-bulk-del');
     btn.innerText = 'Đang xoá...';
-    
     const tableMap = { 'cong-trinh': 'toa_nha', 'khu-vuc': 'khu_vuc', 'nhan-su': 'nhan_su', 'quan-ly': 'phan_cong' };
     const table = tableMap[State.currentTab];
     const ids = Array.from(State.selectedIds);
-
     const { error } = await supabaseClient.from(table).delete().in('id', ids);
-    
     btn.innerText = '🗑️ Xoá';
-    if (error) {
-        UI.showToast('Lỗi: ' + error.message, true);
-    } else {
-        UI.showToast(`Đã xoá ${ids.length} mục`);
-        State.isSelectMode = false;
-        updateSelectModeUI();
-        Utils.vibrate(50);
-        refreshAll();
-    }
+    if (error) { UI.showToast('Lỗi: ' + error.message, true); return; }
+    UI.showToast(`Đã xoá ${ids.length} mục`);
+    State.isSelectMode = false;
+    updateSelectModeUI();
+    Utils.vibrate(50);
+    refreshAll();
 });
 
 // ============================================================
-// 8. FORM SUBMITS
+// 9. FORM SUBMITS
 // ============================================================
-document.getElementById('form-toa-nha').addEventListener('submit', async e => {
-    e.preventDefault();
-    const btn = document.getElementById('btn-save-tn');
-    const id = document.getElementById('edit-id-tn').value;
-    const ten = document.getElementById('tn-ten').value.trim();
-    if (!ten) return;
-    
-    btn.disabled = true; btn.innerText = 'Đang lưu...';
-    const payload = { ten };
-    const { error } = id 
-        ? await supabaseClient.from('toa_nha').update(payload).eq('id', id)
-        : await supabaseClient.from('toa_nha').insert([payload]);
-        
-    btn.disabled = false; btn.innerText = id ? 'Cập Nhật' : 'Lưu Toà Nhà';
-    if (error) { UI.showToast('Lỗi: ' + error.message, true); return; }
-    UI.showToast(id ? 'Đã cập nhật' : 'Đã thêm toà nhà');
-    UI.closeModal('modal-toa-nha');
-    Utils.vibrate();
-    loadToaNha();
-});
+async function handleSubmit(formId, btnId, table, buildPayload, closeModalId, afterFn, toastMsg) {
+    document.getElementById(formId).addEventListener('submit', async e => {
+        e.preventDefault();
+        const btn = document.getElementById(btnId);
+        const id = e.target.querySelector('input[type="hidden"]').value;
+        const payload = buildPayload(e.target);
+        if (!payload) return;
+        btn.disabled = true; btn.innerText = 'Đang lưu...';
+        const { error } = id
+            ? await supabaseClient.from(table).update(payload).eq('id', id)
+            : await supabaseClient.from(table).insert([payload]);
+        btn.disabled = false; btn.innerText = id ? 'Cập Nhật' : 'Lưu';
+        if (error) {
+            if (error.code === '23505') UI.showToast('Mục này đã tồn tại', true);
+            else UI.showToast('Lỗi: ' + error.message, true);
+            return;
+        }
+        UI.showToast(id ? 'Đã cập nhật' : toastMsg);
+        UI.closeModal(closeModalId);
+        Utils.vibrate();
+        afterFn();
+    });
+}
 
-document.getElementById('form-khu-vuc').addEventListener('submit', async e => {
-    e.preventDefault();
-    const btn = document.getElementById('btn-save-kv');
-    const id = document.getElementById('edit-id-kv').value;
-    const ten = document.getElementById('kv-ten').value.trim();
-    if (!ten) return;
-    
-    btn.disabled = true; btn.innerText = 'Đang lưu...';
-    const payload = { ten };
-    const { error } = id 
-        ? await supabaseClient.from('khu_vuc').update(payload).eq('id', id)
-        : await supabaseClient.from('khu_vuc').insert([payload]);
-        
-    btn.disabled = false; btn.innerText = id ? 'Cập Nhật' : 'Lưu Khu Vực';
-    if (error) { UI.showToast('Lỗi: ' + error.message, true); return; }
-    UI.showToast(id ? 'Đã cập nhật' : 'Đã thêm khu vực');
-    UI.closeModal('modal-khu-vuc');
-    Utils.vibrate();
-    loadKhuVuc();
-});
+handleSubmit('form-toa-nha', 'btn-save-tn', 'toa_nha',
+    f => ({ ten: f.querySelector('#tn-ten').value.trim() || null }),
+    'modal-toa-nha', loadToaNha, 'Đã thêm toà nhà');
 
-document.getElementById('form-nhan-su').addEventListener('submit', async e => {
-    e.preventDefault();
-    const btn = document.getElementById('btn-save-ns');
-    const id = document.getElementById('edit-id-ns').value;
-    const ho_ten = document.getElementById('ns-ten').value.trim();
-    const sdt = document.getElementById('ns-sdt').value.trim();
-    if (!ho_ten) return;
-    
-    btn.disabled = true; btn.innerText = 'Đang lưu...';
-    const payload = { ho_ten, sdt };
-    const { error } = id 
-        ? await supabaseClient.from('nhan_su').update(payload).eq('id', id)
-        : await supabaseClient.from('nhan_su').insert([payload]);
-        
-    btn.disabled = false; btn.innerText = id ? 'Cập Nhật' : 'Lưu Nhân Viên';
-    if (error) { UI.showToast('Lỗi: ' + error.message, true); return; }
-    UI.showToast(id ? 'Đã cập nhật' : 'Đã thêm nhân viên');
-    UI.closeModal('modal-nhan-su');
-    Utils.vibrate();
-    loadNhanSu();
-});
+handleSubmit('form-khu-vuc', 'btn-save-kv', 'khu_vuc',
+    f => ({ ten: f.querySelector('#kv-ten').value.trim() || null }),
+    'modal-khu-vuc', loadKhuVuc, 'Đã thêm khu vực');
 
-document.getElementById('form-phan-cong').addEventListener('submit', async e => {
-    e.preventDefault();
-    const btn = document.getElementById('btn-save-pc');
-    const id = document.getElementById('edit-id-pc').value;
-    const toa_nha_id = document.getElementById('pc-toa-nha').value;
-    const khu_vuc_id = document.getElementById('pc-khu-vuc').value;
-    const nhan_su_id = document.getElementById('pc-nhan-su').value;
+handleSubmit('form-nhan-su', 'btn-save-ns', 'nhan_su',
+    f => ({ ho_ten: f.querySelector('#ns-ten').value.trim() || null, sdt: f.querySelector('#ns-sdt').value.trim() }),
+    'modal-nhan-su', loadNhanSu, 'Đã thêm nhân viên');
 
-    if (!toa_nha_id || !khu_vuc_id || !nhan_su_id) return UI.showToast('Vui lòng chọn đủ 3 mục', true);
-
-    btn.disabled = true; btn.innerText = 'Đang lưu...';
-    const payload = { toa_nha_id, khu_vuc_id, nhan_su_id };
-    const { error } = id
-        ? await supabaseClient.from('phan_cong').update(payload).eq('id', id)
-        : await supabaseClient.from('phan_cong').insert([payload]);
-
-    btn.disabled = false; btn.innerText = id ? 'Cập Nhật' : 'Lưu Phân Công';
-    if (error) {
-        if (error.code === '23505') UI.showToast('Phân công này đã tồn tại', true);
-        else UI.showToast('Lỗi: ' + error.message, true);
-        return;
-    }
-    UI.showToast(id ? 'Đã cập nhật phân công' : 'Đã phân công');
-    UI.closeModal('modal-phan-cong');
-    Utils.vibrate();
-    loadPhanCong();
-});
+handleSubmit('form-phan-cong', 'btn-save-pc', 'phan_cong',
+    f => {
+        const toa_nha_id = f.querySelector('#pc-toa-nha').value;
+        const khu_vuc_id = f.querySelector('#pc-khu-vuc').value;
+        const nhan_su_id = f.querySelector('#pc-nhan-su').value;
+        if (!toa_nha_id || !khu_vuc_id || !nhan_su_id) { UI.showToast('Vui lòng chọn đủ 3 mục', true); return null; }
+        return { toa_nha_id, khu_vuc_id, nhan_su_id };
+    },
+    'modal-phan-cong', loadPhanCong, 'Đã phân công');
 
 // ============================================================
-// 9. INIT
+// 10. INIT
 // ============================================================
 async function refreshAll() {
     await Promise.all([loadToaNha(), loadKhuVuc(), loadNhanSu()]);
     await loadPhanCong();
 }
-
-async function init() {
-    updateFab();
-    await refreshAll();
-}
-
+async function init() { updateFab(); await refreshAll(); }
 init();
 </script>
 </body>
