@@ -99,7 +99,7 @@
         .list-item:active { background: #f8f8f8; }
         
         .list-item .checkbox-wrapper {
-            display: none; /* Ẩn mặc định */
+            display: none;
             align-items: center; justify-content: center;
             width: 24px; height: 24px;
             border: 2px solid #c7c7cc; border-radius: 50%;
@@ -110,7 +110,6 @@
             content: '✓'; color: #fff; font-size: 14px; font-weight: bold;
         }
 
-        /* Khi ở chế độ chọn */
         .selection-mode .list-item .checkbox-wrapper { display: flex; }
         .selection-mode .list-item .actions { display: none; }
 
@@ -129,17 +128,45 @@
         .btn-del { color: var(--danger); }
         .btn-action:active { transform: scale(0.9); }
 
-        /* ASSIGNMENT CARD */
-        .assignment-card {
-            background: var(--card); border-radius: 12px;
-            padding: 14px 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-            border-left: 4px solid var(--primary);
-            display: flex; justify-content: space-between; align-items: center; gap: 10px;
+        /* =========================================
+           GIAO DIỆN QUẢN LÝ (GOM NHÓM TOÀ NHÀ)
+           ========================================= */
+        .building-group {
+            background: var(--card);
+            border-radius: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            overflow: hidden; /* Giữ header và item không bị tràn góc */
         }
-        .as-content { flex: 1; min-width: 0; }
-        .as-location { font-size: 15px; font-weight: 800; margin-bottom: 6px; color: var(--text); }
-        .as-staff { font-size: 14px; font-weight: 600; }
-        .as-staff a { color: var(--primary); text-decoration: none; }
+        .building-header {
+            background: #f8f8fb;
+            padding: 12px 16px;
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text);
+            border-bottom: 1px solid #e5e5ea;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .building-assignments {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: #fcfcfd; /* Màu nền hơi khác để nổi bật các item bên trong */
+        }
+        
+        /* Ghi đè style list-item khi nằm trong group */
+        .building-group .list-item {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border: 1px solid #f0f0f5;
+            background: #fff;
+            padding: 12px 14px;
+        }
+        .building-group .list-item:active { background: #f5f5fa; }
+        
+        .empty-group { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; font-style: italic; }
 
         /* EMPTY & SKELETON */
         .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
@@ -375,7 +402,6 @@ const UI = {
         document.body.style.overflow = 'hidden';
         if (id === 'modal-phan-cong') populatePhanCongSelects();
         
-        // Đổi text tiêu đề và nút nếu là Edit
         if (id === 'modal-toa-nha') {
             document.getElementById('title-toa-nha').innerText = isEdit ? 'Sửa Toà Nhà' : 'Thêm Toà Nhà';
             document.getElementById('btn-save-tn').innerText = isEdit ? 'Cập Nhật' : 'Lưu Toà Nhà';
@@ -398,7 +424,6 @@ const UI = {
         document.body.style.overflow = '';
         const form = document.querySelector(`#${id} form`);
         if (form) form.reset();
-        // Xoá id ẩn
         const hiddenId = document.querySelector(`#${id} input[type="hidden"]`);
         if (hiddenId) hiddenId.value = '';
     },
@@ -481,34 +506,80 @@ function renderNhanSu() {
     `).join('');
 }
 
+// CẬP NHẬT: Render Phân công theo nhóm Toà nhà (Khung mềm)
 function renderPhanCong() {
     const el = document.getElementById('list-phan-cong');
     if (!State.phanCong.length) {
         el.innerHTML = `<div class="empty-state"><span class="icon">📋</span>Chưa có phân công nào.</div>`;
         return;
     }
-    el.innerHTML = State.phanCong.map(p => {
-        const t = State.toaNha.find(x => x.id === p.toa_nha_id);
+
+    // 1. Tạo object gom nhóm theo toa_nha_id
+    const grouped = {};
+    State.toaNha.forEach(t => { grouped[t.id] = { ten: t.ten, items: [] }; });
+    const unassignedItems = [];
+
+    State.phanCong.forEach(p => {
+        if (grouped[p.toa_nha_id]) {
+            grouped[p.toa_nha_id].items.push(p);
+        } else {
+            unassignedItems.push(p);
+        }
+    });
+
+    // Helper render 1 item phân công
+    const renderItem = (p) => {
         const k = State.khuVuc.find(x => x.id === p.khu_vuc_id);
         const n = State.nhanSu.find(x => x.id === p.nhan_su_id);
-        const location = `${t ? Utils.escape(t.ten) : '(đã xoá)'} - ${k ? Utils.escape(k.ten) : '(đã xoá)'}`;
-        const staffName = n ? Utils.escape(n.ho_ten) : '(đã xoá)';
+        
+        // Lấy tên khu vực và nhân viên
+        const location = k ? Utils.escape(k.ten) : '(khu vực đã xoá)';
+        const staffName = n ? Utils.escape(n.ho_ten) : '(nhân viên đã xoá)';
         const staffPhone = n && n.sdt ? Utils.escape(n.sdt) : '';
         const staffDisplay = staffPhone ? `${staffName} - <a href="tel:${Utils.cleanPhone(n.sdt)}">${staffPhone}</a>` : staffName;
         
         return `
-            <div class="list-item" data-id="${p.id}" data-type="phan_cong" data-name="${location}">
+            <div class="list-item" data-id="${p.id}" data-type="phan_cong" data-name="📍 ${location} - ${staffName}">
                 <div class="checkbox-wrapper ${State.selectedIds.has(p.id) ? 'checked' : ''}"></div>
                 <div class="content">
-                    <div class="title" style="margin-bottom:4px;">${location}</div>
-                    <div class="subtitle" style="color:var(--text); font-weight:600;">${staffDisplay}</div>
+                    <div class="title" style="font-size: 14px; margin-bottom: 2px;">📍 ${location}</div>
+                    <div class="subtitle" style="color:var(--text); font-weight:600;">👤 ${staffDisplay}</div>
                 </div>
                 <div class="actions">
-                    <button class="btn-action btn-del" data-del="phan_cong" data-id="${p.id}" data-name="${location}">🗑️</button>
+                    <button class="btn-action btn-del" data-del="phan_cong" data-id="${p.id}" data-name="📍 ${location} - ${staffName}">🗑️</button>
                 </div>
             </div>
         `;
-    }).join('');
+    };
+
+    // 2. Duyệt qua các toà nhà và render khung
+    let html = '';
+    for (const [id, data] of Object.entries(grouped)) {
+        if (data.items.length === 0) continue; // Bỏ qua toà nhà chưa có phân công
+
+        html += `
+            <div class="building-group">
+                <div class="building-header">🏢 Toà ${Utils.escape(data.ten)}</div>
+                <div class="building-assignments">
+                    ${data.items.map(p => renderItem(p)).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // 3. Render các item bị mồ côi (nếu toà nhà bị xoá lỗi)
+    if (unassignedItems.length > 0) {
+        html += `
+            <div class="building-group">
+                <div class="building-header" style="color:var(--danger)">⚠️ Không xác định</div>
+                <div class="building-assignments">
+                    ${unassignedItems.map(p => renderItem(p)).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    el.innerHTML = html;
 }
 
 // ============================================================
@@ -549,7 +620,6 @@ function updateSelectModeUI() {
     }
     updateBulkCount();
     
-    // Cập nhật lại giao diện list để đồng bộ checkbox
     if (State.currentTab === 'cong-trinh') renderToaNha();
     if (State.currentTab === 'khu-vuc') renderKhuVuc();
     if (State.currentTab === 'nhan-su') renderNhanSu();
@@ -596,7 +666,6 @@ document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => UI.switchTab(btn.dataset.tab));
 });
 
-// Bật/tắt Chọn Nhiều
 document.querySelectorAll('.btn-select-mode').forEach(btn => {
     btn.addEventListener('click', () => {
         State.isSelectMode = !State.isSelectMode;
@@ -605,9 +674,7 @@ document.querySelectorAll('.btn-select-mode').forEach(btn => {
     });
 });
 
-// Click vào List Item
 document.body.addEventListener('click', e => {
-    // 1. Xử lý nút Edit
     const btnEdit = e.target.closest('.btn-edit');
     if (btnEdit) {
         const id = btnEdit.dataset.id;
@@ -636,7 +703,6 @@ document.body.addEventListener('click', e => {
         return;
     }
 
-    // 2. Xử lý nút Xoá đơn
     const btnDel = e.target.closest('.btn-del');
     if (btnDel) {
         if(!confirm(`Xoá "${btnDel.dataset.name}"?`)) return;
@@ -649,7 +715,6 @@ document.body.addEventListener('click', e => {
         return;
     }
 
-    // 3. Xử lý Checkbox khi ở chế độ Chọn Nhiều
     if (State.isSelectMode) {
         const listItem = e.target.closest('.list-item');
         if (listItem) {
@@ -668,7 +733,6 @@ document.body.addEventListener('click', e => {
     }
 });
 
-// Nút Xoá Nhiều
 document.getElementById('btn-bulk-del').addEventListener('click', async () => {
     if (State.selectedIds.size === 0) return;
     if (!confirm(`Xoá ${State.selectedIds.size} mục đã chọn?`)) return;
@@ -697,8 +761,6 @@ document.getElementById('btn-bulk-del').addEventListener('click', async () => {
 // ============================================================
 // 8. FORM SUBMITS (Xử lý cả Thêm & Sửa)
 // ============================================================
-
-// Toà nhà
 document.getElementById('form-toa-nha').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = document.getElementById('btn-save-tn');
@@ -720,7 +782,6 @@ document.getElementById('form-toa-nha').addEventListener('submit', async e => {
     loadToaNha();
 });
 
-// Khu vực
 document.getElementById('form-khu-vuc').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = document.getElementById('btn-save-kv');
@@ -742,7 +803,6 @@ document.getElementById('form-khu-vuc').addEventListener('submit', async e => {
     loadKhuVuc();
 });
 
-// Nhân sự
 document.getElementById('form-nhan-su').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = document.getElementById('btn-save-ns');
@@ -765,7 +825,6 @@ document.getElementById('form-nhan-su').addEventListener('submit', async e => {
     loadNhanSu();
 });
 
-// Phân công
 document.getElementById('form-phan-cong').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = document.getElementById('btn-save-pc');
