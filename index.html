@@ -143,7 +143,7 @@
         .btn-del { color: var(--danger); }
         .btn-action:active { transform: scale(0.9); }
 
-        /* BUILDING GROUP (Quản lý + Quy trình dùng chung) */
+        /* BUILDING GROUP */
         .building-group {
             background: var(--card); border-radius: 12px; margin-bottom: 10px;
             box-shadow: 0 1px 4px rgba(220,38,38,0.12);
@@ -218,16 +218,35 @@
             border-top: 1px solid #f7f7fa;
         }
         .qr-employee:first-of-type { border-top: none; }
+        
         .qr-emp-header {
             display: flex; align-items: center; gap: 6px;
             padding: 6px 12px 4px 20px;
             font-size: 12.5px; font-weight: 700; color: var(--text);
         }
+        .qr-emp-header .qr-emp-name {
+            flex-shrink: 0; max-width: 50%; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+        }
         .qr-emp-header .qr-emp-phone {
             font-size: 11px; color: var(--primary); font-weight: 500;
-            text-decoration: none;
+            text-decoration: none; flex: 1; min-width: 0;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .qr-emp-header .qr-emp-phone.no-phone { color: #c7c7cc; font-style: italic; }
+        
+        /* Nút + thêm mốc giờ nhanh */
+        .qr-emp-header .btn-add-time {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: var(--primary); color: #fff; border: none;
+            font-size: 15px; font-weight: 700; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0; margin-left: auto;
+            box-shadow: 0 1px 3px rgba(0,122,255,0.35);
+            padding: 0;
+        }
+        .qr-emp-header .btn-add-time:active { transform: scale(0.9); }
+        .selection-mode .btn-add-time { display: none; }
 
         .qr-tasks { padding: 0 12px 4px 32px; display: flex; flex-direction: column; gap: 2px; }
         .qr-task-row {
@@ -467,7 +486,7 @@
     </div>
 </div>
 
-<!-- BOTTOM NAV: 4 nút -->
+<!-- BOTTOM NAV -->
 <nav class="bottom-nav">
     <button class="nav-item active" data-tab="menu"><span class="nav-icon">☰</span><span>Menu</span></button>
     <button class="nav-item" data-tab="nhan-su"><span class="nav-icon">👤</span><span>Nhân sự</span></button>
@@ -718,7 +737,7 @@ function renderPhanCong() {
 }
 
 // ============================================================
-// 7. RENDER QUY TRÌNH (Toà → Khu vực → Nhân viên → [giờ + nhiệm vụ])
+// 7. RENDER QUY TRÌNH
 // ============================================================
 function renderQuyTrinh() {
     const el = document.getElementById('list-quy-trinh');
@@ -726,7 +745,6 @@ function renderQuyTrinh() {
         return el.innerHTML = `<div class="empty-state"><span class="icon">⏰</span>Chưa có mốc giờ nào.<br>Bấm "+ Thêm mốc giờ" để bắt đầu.</div>`;
     }
 
-    // Group: toa → khu_vuc → nhan_su → [quy_trinh items]
     const grouped = {};
     State.toaNha.forEach(t => { grouped[t.id] = { ten: t.ten, areas: {} }; });
 
@@ -745,6 +763,7 @@ function renderQuyTrinh() {
             a.employees[pc.nhan_su_id] = {
                 ten: ns ? ns.ho_ten : '(đã xoá)',
                 sdt: ns ? ns.sdt : '',
+                phan_cong_id: pc.id,
                 items: []
             };
         }
@@ -798,7 +817,11 @@ function renderQuyTrinh() {
                     : `<span class="qr-emp-phone no-phone">Chưa SĐT</span>`;
 
                 html += `<div class="qr-employee">
-                    <div class="qr-emp-header">👤 ${Utils.escape(eData.ten)} ${phoneHtml}</div>
+                    <div class="qr-emp-header">
+                        <span class="qr-emp-name">👤 ${Utils.escape(eData.ten)}</span>
+                        ${phoneHtml}
+                        <button class="btn-add-time" data-pc-id="${eData.phan_cong_id}" title="Thêm mốc giờ cho ${Utils.escape(eData.ten)}">+</button>
+                    </div>
                     <div class="qr-tasks">
                         ${eData.items.map(renderTask).join('')}
                     </div>
@@ -889,7 +912,6 @@ function populatePhanCongSelects() {
 }
 
 function populateQuyTrinhSelects() {
-    // Phân công: group by toà nhà với optgroup
     const selPC = document.getElementById('qt-phan-cong');
     const groupsByToa = {};
     State.phanCong.forEach(pc => {
@@ -914,7 +936,6 @@ function populateQuyTrinhSelects() {
         });
     selPC.innerHTML = pcHtml || `<option value="">— Chưa có phân công —</option>`;
 
-    // Nhiệm vụ
     document.getElementById('qt-nhiem-vu').innerHTML = State.nhiemVu.length
         ? State.nhiemVu.map(nv => `<option value="${nv.id}">${Utils.escape(nv.ten)}</option>`).join('')
         : `<option value="">— Chưa có nhiệm vụ —</option>`;
@@ -934,6 +955,17 @@ document.querySelectorAll('[data-goto]').forEach(btn => {
 document.body.addEventListener('click', e => {
     // Back
     if (e.target.closest('[data-back]')) { switchTab('menu'); return; }
+
+    // Nút "+" thêm mốc giờ nhanh
+    const btnAddTime = e.target.closest('.btn-add-time');
+    if (btnAddTime) {
+        const pcId = btnAddTime.dataset.pcId;
+        if (!pcId) return;
+        Utils.vibrate();
+        UI.openModal('modal-quy-trinh');
+        document.getElementById('qt-phan-cong').value = pcId;
+        return;
+    }
 
     // Edit
     const btnEdit = e.target.closest('.btn-edit');
