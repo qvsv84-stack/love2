@@ -31,10 +31,43 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin: 4px 4px 12px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin: 4px 4px 12px; gap: 8px; }
+        .section-header .sh-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
         .section-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+        .btn-back {
+            background: none; border: none;
+            font-size: 22px; color: var(--primary);
+            cursor: pointer; padding: 0 4px;
+            font-weight: bold; line-height: 1;
+        }
+        .btn-back:active { opacity: 0.5; }
         .btn-select-mode { background: none; border: none; color: var(--primary); font-size: 14px; font-weight: 600; cursor: pointer; padding: 4px; }
         .btn-select-mode.cancel { color: var(--danger); }
+
+        /* MENU GRID */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+            margin-top: 4px;
+        }
+        .menu-btn {
+            background: var(--card);
+            border: none;
+            padding: 30px 12px;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+        }
+        .menu-btn:active { transform: scale(0.96); background: #f8f8f8; }
+        .menu-btn .menu-icon { font-size: 44px; line-height: 1; }
+        .menu-btn .menu-label { font-size: 15px; font-weight: 700; color: var(--text); }
 
         /* BOTTOM NAV */
         .bottom-nav {
@@ -89,7 +122,7 @@
         .bulk-bar .count { font-size: 15px; font-weight: 700; }
         .bulk-bar .btn-bulk-del { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 8px 16px; border-radius: 16px; font-weight: 700; font-size: 14px; cursor: pointer; }
 
-        /* ===== LIST CHUNG ===== */
+        /* LIST */
         .list { display: flex; flex-direction: column; gap: 10px; }
         .list-item {
             background: var(--card); border-radius: 12px;
@@ -128,113 +161,61 @@
         .btn-del { color: var(--danger); }
         .btn-action:active { transform: scale(0.9); }
 
-        /* =========================================
-           GIAO DIỆN QUẢN LÝ - COMPACT 2 CẤP
-           ========================================= */
+        /* QUẢN LÝ - COMPACT */
         .building-group {
-            background: var(--card);
-            border-radius: 12px;
-            margin-bottom: 10px;
+            background: var(--card); border-radius: 12px; margin-bottom: 10px;
             box-shadow: 0 1px 4px rgba(220,38,38,0.12);
-            border: 1px solid #fecaca;
-            overflow: hidden;
+            border: 1px solid #fecaca; overflow: hidden;
         }
         .building-header {
             background: linear-gradient(135deg, #e63946, #a4161a);
-            color: #fff;
-            padding: 10px 14px;
-            font-size: 13.5px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            cursor: pointer;
-            user-select: none;
+            color: #fff; padding: 10px 14px; font-size: 13.5px; font-weight: 700;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; cursor: pointer; user-select: none;
         }
         .building-header:active { opacity: 0.92; }
         .building-header .bh-title { display: flex; align-items: center; gap: 6px; }
-        .building-header .bh-toggle {
-            font-size: 9px; transition: transform 0.2s;
-            display: inline-block; opacity: 0.9;
-        }
+        .building-header .bh-toggle { font-size: 9px; transition: transform 0.2s; display: inline-block; opacity: 0.9; }
         .building-group.collapsed .bh-toggle { transform: rotate(-90deg); }
-        .building-header .bh-meta {
-            font-size: 10.5px; font-weight: 500; opacity: 0.88;
-            white-space: nowrap;
-        }
+        .building-header .bh-meta { font-size: 10.5px; font-weight: 500; opacity: 0.88; white-space: nowrap; }
         .building-group.collapsed .building-content { display: none; }
-
         .building-content { padding: 2px 0 4px; }
 
-        /* Khu vực: dòng nhỏ, không khung */
         .area-section + .area-section { border-top: 1px dashed #f0f0f5; }
-
         .area-header {
-            font-size: 10.5px;
-            font-weight: 800;
-            color: #a4161a;
-            padding: 8px 14px 3px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
+            font-size: 10.5px; font-weight: 800; color: #a4161a;
+            padding: 8px 14px 3px; display: flex; align-items: center; gap: 6px;
+            text-transform: uppercase; letter-spacing: 0.4px;
         }
         .area-header .area-count {
-            font-size: 9.5px;
-            background: #fee2e2;
-            color: #a4161a;
-            padding: 1px 6px;
-            border-radius: 8px;
-            font-weight: 700;
-            letter-spacing: 0;
+            font-size: 9.5px; background: #fee2e2; color: #a4161a;
+            padding: 1px 6px; border-radius: 8px; font-weight: 700; letter-spacing: 0;
         }
 
-        /* Nhân viên: 1 dòng duy nhất */
         .employee-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 7px 12px 7px 20px;
-            border-top: 1px solid #f7f7fa;
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 12px 7px 20px; border-top: 1px solid #f7f7fa;
         }
         .employee-row:active { background: #fafbfd; }
-
         .employee-row .checkbox-wrapper {
-            display: none;
-            align-items: center; justify-content: center;
-            width: 20px; height: 20px;
-            border: 2px solid #c7c7cc; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            width: 20px; height: 20px; border: 2px solid #c7c7cc; border-radius: 50%;
             flex-shrink: 0;
         }
         .employee-row .checkbox-wrapper.checked { background: var(--primary); border-color: var(--primary); }
-        .employee-row .checkbox-wrapper.checked::after {
-            content: '✓'; color: #fff; font-size: 11px; font-weight: bold;
-        }
+        .employee-row .checkbox-wrapper.checked::after { content: '✓'; color: #fff; font-size: 11px; font-weight: bold; }
         .selection-mode .employee-row .checkbox-wrapper { display: flex; }
         .selection-mode .employee-row .emp-actions { display: none; }
 
         .employee-row .emp-name {
-            font-size: 13.5px;
-            font-weight: 600;
-            color: var(--text);
-            flex-shrink: 0;
-            max-width: 55%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            font-size: 13.5px; font-weight: 600; color: var(--text);
+            flex-shrink: 0; max-width: 55%; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
         }
         .employee-row .emp-phone {
-            font-size: 12.5px;
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-            flex: 1;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            font-size: 12.5px; color: var(--primary); text-decoration: none;
+            font-weight: 500; flex: 1; min-width: 0; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
         }
         .selection-mode .employee-row .emp-phone { pointer-events: none; }
         .employee-row .emp-phone.no-phone { color: #c7c7cc; font-style: italic; }
@@ -248,7 +229,7 @@
         }
         .btn-mini:active { transform: scale(0.9); }
 
-        /* EMPTY & SKELETON */
+        /* EMPTY */
         .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
         .empty-state .icon { font-size: 48px; margin-bottom: 10px; display: block; opacity: 0.5; }
 
@@ -286,27 +267,64 @@
 
 <div id="toast" class="toast">Thành công!</div>
 
-<section id="view-cong-trinh" class="view active">
-    <div class="section-header"><span class="section-title">Danh sách toà nhà</span><button class="btn-select-mode" data-tab="cong-trinh">Chọn</button></div>
+<!-- ===== VIEW MENU (mặc định) ===== -->
+<section id="view-menu" class="view active">
+    <p class="section-title" style="margin-bottom:14px;">Danh mục quản lý</p>
+    <div class="menu-grid">
+        <button class="menu-btn" data-goto="cong-trinh">
+            <span class="menu-icon">🏢</span>
+            <span class="menu-label">Công trình</span>
+        </button>
+        <button class="menu-btn" data-goto="khu-vuc">
+            <span class="menu-icon">📍</span>
+            <span class="menu-label">Khu vực</span>
+        </button>
+    </div>
+</section>
+
+<!-- ===== VIEW CÔNG TRÌNH ===== -->
+<section id="view-cong-trinh" class="view">
+    <div class="section-header">
+        <div class="sh-left">
+            <button class="btn-back" data-back>←</button>
+            <span class="section-title">Danh sách toà nhà</span>
+        </div>
+        <button class="btn-select-mode" data-tab="cong-trinh">Chọn</button>
+    </div>
     <div id="list-toa-nha" class="list"></div>
 </section>
 
+<!-- ===== VIEW KHU VỰC ===== -->
 <section id="view-khu-vuc" class="view">
-    <div class="section-header"><span class="section-title">Danh sách khu vực</span><button class="btn-select-mode" data-tab="khu-vuc">Chọn</button></div>
+    <div class="section-header">
+        <div class="sh-left">
+            <button class="btn-back" data-back>←</button>
+            <span class="section-title">Danh sách khu vực</span>
+        </div>
+        <button class="btn-select-mode" data-tab="khu-vuc">Chọn</button>
+    </div>
     <div id="list-khu-vuc" class="list"></div>
 </section>
 
+<!-- ===== VIEW NHÂN SỰ ===== -->
 <section id="view-nhan-su" class="view">
-    <div class="section-header"><span class="section-title">Nhân viên vệ sinh</span><button class="btn-select-mode" data-tab="nhan-su">Chọn</button></div>
+    <div class="section-header">
+        <span class="section-title">Nhân viên vệ sinh</span>
+        <button class="btn-select-mode" data-tab="nhan-su">Chọn</button>
+    </div>
     <div id="list-nhan-su" class="list"></div>
 </section>
 
+<!-- ===== VIEW QUẢN LÝ ===== -->
 <section id="view-quan-ly" class="view">
-    <div class="section-header"><span class="section-title">Phân công vệ sinh</span><button class="btn-select-mode" data-tab="quan-ly">Chọn</button></div>
+    <div class="section-header">
+        <span class="section-title">Phân công vệ sinh</span>
+        <button class="btn-select-mode" data-tab="quan-ly">Chọn</button>
+    </div>
     <div id="list-phan-cong" class="list"></div>
 </section>
 
-<button class="fab" id="main-fab"><span>+</span> Thêm</button>
+<button class="fab hidden" id="main-fab"><span>+</span> Thêm</button>
 <div class="bulk-bar" id="bulk-bar">
     <span class="count" id="bulk-count">Đã chọn 0</span>
     <button class="btn-bulk-del" id="btn-bulk-del">🗑️ Xoá</button>
@@ -360,9 +378,9 @@
     </div>
 </div>
 
+<!-- BOTTOM NAV: 3 nút -->
 <nav class="bottom-nav">
-    <button class="nav-item active" data-tab="cong-trinh"><span class="nav-icon">🏢</span><span>Công trình</span></button>
-    <button class="nav-item" data-tab="khu-vuc"><span class="nav-icon">📍</span><span>Khu vực</span></button>
+    <button class="nav-item active" data-tab="menu"><span class="nav-icon">☰</span><span>Menu</span></button>
     <button class="nav-item" data-tab="nhan-su"><span class="nav-icon">👤</span><span>Nhân sự</span></button>
     <button class="nav-item" data-tab="quan-ly"><span class="nav-icon">📋</span><span>Quản lý</span></button>
 </nav>
@@ -381,15 +399,24 @@ const Utils = {
     vibrate(ms = 10) { if (navigator.vibrate) navigator.vibrate(ms); }
 };
 
+// Map tab → nhóm nav cần highlight
+const NAV_GROUPS = {
+    'menu': 'menu',
+    'cong-trinh': 'menu',
+    'khu-vuc': 'menu',
+    'nhan-su': 'nhan-su',
+    'quan-ly': 'quan-ly'
+};
+
 // ============================================================
 // 2. STATE
 // ============================================================
 const State = {
     toaNha: [], khuVuc: [], nhanSu: [], phanCong: [],
-    currentTab: 'cong-trinh',
+    currentTab: 'menu',
     isSelectMode: false,
     selectedIds: new Set(),
-    collapsedBuildings: new Set()  // Lưu các toà đang thu gọn
+    collapsedBuildings: new Set()
 };
 
 // ============================================================
@@ -407,15 +434,15 @@ const UI = {
         document.body.style.overflow = 'hidden';
         if (id === 'modal-phan-cong') populatePhanCongSelects();
         const map = {
-            'modal-toa-nha':    ['title-toa-nha',    'btn-save-tn', 'Toà Nhà',    'Lưu Toà Nhà'],
-            'modal-khu-vuc':    ['title-khu-vuc',    'btn-save-kv', 'Khu Vực',    'Lưu Khu Vực'],
-            'modal-nhan-su':    ['title-nhan-su',    'btn-save-ns', 'Nhân Viên',  'Lưu Nhân Viên'],
-            'modal-phan-cong':  ['title-phan-cong',  'btn-save-pc', 'Phân Công',  'Lưu Phân Công'],
+            'modal-toa-nha':   ['title-toa-nha',   'btn-save-tn', 'Toà Nhà',   'Lưu Toà Nhà'],
+            'modal-khu-vuc':   ['title-khu-vuc',   'btn-save-kv', 'Khu Vực',   'Lưu Khu Vực'],
+            'modal-nhan-su':   ['title-nhan-su',   'btn-save-ns', 'Nhân Viên', 'Lưu Nhân Viên'],
+            'modal-phan-cong': ['title-phan-cong', 'btn-save-pc', 'Phân Công', 'Lưu Phân Công'],
         };
         if (map[id]) {
             const [titleId, btnId, label, defaultBtn] = map[id];
-            document.getElementById(titleId).innerText = (isEdit ? 'Sửa ' : (id === 'modal-phan-cong' ? '' : 'Thêm ')) + label;
             if (id === 'modal-phan-cong' && !isEdit) document.getElementById(titleId).innerText = 'Phân Công Vệ Sinh';
+            else document.getElementById(titleId).innerText = (isEdit ? 'Sửa ' : 'Thêm ') + label;
             document.getElementById(btnId).innerText = isEdit ? 'Cập Nhật' : defaultBtn;
         }
     },
@@ -426,23 +453,33 @@ const UI = {
         if (form) form.reset();
         const hiddenId = document.querySelector(`#${id} input[type="hidden"]`);
         if (hiddenId) hiddenId.value = '';
-    },
-    switchTab(tab) {
-        State.currentTab = tab;
-        State.isSelectMode = false;
-        State.selectedIds.clear();
-        updateSelectModeUI();
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        document.getElementById(`view-${tab}`).classList.add('active');
-        document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
-        updateFab();
-        Utils.vibrate();
     }
 };
 
 // ============================================================
-// 4. RENDER - 3 TAB ĐẦU (giữ nguyên style)
+// 4. SWITCH TAB (gộp Menu + 2 tab con)
+// ============================================================
+function switchTab(tab) {
+    State.currentTab = tab;
+    State.isSelectMode = false;
+    State.selectedIds.clear();
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const view = document.getElementById(`view-${tab}`);
+    if (view) view.classList.add('active');
+
+    const group = NAV_GROUPS[tab] || tab;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const navBtn = document.querySelector(`.nav-item[data-tab="${group}"]`);
+    if (navBtn) navBtn.classList.add('active');
+
+    updateFab();
+    updateSelectModeUI();
+    Utils.vibrate();
+}
+
+// ============================================================
+// 5. RENDER 3 LIST CƠ BẢN
 // ============================================================
 function getActionButtons(type, id, name) {
     return `<div class="actions">
@@ -453,7 +490,7 @@ function getActionButtons(type, id, name) {
 
 function renderToaNha() {
     const el = document.getElementById('list-toa-nha');
-    if (!State.toaNha.length) return el.innerHTML = `<div class="empty-state"><span class="icon">🏢</span>Chưa có toà nhà nào.</div>`;
+    if (!State.toaNha.length) return el.innerHTML = `<div class="empty-state"><span class="icon">🏢</span>Chưa có toà nhà nào.<br>Bấm "+ Thêm" để tạo.</div>`;
     el.innerHTML = State.toaNha.map(t => `
         <div class="list-item" data-id="${t.id}" data-type="toa_nha" data-name="${Utils.escape(t.ten)}">
             <div class="checkbox-wrapper ${State.selectedIds.has(t.id) ? 'checked' : ''}"></div>
@@ -465,7 +502,7 @@ function renderToaNha() {
 
 function renderKhuVuc() {
     const el = document.getElementById('list-khu-vuc');
-    if (!State.khuVuc.length) return el.innerHTML = `<div class="empty-state"><span class="icon">📍</span>Chưa có khu vực nào.</div>`;
+    if (!State.khuVuc.length) return el.innerHTML = `<div class="empty-state"><span class="icon">📍</span>Chưa có khu vực nào.<br>Bấm "+ Thêm" để tạo.</div>`;
     el.innerHTML = State.khuVuc.map(k => `
         <div class="list-item" data-id="${k.id}" data-type="khu_vuc" data-name="${Utils.escape(k.ten)}">
             <div class="checkbox-wrapper ${State.selectedIds.has(k.id) ? 'checked' : ''}"></div>
@@ -491,7 +528,7 @@ function renderNhanSu() {
 }
 
 // ============================================================
-// 5. RENDER QUẢN LÝ - COMPACT
+// 6. RENDER QUẢN LÝ
 // ============================================================
 function renderPhanCong() {
     const el = document.getElementById('list-phan-cong');
@@ -499,7 +536,6 @@ function renderPhanCong() {
         return el.innerHTML = `<div class="empty-state"><span class="icon">📋</span>Chưa có phân công nào.<br>Bấm "+ Phân công" để thiết lập.</div>`;
     }
 
-    // Gom nhóm 2 cấp
     const grouped = {};
     State.toaNha.forEach(t => { grouped[t.id] = { ten: t.ten, areas: {} }; });
     const unassigned = [];
@@ -514,7 +550,6 @@ function renderPhanCong() {
         b.areas[p.khu_vuc_id].items.push(p);
     });
 
-    // Render 1 dòng nhân viên (compact)
     const renderEmployee = (p) => {
         const n = State.nhanSu.find(x => x.id === p.nhan_su_id);
         const name = n ? Utils.escape(n.ho_ten) : '(đã xoá)';
@@ -579,7 +614,7 @@ function renderPhanCong() {
 }
 
 // ============================================================
-// 6. UI HELPERS
+// 7. UI HELPERS (FAB & SELECT MODE)
 // ============================================================
 function updateFab() {
     const fab = document.getElementById('main-fab');
@@ -590,31 +625,44 @@ function updateFab() {
         'quan-ly':    { label: 'Phân công',      open: () => UI.openModal('modal-phan-cong') },
     };
     const c = config[State.currentTab];
+    if (!c) { fab.classList.add('hidden'); return; }
+    fab.classList.remove('hidden');
     fab.innerHTML = `<span>+</span> ${c.label}`;
     fab.onclick = c.open;
 }
 
 function updateSelectModeUI() {
     const view = document.getElementById(`view-${State.currentTab}`);
+    if (!view) return;
+
     const btnSelect = view.querySelector('.btn-select-mode');
     const bulkBar = document.getElementById('bulk-bar');
-    const fab = document.getElementById('main-fab');
+
+    // Reset các view khác
+    document.querySelectorAll('.view').forEach(v => {
+        if (v.id !== `view-${State.currentTab}`) v.classList.remove('selection-mode');
+    });
+
+    if (!btnSelect) {
+        bulkBar.classList.remove('show');
+        return;
+    }
 
     if (State.isSelectMode) {
         view.classList.add('selection-mode');
         btnSelect.innerText = 'Huỷ'; btnSelect.classList.add('cancel');
-        bulkBar.classList.add('show'); fab.classList.add('hidden');
+        bulkBar.classList.add('show');
     } else {
         view.classList.remove('selection-mode');
         btnSelect.innerText = 'Chọn'; btnSelect.classList.remove('cancel');
-        bulkBar.classList.remove('show'); fab.classList.remove('hidden');
-        State.selectedIds.clear();
+        bulkBar.classList.remove('show');
     }
     updateBulkCount();
+
     if (State.currentTab === 'cong-trinh') renderToaNha();
-    if (State.currentTab === 'khu-vuc') renderKhuVuc();
-    if (State.currentTab === 'nhan-su') renderNhanSu();
-    if (State.currentTab === 'quan-ly') renderPhanCong();
+    if (State.currentTab === 'khu-vuc')    renderKhuVuc();
+    if (State.currentTab === 'nhan-su')    renderNhanSu();
+    if (State.currentTab === 'quan-ly')    renderPhanCong();
 }
 
 function updateBulkCount() {
@@ -622,7 +670,7 @@ function updateBulkCount() {
 }
 
 // ============================================================
-// 7. FETCH
+// 8. FETCH
 // ============================================================
 async function loadToaNha() { const { data } = await supabaseClient.from('toa_nha').select('*').order('ten'); State.toaNha = data || []; renderToaNha(); }
 async function loadKhuVuc() { const { data } = await supabaseClient.from('khu_vuc').select('*').order('ten'); State.khuVuc = data || []; renderKhuVuc(); }
@@ -636,12 +684,28 @@ function populatePhanCongSelects() {
 }
 
 // ============================================================
-// 8. EVENT LISTENERS
+// 9. EVENT LISTENERS
 // ============================================================
+// Bottom nav
 document.querySelectorAll('.nav-item').forEach(btn => {
-    btn.addEventListener('click', () => UI.switchTab(btn.dataset.tab));
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
+// Nút Menu con (Công trình, Khu vực)
+document.querySelectorAll('[data-goto]').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.goto));
+});
+
+// Nút back (←)
+document.body.addEventListener('click', e => {
+    const btnBack = e.target.closest('[data-back]');
+    if (btnBack) {
+        switchTab('menu');
+        return;
+    }
+});
+
+// Nút Chọn (bật/tắt select mode)
 document.querySelectorAll('.btn-select-mode').forEach(btn => {
     btn.addEventListener('click', () => {
         State.isSelectMode = !State.isSelectMode;
@@ -650,8 +714,9 @@ document.querySelectorAll('.btn-select-mode').forEach(btn => {
     });
 });
 
+// Click toàn cục
 document.body.addEventListener('click', e => {
-    // 1. Nút Edit
+    // Edit
     const btnEdit = e.target.closest('.btn-edit');
     if (btnEdit) {
         const id = btnEdit.dataset.id;
@@ -685,7 +750,7 @@ document.body.addEventListener('click', e => {
         return;
     }
 
-    // 2. Nút Xoá
+    // Delete
     const btnDel = e.target.closest('.btn-del');
     if (btnDel) {
         if (!confirm(`Xoá "${btnDel.dataset.name}"?`)) return;
@@ -698,7 +763,7 @@ document.body.addEventListener('click', e => {
         return;
     }
 
-    // 3. Toggle collapse toà nhà
+    // Toggle collapse toà nhà
     const header = e.target.closest('.building-header[data-toggle]');
     if (header) {
         const bId = header.dataset.toggle;
@@ -710,7 +775,7 @@ document.body.addEventListener('click', e => {
         return;
     }
 
-    // 4. Chọn nhiều
+    // Chọn nhiều
     if (State.isSelectMode) {
         const row = e.target.closest('.employee-row[data-id], .list-item[data-id]');
         if (row) {
@@ -724,6 +789,7 @@ document.body.addEventListener('click', e => {
     }
 });
 
+// Bulk delete
 document.getElementById('btn-bulk-del').addEventListener('click', async () => {
     if (State.selectedIds.size === 0) return;
     if (!confirm(`Xoá ${State.selectedIds.size} mục đã chọn?`)) return;
@@ -731,6 +797,7 @@ document.getElementById('btn-bulk-del').addEventListener('click', async () => {
     btn.innerText = 'Đang xoá...';
     const tableMap = { 'cong-trinh': 'toa_nha', 'khu-vuc': 'khu_vuc', 'nhan-su': 'nhan_su', 'quan-ly': 'phan_cong' };
     const table = tableMap[State.currentTab];
+    if (!table) return;
     const ids = Array.from(State.selectedIds);
     const { error } = await supabaseClient.from(table).delete().in('id', ids);
     btn.innerText = '🗑️ Xoá';
@@ -743,7 +810,7 @@ document.getElementById('btn-bulk-del').addEventListener('click', async () => {
 });
 
 // ============================================================
-// 9. FORM SUBMITS
+// 10. FORM SUBMITS
 // ============================================================
 async function handleSubmit(formId, btnId, table, buildPayload, closeModalId, afterFn, toastMsg) {
     document.getElementById(formId).addEventListener('submit', async e => {
@@ -792,13 +859,16 @@ handleSubmit('form-phan-cong', 'btn-save-pc', 'phan_cong',
     'modal-phan-cong', loadPhanCong, 'Đã phân công');
 
 // ============================================================
-// 10. INIT
+// 11. INIT
 // ============================================================
 async function refreshAll() {
     await Promise.all([loadToaNha(), loadKhuVuc(), loadNhanSu()]);
     await loadPhanCong();
 }
-async function init() { updateFab(); await refreshAll(); }
+async function init() {
+    updateFab();
+    await refreshAll();
+}
 init();
 </script>
 </body>
