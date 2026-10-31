@@ -105,6 +105,11 @@ body {
   outline: none; border-color: var(--ocean-500);
   background: white; box-shadow: 0 0 0 3px var(--ocean-100);
 }
+.input:disabled {
+  background: #f1f5f9;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
 
 .btn-primary {
   width: 100%; padding: 13px; font-size: 15px; font-weight: 600;
@@ -181,7 +186,7 @@ body {
   border: 1.5px solid var(--border); border-radius: var(--radius);
   padding: 14px 16px; box-shadow: var(--shadow);
 }
-.summary-line { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.summary-line { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .emp-name { font-size: 17px; font-weight: 700; color: var(--ocean-700); }
 .emp-role { font-size: 12px; color: var(--text-muted); background: var(--ocean-100); padding: 3px 9px; border-radius: 20px; }
 .summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -328,7 +333,8 @@ body {
 .employee-card {
   background: var(--card); border-radius: var(--radius);
   padding: 14px 16px; box-shadow: var(--shadow);
-  border: 1.5px solid var(--border); display: flex; align-items: center; gap: 12px;
+  border: 1.5px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px;
 }
 .avatar {
   width: 42px; height: 42px; border-radius: 50%;
@@ -337,7 +343,7 @@ body {
   font-weight: 700; font-size: 16px; flex-shrink: 0;
 }
 .emp-info { flex: 1; min-width: 0; }
-.emp-info .emp-fullname { font-size: 14px; font-weight: 600; color: var(--text); }
+.emp-info .emp-fullname { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4; }
 .emp-info .emp-pos { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .emp-info .emp-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 4px; }
 .status-active { background: #dcfce7; color: var(--success); }
@@ -361,6 +367,25 @@ body {
   background: var(--ocean-100);
 }
 
+/* ============ Action buttons (edit/toggle/delete) ============ */
+.emp-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+  flex-shrink: 0;
+  align-self: center;
+}
+.btn-icon-sm {
+  width: 32px; height: 32px;
+  border: none; border-radius: 8px;
+  font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; font-family: inherit;
+  transition: 0.15s;
+  flex-shrink: 0;
+}
+.btn-icon-sm:active { transform: scale(0.94); }
+
 /* ============ Phone link ============ */
 .phone-link {
   color: var(--ocean-600);
@@ -377,6 +402,17 @@ body {
 }
 .phone-link:active {
   opacity: 0.7;
+}
+
+/* Link "+ Thêm SĐT" cho user chưa có phone */
+.phone-link-add {
+  color: var(--warning);
+  border-bottom-color: var(--warning);
+  font-weight: 500;
+}
+.phone-link-add:hover {
+  color: #b45309;
+  border-bottom-color: #b45309;
 }
 
 /* ============ Modal ============ */
@@ -519,4 +555,6 @@ body {
   .btn-header-login { padding: 7px 10px; font-size: 12px; }
   .guest-banner p { font-size: 13px; }
   .phone-link { font-size: 12px; }
+  .btn-icon-sm { width: 28px; height: 28px; font-size: 13px; }
+  .emp-actions { gap: 3px; margin-left: 4px; }
 }
