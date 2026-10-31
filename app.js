@@ -84,17 +84,48 @@ async function initAuth() {
 
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.user) await onLoggedIn(session.user);
-  else showLogin();
+  else showGuestView();
 }
 
-function showLogin() {
+function showGuestView() {
+  // Reset state
+  state.user = null;
+  state.profile = null;
+  state.isAdmin = false;
+  state.isSupervisorMode = false;
+  state.employees = [];
+  state.selectedEmployeeId = null;
+  state.attendance = [];
+  state.selectionMode = false;
+  state.selectedDates.clear();
+  state.batchDates = null;
+
   $('#loading').style.display = 'none';
+  $('#loginScreen').style.display = 'none';
+  $('#mainScreen').style.display = 'block';
+
+  // Header buttons
+  $('#loginBtn').style.display = 'block';
+  $('#logoutBtn').style.display = 'none';
+
+  // Guest: hide admin stuff
+  $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = 'none');
+  $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = 'none');
+  $('#empSelectorRow').style.display = 'none';
+  $('#summaryCard').style.display = 'none';
+  $('#guestBanner').style.display = 'block';
+  $('#calendarActions').style.display = 'none';
+  $('#calendarHint').style.display = 'none';
+  $('#addEmployeeBtn').style.display = 'none';
+  $('#selectionBar').style.display = 'none';
+
+  switchTab('calendar');
+  renderCalendar();
+}
+
+function showLoginScreen() {
   $('#loginScreen').style.display = 'block';
   $('#mainScreen').style.display = 'none';
-  $('#logoutBtn').style.display = 'none';
-  $('#addEmployeeBtn').style.display = 'none';
-  $('#calendarActions').style.display = 'none';
-  $('#selectionBar').style.display = 'none';
 }
 
 async function onLoggedIn(user) {
@@ -106,8 +137,11 @@ async function onLoggedIn(user) {
 
   if (state.profile?.status === 'inactive') {
     await supabase.auth.signOut();
-    showLogin();
-    $('#loginError').textContent = 'Tài khoản đã bị vô hiệu hoá. Liên hệ admin.';
+    showGuestView();
+    setTimeout(() => {
+      showLoginScreen();
+      $('#loginError').textContent = 'Tài khoản đã bị vô hiệu hoá. Liên hệ admin.';
+    }, 50);
     return;
   }
 
@@ -116,13 +150,19 @@ async function onLoggedIn(user) {
   $('#loading').style.display = 'none';
   $('#loginScreen').style.display = 'none';
   $('#mainScreen').style.display = 'block';
+
+  // Header buttons
+  $('#loginBtn').style.display = 'none';
   $('#logoutBtn').style.display = 'block';
 
+  // Show admin stuff
   $('#addEmployeeBtn').style.display = state.isAdmin ? 'block' : 'none';
-  $('#calendarActions').style.display = state.isAdmin ? 'flex' : 'none';
   $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
   $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
-  $('#empSelectorRow').style.display = state.isAdmin ? '' : 'none';
+  $('#empSelectorRow').style.display = state.isAdmin ? 'flex' : 'none';
+  $('#summaryCard').style.display = 'block';
+  $('#guestBanner').style.display = 'none';
+  $('#calendarActions').style.display = state.isAdmin ? 'flex' : 'none';
   $('#calendarHint').style.display = state.isAdmin ? '' : 'none';
 
   state.selectedEmployeeId = user.id;
@@ -136,14 +176,7 @@ async function onLoggedIn(user) {
 
 async function handleLogout() {
   await supabase.auth.signOut();
-  Object.assign(state, {
-    user: null, profile: null, isAdmin: false, isSupervisorMode: false,
-    employees: [], selectedEmployeeId: null, buildings: [], floors: [],
-    attendance: [], editingDate: null, batchDates: null,
-    modalAreas: [], modalOtAreas: [], floorSetupBuildingId: null,
-    selectionMode: false, selectedDates: new Set(),
-  });
-  showLogin();
+  showGuestView();
 }
 
 /* ============ EMPLOYEES ============ */
@@ -183,7 +216,6 @@ function renderEmployeeList() {
     const isSelf = e.id === state.user?.id;
     const canManage = state.isAdmin && !isSelf;
 
-    // Role select (chỉ hiện với admin, không phải chính mình)
     const roleSelect = canManage ? `
       <select class="role-select" data-emp-role="${e.id}" data-current="${e.role}">
         <option value="admin" ${e.role === 'admin' ? 'selected' : ''}>${ROLE_LABELS.admin}</option>
@@ -217,7 +249,6 @@ function renderEmployeeList() {
       </div>`;
   }).join('');
 
-  // Bind toggle/delete
   wrap.querySelectorAll('[data-emp-toggle]').forEach(btn => {
     btn.addEventListener('click', () =>
       toggleEmployeeStatus(btn.dataset.empToggle, btn.dataset.current));
@@ -226,8 +257,6 @@ function renderEmployeeList() {
     btn.addEventListener('click', () =>
       deleteEmployee(btn.dataset.empDelete, btn.dataset.name));
   });
-
-  // Bind role change
   wrap.querySelectorAll('[data-emp-role]').forEach(sel => {
     sel.addEventListener('change', () => {
       changeEmployeeRole(sel.dataset.empRole, sel.value, sel.dataset.current);
@@ -247,7 +276,6 @@ async function changeEmployeeRole(userId, newRole, currentRole) {
     : `Đổi "${empName}" thành ${ROLE_LABELS[newRole]}?`;
 
   if (!confirm(msg)) {
-    // Reset select về giá trị cũ
     const sel = document.querySelector(`[data-emp-role="${userId}"]`);
     if (sel) sel.value = currentRole;
     return;
@@ -260,7 +288,6 @@ async function changeEmployeeRole(userId, newRole, currentRole) {
 
   if (error) {
     toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, ''));
-    // Reset select
     const sel = document.querySelector(`[data-emp-role="${userId}"]`);
     if (sel) sel.value = currentRole;
     return;
@@ -268,11 +295,7 @@ async function changeEmployeeRole(userId, newRole, currentRole) {
 
   toast(`Đã đổi thành ${ROLE_LABELS[newRole]} ✓`);
   await loadEmployees();
-
-  // Cập nhật summary nếu đang xem lịch người đó
-  if (state.selectedEmployeeId === userId) {
-    updateSummary();
-  }
+  if (state.selectedEmployeeId === userId) updateSummary();
 }
 
 async function toggleEmployeeStatus(userId, currentStatus) {
@@ -502,7 +525,7 @@ function updateSummary() {
   $('#sumOT').textContent = formatHours(ot);
 }
 
-/* ============ PREFILL FROM PREVIOUS DAY ============ */
+/* ============ PREFILL ============ */
 async function getPreviousAttendance(employeeId, beforeDate) {
   const { data, error } = await supabase
     .from('attendance')
@@ -864,7 +887,7 @@ function buildEmployeePayload() {
   };
 }
 
-/* ============ SAVE ATTENDANCE ============ */
+/* ============ SAVE ============ */
 async function saveAttendance() {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) return;
@@ -1101,6 +1124,10 @@ async function bulkCopySubmit() {
 
 /* ============ EVENTS ============ */
 function bindEvents() {
+  $('#loginBtn').addEventListener('click', showLoginScreen);
+  $('#guestLoginBtn').addEventListener('click', showLoginScreen);
+  $('#cancelLoginBtn').addEventListener('click', showGuestView);
+
   $('#loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     let raw = $('#loginEmail').value.trim();
@@ -1206,7 +1233,10 @@ function bindEvents() {
     btn.addEventListener('click', () => closeModal(btn.dataset.close)));
 
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (!session) showLogin();
+    if (!session && !$('#loginScreen').style.display.includes('block')) {
+      // Chỉ redirect về guest khi thực sự logout, không phải lúc đang ở login screen
+      if (state.user) showGuestView();
+    }
   });
 }
 
