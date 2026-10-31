@@ -5,6 +5,12 @@ const DEFAULT_DOMAIN = 'skyone.vn';
 const LS_KEY = 'cc_saved_login';
 const SUPERVISOR_HOURS = 8;
 
+const ROLE_LABELS = {
+  admin: 'Giám sát',
+  temporary: 'Thời vụ',
+  employee: 'Nhân viên',
+};
+
 const state = {
   user: null,
   profile: null,
@@ -17,7 +23,7 @@ const state = {
   currentMonth: new Date(),
   attendance: [],
   editingDate: null,
-  batchDates: null, // null = single day, array = batch
+  batchDates: null,
   modalAreas: [],
   modalOtAreas: [],
   floorSetupBuildingId: null,
@@ -57,8 +63,9 @@ function floorLabel(n) { return n === 0 ? 'Trệt' : `Tầng ${n}`; }
 
 function roleLabelOf(p) {
   if (!p) return 'Nhân viên';
-  if (p.role === 'admin') return 'Giám sát';
-  return p.position || 'Nhân viên';
+  if (p.role === 'admin') return ROLE_LABELS.admin;
+  if (p.role === 'temporary') return ROLE_LABELS.temporary;
+  return p.position || ROLE_LABELS.employee;
 }
 
 function openModal(id) { $('#' + id).style.display = 'flex'; }
@@ -176,6 +183,14 @@ function renderEmployeeList() {
     const isSelf = e.id === state.user?.id;
     const canManage = state.isAdmin && !isSelf;
 
+    // Role select (chỉ hiện với admin, không phải chính mình)
+    const roleSelect = canManage ? `
+      <select class="role-select" data-emp-role="${e.id}" data-current="${e.role}">
+        <option value="admin" ${e.role === 'admin' ? 'selected' : ''}>${ROLE_LABELS.admin}</option>
+        <option value="temporary" ${e.role === 'temporary' ? 'selected' : ''}>${ROLE_LABELS.temporary}</option>
+        <option value="employee" ${e.role === 'employee' ? 'selected' : ''}>${ROLE_LABELS.employee}</option>
+      </select>` : '';
+
     const actions = canManage ? `
       <div style="display:flex;flex-direction:column;gap:6px;margin-left:8px;flex-shrink:0">
         <button class="btn-small" data-emp-toggle="${e.id}" data-current="${isActive ? 'active' : 'inactive'}"
@@ -196,11 +211,13 @@ function renderEmployeeList() {
           <div class="emp-fullname">${name}${isSelf ? ' <span style="font-size:11px;color:var(--text-muted)">(bạn)</span>' : ''}</div>
           <div class="emp-pos">${roleLabel}${e.username ? ' · @' + e.username : ''}</div>
           <span class="emp-status status-${isActive ? 'active' : 'inactive'}">${statusText}</span>
+          ${roleSelect}
         </div>
         ${actions}
       </div>`;
   }).join('');
 
+  // Bind toggle/delete
   wrap.querySelectorAll('[data-emp-toggle]').forEach(btn => {
     btn.addEventListener('click', () =>
       toggleEmployeeStatus(btn.dataset.empToggle, btn.dataset.current));
@@ -209,6 +226,53 @@ function renderEmployeeList() {
     btn.addEventListener('click', () =>
       deleteEmployee(btn.dataset.empDelete, btn.dataset.name));
   });
+
+  // Bind role change
+  wrap.querySelectorAll('[data-emp-role]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      changeEmployeeRole(sel.dataset.empRole, sel.value, sel.dataset.current);
+    });
+  });
+}
+
+async function changeEmployeeRole(userId, newRole, currentRole) {
+  if (!state.isAdmin) return;
+  if (newRole === currentRole) return;
+
+  const emp = state.employees.find(e => e.id === userId);
+  const empName = emp?.full_name || emp?.username || 'nhân viên này';
+
+  const msg = newRole === 'admin'
+    ? `Đổi "${empName}" thành Giám sát?\n\nHọ sẽ có TOÀN QUYỀN quản lý:\n• Xem lịch của mọi người\n• Chấm công\n• Tạo/xoá nhân viên\n• Quản lý toà nhà`
+    : `Đổi "${empName}" thành ${ROLE_LABELS[newRole]}?`;
+
+  if (!confirm(msg)) {
+    // Reset select về giá trị cũ
+    const sel = document.querySelector(`[data-emp-role="${userId}"]`);
+    if (sel) sel.value = currentRole;
+    return;
+  }
+
+  const { error } = await supabase.rpc('admin_set_user_role', {
+    p_user_id: userId,
+    p_role: newRole,
+  });
+
+  if (error) {
+    toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, ''));
+    // Reset select
+    const sel = document.querySelector(`[data-emp-role="${userId}"]`);
+    if (sel) sel.value = currentRole;
+    return;
+  }
+
+  toast(`Đã đổi thành ${ROLE_LABELS[newRole]} ✓`);
+  await loadEmployees();
+
+  // Cập nhật summary nếu đang xem lịch người đó
+  if (state.selectedEmployeeId === userId) {
+    updateSummary();
+  }
 }
 
 async function toggleEmployeeStatus(userId, currentStatus) {
@@ -470,18 +534,15 @@ async function openAttendanceModal(dateStr, batchDates = null) {
   $('#supervisorModeSection').style.display = targetIsSupervisor ? 'block' : 'none';
   $('#employeeModeSection').style.display = targetIsSupervisor ? 'none' : 'block';
 
-  // Prefill template
   let template = null;
   let source = 'none';
   let prevDate = null;
 
   if (!batchDates) {
-    // Single day: check current data
     template = state.attendance.find(a => a.date === dateStr) || null;
     if (template) {
       source = 'existing';
     } else {
-      // Query previous
       const prev = await getPreviousAttendance(state.selectedEmployeeId, dateStr);
       if (prev) {
         template = prev;
@@ -490,7 +551,6 @@ async function openAttendanceModal(dateStr, batchDates = null) {
       }
     }
   } else {
-    // Batch: prefill from day before earliest
     const earliest = [...batchDates].sort()[0];
     const prev = await getPreviousAttendance(state.selectedEmployeeId, earliest);
     if (prev) {
@@ -500,19 +560,17 @@ async function openAttendanceModal(dateStr, batchDates = null) {
     }
   }
 
-  // Show notes
-  showPrefillNote(source, prevDate, template);
+  showPrefillNote(source, prevDate);
   showBatchNote(batchDates);
 
-  // Open content
-  if (targetIsSupervisor) openSupervisorModeContent(template, source, prevDate);
-  else openEmployeeModeContent(template, source, prevDate);
+  if (targetIsSupervisor) openSupervisorModeContent(template);
+  else openEmployeeModeContent(template);
 
   updatePreview();
   openModal('attendanceModal');
 }
 
-function showPrefillNote(source, prevDate, template) {
+function showPrefillNote(source, prevDate) {
   const el = $('#prefillNote');
   if (source === 'previous' && prevDate) {
     el.textContent = `📋 Đã điền sẵn theo ngày ${formatDateVN(prevDate)} — sửa lại nếu cần`;
@@ -535,7 +593,7 @@ function showBatchNote(batchDates) {
   }
 }
 
-function openSupervisorModeContent(template, source, prevDate) {
+function openSupervisorModeContent(template) {
   let mode = 'default';
   let otH = 0;
   if (template) {
@@ -549,7 +607,7 @@ function openSupervisorModeContent(template, source, prevDate) {
   toggleSupOtGroup(mode);
 }
 
-function openEmployeeModeContent(template, source, prevDate) {
+function openEmployeeModeContent(template) {
   const validFloorIds = new Set(state.floors.map(f => f.id));
   const validBuildingIds = new Set(state.buildings.map(b => b.id));
 
@@ -814,13 +872,12 @@ async function saveAttendance() {
   const basePayload = state.isSupervisorMode
     ? buildSupervisorPayload()
     : buildEmployeePayload();
-  if (!basePayload) return; // validation failed
+  if (!basePayload) return;
 
   const dates = state.batchDates && state.batchDates.length > 0
     ? [...state.batchDates]
     : [state.editingDate];
 
-  // Check overwrite (batch only)
   if (dates.length > 1) {
     const { data } = await supabase
       .from('attendance')
@@ -931,12 +988,10 @@ function renderCalendar() {
   grid.innerHTML = html;
 
   if (state.selectionMode) {
-    // Click to toggle selection
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
       el.addEventListener('click', () => toggleDateSelection(el.dataset.date));
     });
   } else if (state.isAdmin) {
-    // Long-press to edit single day
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
       attachLongPress(el, () => openAttendanceModal(el.dataset.date)));
   }
@@ -1080,7 +1135,6 @@ function bindEvents() {
   $('#prevMonth').addEventListener('click', () => changeMonth(-1));
   $('#nextMonth').addEventListener('click', () => changeMonth(1));
 
-  // Selection mode
   $('#selectionToggleBtn').addEventListener('click', toggleSelectionMode);
   $('#cancelSelectionBtn').addEventListener('click', exitSelectionMode);
   $('#applySelectionBtn').addEventListener('click', () => {
@@ -1089,7 +1143,6 @@ function bindEvents() {
     openAttendanceModal(dates[0], dates);
   });
 
-  // Bulk copy
   $('#bulkCopyBtn').addEventListener('click', () => {
     const today = new Date();
     const yesterday = new Date();
@@ -1104,7 +1157,6 @@ function bindEvents() {
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
 
-  // Attendance modal
   $('#attendanceModal').addEventListener('click', (e) => {
     if (e.target.id === 'attendanceModal') closeModal('attendanceModal');
   });
@@ -1129,20 +1181,17 @@ function bindEvents() {
   });
   $('#saveAttendanceBtn').addEventListener('click', saveAttendance);
 
-  // Building modal
   $('#addBuildingBtn').addEventListener('click', () => openModal('buildingModal'));
   $('#buildingModal').addEventListener('click', (e) => {
     if (e.target.id === 'buildingModal') closeModal('buildingModal');
   });
   $('#saveBuildingBtn').addEventListener('click', saveBuilding);
 
-  // Floor modal
   $('#floorModal').addEventListener('click', (e) => {
     if (e.target.id === 'floorModal') closeModal('floorModal');
   });
   $('#saveFloorsBtn').addEventListener('click', saveFloors);
 
-  // Employee modal
   $('#addEmployeeBtn').addEventListener('click', () => {
     $('#empUsername').value = ''; $('#empPassword').value = ''; $('#empFullName').value = '';
     $('#empCreateError').textContent = '';
