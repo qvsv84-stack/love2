@@ -1,6 +1,10 @@
 // app.js
 import { supabase } from './supabase.js';
 
+/* ============ CONSTANTS ============ */
+const DEFAULT_DOMAIN = 'skyone.vn';
+const LS_KEY = 'cc_saved_login';
+
 /* ============ STATE ============ */
 const state = {
   user: null,
@@ -9,14 +13,12 @@ const state = {
   selectedEmployeeId: null,
   buildings: [],
   floors: [],
-  currentMonth: new Date(), // tháng đang xem
-  attendance: [], // data của employee + month hiện tại
-  editingDate: null, // ngày đang chấm công (YYYY-MM-DD)
-  modalAreas: [], // [{building_id, floor_id, hours}]
+  currentMonth: new Date(),
+  attendance: [],
+  editingDate: null,
+  modalAreas: [],
   floorSetupBuildingId: null,
 };
-
-const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
 /* ============ HELPERS ============ */
 const $ = (sel) => document.querySelector(sel);
@@ -46,6 +48,16 @@ function closeModal(id) { $('#' + id).style.display = 'none'; }
 
 /* ============ AUTH ============ */
 async function initAuth() {
+  // Auto-fill saved login
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+    if (saved) {
+      $('#loginEmail').value = saved.username || '';
+      $('#loginPassword').value = saved.password || '';
+      $('#rememberPass').checked = true;
+    }
+  } catch {}
+
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.user) {
     await onLoggedIn(session.user);
@@ -59,11 +71,13 @@ function showLogin() {
   $('#loginScreen').style.display = 'block';
   $('#mainScreen').style.display = 'none';
   $('#logoutBtn').style.display = 'none';
+  $('#addEmployeeBtn').style.display = 'none';
 }
 
 async function onLoggedIn(user) {
   state.user = user;
-  // load profile
+
+  // Load profile
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('*')
@@ -76,6 +90,13 @@ async function onLoggedIn(user) {
   $('#loginScreen').style.display = 'none';
   $('#mainScreen').style.display = 'block';
   $('#logoutBtn').style.display = 'block';
+
+  // Admin → hiện nút tạo nhân viên
+  if (state.profile?.role === 'admin') {
+    $('#addEmployeeBtn').style.display = 'block';
+  } else {
+    $('#addEmployeeBtn').style.display = 'none';
+  }
 
   await loadEmployees();
   await loadBuildings();
@@ -92,10 +113,11 @@ async function handleLogout() {
   state.attendance = [];
   state.buildings = [];
   state.floors = [];
+  state.selectedEmployeeId = null;
   showLogin();
 }
 
-/* ============ LOAD DATA ============ */
+/* ============ EMPLOYEES ============ */
 async function loadEmployees() {
   const { data, error } = await supabase
     .from('profiles')
@@ -118,7 +140,7 @@ function setupDefaultEmployeeSelect() {
 function renderEmployeeSelect() {
   const sel = $('#employeeSelect');
   sel.innerHTML = state.employees.map(e =>
-    `<option value="${e.id}">${e.full_name || e.email || 'N/A'}</option>`
+    `<option value="${e.id}">${e.full_name || e.username || e.email || 'N/A'}</option>`
   ).join('');
   if (state.selectedEmployeeId) sel.value = state.selectedEmployeeId;
 }
@@ -130,22 +152,56 @@ function renderEmployeeList() {
     return;
   }
   wrap.innerHTML = state.employees.map(e => {
-    const name = e.full_name || e.email || 'N/A';
+    const name = e.full_name || e.username || e.email || 'N/A';
     const initial = name.trim().charAt(0).toUpperCase();
     const status = e.status === 'inactive' ? 'inactive' : 'active';
     const statusText = status === 'active' ? 'Đang làm' : 'Nghỉ';
+    const roleText = e.role === 'admin' ? 'Admin' : (e.position || 'Nhân viên');
     return `
       <div class="employee-card">
         <div class="avatar">${initial}</div>
         <div class="emp-info">
           <div class="emp-fullname">${name}</div>
-          <div class="emp-pos">${e.position || e.role || 'Nhân viên'}</div>
+          <div class="emp-pos">${roleText}${e.username ? ' · @' + e.username : ''}</div>
           <span class="emp-status status-${status}">${statusText}</span>
         </div>
       </div>`;
   }).join('');
 }
 
+async function createEmployee() {
+  const username = $('#empUsername').value.trim().toLowerCase();
+  const password = $('#empPassword').value;
+  const full_name = $('#empFullName').value.trim();
+  const errEl = $('#empCreateError');
+  errEl.textContent = '';
+
+  if (!username) { errEl.textContent = 'Nhập tên đăng nhập'; return; }
+  if (password.length < 6) { errEl.textContent = 'Mật khẩu tối thiểu 6 ký tự'; return; }
+  if (full_name.length < 2) { errEl.textContent = 'Tên hiển thị quá ngắn'; return; }
+
+  const btn = $('#saveEmployeeBtn');
+  btn.disabled = true; btn.textContent = 'Đang tạo...';
+
+  const { data, error } = await supabase.rpc('admin_create_employee', {
+    p_username:  username,
+    p_password:  password,
+    p_full_name: full_name,
+  });
+
+  btn.disabled = false; btn.textContent = 'Tạo';
+
+  if (error) {
+    errEl.textContent = (error.message || 'Tạo thất bại').replace(/^ERROR:\s*/i, '');
+    return;
+  }
+
+  toast('Đã tạo nhân viên ✓');
+  closeModal('employeeModal');
+  await loadEmployees();
+}
+
+/* ============ BUILDINGS ============ */
 async function loadBuildings() {
   const { data: buildings, error: e1 } = await supabase.from('buildings').select('*').order('name');
   if (e1) { console.error(e1); toast('Không tải được toà nhà'); return; }
@@ -163,292 +219,6 @@ async function loadBuildings() {
   renderBuildings();
 }
 
-async function loadAttendanceForMonth() {
-  if (!state.selectedEmployeeId) { state.attendance = []; return; }
-  const y = state.currentMonth.getFullYear();
-  const m = state.currentMonth.getMonth();
-  const start = `${y}-${pad(m + 1)}-01`;
-  const end = `${y}-${pad(m + 1)}-${pad(new Date(y, m + 1, 0).getDate())}`;
-
-  const { data, error } = await supabase
-    .from('attendance')
-    .select('*')
-    .eq('employee_id', state.selectedEmployeeId)
-    .gte('date', start)
-    .lte('date', end);
-  if (error) { console.error(error); state.attendance = []; }
-  else state.attendance = data || [];
-  updateSummary();
-}
-
-/* ============ SUMMARY ============ */
-function updateSummary() {
-  const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
-  if (!emp) {
-    $('#sumName').textContent = '—';
-    $('#sumRole').textContent = '—';
-    $('#sumStatus').textContent = '—';
-    $('#sumWork').textContent = '0h';
-    $('#sumOT').textContent = '0h';
-    return;
-  }
-  $('#sumName').textContent = emp.full_name || emp.email || '—';
-  $('#sumRole').textContent = emp.position || emp.role || 'Nhân viên';
-  const status = emp.status === 'inactive' ? 'Nghỉ' : 'Đang làm';
-  $('#sumStatus').textContent = status;
-
-  let work = 0, ot = 0;
-  for (const a of state.attendance) {
-    if (a.is_off) continue;
-    work += Number(a.total_hours || 0);
-    ot += Number(a.ot_hours || 0);
-  }
-  $('#sumWork').textContent = formatHours(work);
-  $('#sumOT').textContent = formatHours(ot);
-}
-
-/* ============ CALENDAR ============ */
-function renderCalendar() {
-  const y = state.currentMonth.getFullYear();
-  const m = state.currentMonth.getMonth();
-  $('#monthLabel').textContent = `Tháng ${m + 1}/${y}`;
-
-  const grid = $('#calendarGrid');
-  const first = new Date(y, m, 1);
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-
-  // T2=0 ... CN=6
-  let startCol = (first.getDay() + 6) % 7;
-  const attMap = {};
-  for (const a of state.attendance) attMap[a.date] = a;
-
-  const todayStr = toDateStr(new Date());
-
-  let html = '';
-  for (let i = 0; i < startCol; i++) html += `<div class="cal-day empty"></div>`;
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${y}-${pad(m + 1)}-${pad(d)}`;
-    const att = attMap[dateStr];
-    let cls = 'cal-day';
-    let sub = '';
-    if (att) {
-      if (att.is_off) {
-        cls += ' off-day';
-        sub = 'OFF';
-      } else {
-        cls += ' has-data';
-        sub = formatHours(att.total_hours);
-      }
-    }
-    if (dateStr === todayStr) cls += ' today';
-    html += `<div class="${cls}" data-date="${dateStr}">
-      <span class="day-num">${d}</span>
-      ${sub ? `<span class="day-hours">${sub}</span>` : ''}
-    </div>`;
-  }
-  grid.innerHTML = html;
-
-  // attach long-press
-  grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
-    attachLongPress(el, () => openAttendanceModal(el.dataset.date));
-  });
-}
-
-/* ============ LONG PRESS ============ */
-function attachLongPress(el, cb) {
-  let timer = null;
-  let moved = false;
-  const DURATION = 550;
-
-  const start = (e) => {
-    moved = false;
-    timer = setTimeout(() => {
-      if (!moved) {
-        if (navigator.vibrate) navigator.vibrate(30);
-        cb();
-      }
-    }, DURATION);
-  };
-  const cancel = () => { clearTimeout(timer); timer = null; };
-  const move = () => { moved = true; cancel(); };
-
-  el.addEventListener('touchstart', start, { passive: true });
-  el.addEventListener('touchend', cancel);
-  el.addEventListener('touchmove', move, { passive: true });
-  el.addEventListener('touchcancel', cancel);
-  el.addEventListener('mousedown', start);
-  el.addEventListener('mouseup', cancel);
-  el.addEventListener('mouseleave', cancel);
-  el.addEventListener('contextmenu', (e) => e.preventDefault());
-}
-
-/* ============ ATTENDANCE MODAL ============ */
-async function openAttendanceModal(dateStr) {
-  if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
-  state.editingDate = dateStr;
-
-  const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
-  $('#attModalTitle').textContent = `Chấm công — ${emp?.full_name || ''} — ${dateStr}`;
-
-  // Tìm data cũ
-  const existing = state.attendance.find(a => a.date === dateStr);
-
-  // Khởi tạo areas
-  if (existing && Array.isArray(existing.areas) && existing.areas.length) {
-    state.modalAreas = existing.areas.map(a => ({
-      building_id: a.building_id || '',
-      floor_id: a.floor_id || '',
-      hours: Number(a.hours || 0),
-    }));
-  } else if (existing && existing.is_off) {
-    state.modalAreas = [];
-  } else {
-    state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
-  }
-
-  renderAreaPicker();
-
-  // set mode
-  let mode = 'default';
-  if (existing) {
-    if (existing.is_off) mode = 'off';
-    else if (existing.mode === 'manual') mode = 'manual';
-  }
-  $$('input[name="attMode"]').forEach(r => r.checked = r.value === mode);
-  toggleManualHours(mode);
-  $('#manualHours').value = existing?.manual_hours ?? '';
-
-  $('#otHours').value = existing?.ot_hours ?? '';
-
-  updatePreview();
-  openModal('attendanceModal');
-}
-
-function renderAreaPicker() {
-  const wrap = $('#areaPicker');
-  if (!state.modalAreas.length) {
-    wrap.innerHTML = '<p class="hint">Chưa có khu vực. Nhấn "+ Thêm khu vực".</p>';
-    return;
-  }
-  wrap.innerHTML = state.modalAreas.map((entry, idx) => {
-    const bOpts = state.buildings.map(b =>
-      `<option value="${b.id}" ${b.id === entry.building_id ? 'selected' : ''}>${b.name}</option>`
-    ).join('');
-    const floorsOfB = state.floors.filter(f => f.building_id === entry.building_id);
-    const fOpts = floorsOfB.map(f =>
-      `<option value="${f.id}" ${f.id === entry.floor_id ? 'selected' : ''}>
-        Tầng ${f.floor_number} (${formatHours(f.default_hours)})
-      </option>`
-    ).join('');
-    return `
-      <div class="area-entry" data-idx="${idx}">
-        <select class="area-building">
-          <option value="">-- Toà nhà --</option>${bOpts}
-        </select>
-        <select class="area-floor">
-          <option value="">-- Tầng --</option>${fOpts}
-        </select>
-        <button class="remove-area" data-remove="${idx}">✕</button>
-      </div>`;
-  }).join('');
-
-  // bind
-  wrap.querySelectorAll('.area-entry').forEach(entryEl => {
-    const idx = Number(entryEl.dataset.idx);
-    const bSel = entryEl.querySelector('.area-building');
-    const fSel = entryEl.querySelector('.area-floor');
-    bSel.addEventListener('change', () => {
-      state.modalAreas[idx].building_id = bSel.value;
-      state.modalAreas[idx].floor_id = '';
-      renderAreaPicker();
-      updatePreview();
-    });
-    fSel.addEventListener('change', () => {
-      state.modalAreas[idx].floor_id = fSel.value;
-      const f = state.floors.find(x => x.id === fSel.value);
-      state.modalAreas[idx].hours = f ? Number(f.default_hours || 0) : 0;
-      updatePreview();
-    });
-    entryEl.querySelector('.remove-area').addEventListener('click', () => {
-      state.modalAreas.splice(idx, 1);
-      renderAreaPicker();
-      updatePreview();
-    });
-  });
-}
-
-function toggleManualHours(mode) {
-  $('#manualHoursGroup').style.display = mode === 'manual' ? 'block' : 'none';
-}
-
-function getSelectedMode() {
-  return document.querySelector('input[name="attMode"]:checked')?.value || 'default';
-}
-
-function computeHours() {
-  const mode = getSelectedMode();
-  if (mode === 'off') return 0;
-  if (mode === 'manual') return Number($('#manualHours').value || 0);
-  // default: sum floor hours
-  let h = 0;
-  for (const entry of state.modalAreas) {
-    if (entry.floor_id) {
-      const f = state.floors.find(x => x.id === entry.floor_id);
-      if (f) h += Number(f.default_hours || 0);
-    }
-  }
-  return h;
-}
-
-function updatePreview() {
-  const mode = getSelectedMode();
-  const total = computeHours();
-  const ot = Number($('#otHours').value || 0);
-  const label = mode === 'off' ? 'OFF' : formatHours(total + ot);
-  $('#attPreview').textContent = label;
-}
-
-async function saveAttendance() {
-  if (!state.selectedEmployeeId || !state.editingDate) return;
-  const mode = getSelectedMode();
-  const total = computeHours();
-  const ot = Number($('#otHours').value || 0);
-
-  if (mode !== 'off' && total <= 0) {
-    toast('Vui lòng chọn khu vực hoặc nhập giờ'); return;
-  }
-
-  const payload = {
-    employee_id: state.selectedEmployeeId,
-    date: state.editingDate,
-    total_hours: mode === 'off' ? 0 : total,
-    ot_hours: mode === 'off' ? 0 : ot,
-    is_off: mode === 'off',
-    mode: mode,
-    manual_hours: mode === 'manual' ? Number($('#manualHours').value || 0) : null,
-    areas: mode === 'off' ? [] : state.modalAreas
-      .filter(a => a.building_id && a.floor_id)
-      .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: a.hours })),
-  };
-
-  // upsert theo (employee_id, date)
-  const { error } = await supabase
-    .from('attendance')
-    .upsert(payload, { onConflict: 'employee_id,date' });
-
-  if (error) {
-    console.error(error);
-    toast('Lưu thất bại: ' + error.message);
-    return;
-  }
-  toast('Đã lưu chấm công ✓');
-  closeModal('attendanceModal');
-  await loadAttendanceForMonth();
-  renderCalendar();
-}
-
-/* ============ BUILDINGS ============ */
 function renderBuildings() {
   const wrap = $('#buildingsList');
   if (!state.buildings.length) {
@@ -551,6 +321,282 @@ async function saveFloors() {
   await loadBuildings();
 }
 
+/* ============ ATTENDANCE ============ */
+async function loadAttendanceForMonth() {
+  if (!state.selectedEmployeeId) { state.attendance = []; return; }
+  const y = state.currentMonth.getFullYear();
+  const m = state.currentMonth.getMonth();
+  const start = `${y}-${pad(m + 1)}-01`;
+  const end = `${y}-${pad(m + 1)}-${pad(new Date(y, m + 1, 0).getDate())}`;
+
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('*')
+    .eq('employee_id', state.selectedEmployeeId)
+    .gte('date', start)
+    .lte('date', end);
+  if (error) { console.error(error); state.attendance = []; }
+  else state.attendance = data || [];
+  updateSummary();
+}
+
+function updateSummary() {
+  const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
+  if (!emp) {
+    $('#sumName').textContent = '—';
+    $('#sumRole').textContent = '—';
+    $('#sumStatus').textContent = '—';
+    $('#sumWork').textContent = '0h';
+    $('#sumOT').textContent = '0h';
+    return;
+  }
+  $('#sumName').textContent = emp.full_name || emp.username || emp.email || '—';
+  $('#sumRole').textContent = emp.position || emp.role || 'Nhân viên';
+  const status = emp.status === 'inactive' ? 'Nghỉ' : 'Đang làm';
+  $('#sumStatus').textContent = status;
+
+  let work = 0, ot = 0;
+  for (const a of state.attendance) {
+    if (a.is_off) continue;
+    work += Number(a.total_hours || 0);
+    ot += Number(a.ot_hours || 0);
+  }
+  $('#sumWork').textContent = formatHours(work);
+  $('#sumOT').textContent = formatHours(ot);
+}
+
+async function openAttendanceModal(dateStr) {
+  if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
+  state.editingDate = dateStr;
+
+  const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
+  $('#attModalTitle').textContent = `Chấm công — ${emp?.full_name || ''} — ${dateStr}`;
+
+  const existing = state.attendance.find(a => a.date === dateStr);
+
+  if (existing && Array.isArray(existing.areas) && existing.areas.length) {
+    state.modalAreas = existing.areas.map(a => ({
+      building_id: a.building_id || '',
+      floor_id: a.floor_id || '',
+      hours: Number(a.hours || 0),
+    }));
+  } else if (existing && existing.is_off) {
+    state.modalAreas = [];
+  } else {
+    state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
+  }
+
+  renderAreaPicker();
+
+  let mode = 'default';
+  if (existing) {
+    if (existing.is_off) mode = 'off';
+    else if (existing.mode === 'manual') mode = 'manual';
+  }
+  $$('input[name="attMode"]').forEach(r => r.checked = r.value === mode);
+  toggleManualHours(mode);
+  $('#manualHours').value = existing?.manual_hours ?? '';
+  $('#otHours').value = existing?.ot_hours ?? '';
+
+  updatePreview();
+  openModal('attendanceModal');
+}
+
+function renderAreaPicker() {
+  const wrap = $('#areaPicker');
+  if (!state.modalAreas.length) {
+    wrap.innerHTML = '<p class="hint">Chưa có khu vực. Nhấn "+ Thêm khu vực".</p>';
+    return;
+  }
+  wrap.innerHTML = state.modalAreas.map((entry, idx) => {
+    const bOpts = state.buildings.map(b =>
+      `<option value="${b.id}" ${b.id === entry.building_id ? 'selected' : ''}>${b.name}</option>`
+    ).join('');
+    const floorsOfB = state.floors.filter(f => f.building_id === entry.building_id);
+    const fOpts = floorsOfB.map(f =>
+      `<option value="${f.id}" ${f.id === entry.floor_id ? 'selected' : ''}>
+        Tầng ${f.floor_number} (${formatHours(f.default_hours)})
+      </option>`
+    ).join('');
+    return `
+      <div class="area-entry" data-idx="${idx}">
+        <select class="area-building">
+          <option value="">-- Toà nhà --</option>${bOpts}
+        </select>
+        <select class="area-floor">
+          <option value="">-- Tầng --</option>${fOpts}
+        </select>
+        <button class="remove-area" data-remove="${idx}">✕</button>
+      </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.area-entry').forEach(entryEl => {
+    const idx = Number(entryEl.dataset.idx);
+    const bSel = entryEl.querySelector('.area-building');
+    const fSel = entryEl.querySelector('.area-floor');
+    bSel.addEventListener('change', () => {
+      state.modalAreas[idx].building_id = bSel.value;
+      state.modalAreas[idx].floor_id = '';
+      renderAreaPicker();
+      updatePreview();
+    });
+    fSel.addEventListener('change', () => {
+      state.modalAreas[idx].floor_id = fSel.value;
+      const f = state.floors.find(x => x.id === fSel.value);
+      state.modalAreas[idx].hours = f ? Number(f.default_hours || 0) : 0;
+      updatePreview();
+    });
+    entryEl.querySelector('.remove-area').addEventListener('click', () => {
+      state.modalAreas.splice(idx, 1);
+      renderAreaPicker();
+      updatePreview();
+    });
+  });
+}
+
+function toggleManualHours(mode) {
+  $('#manualHoursGroup').style.display = mode === 'manual' ? 'block' : 'none';
+}
+
+function getSelectedMode() {
+  return document.querySelector('input[name="attMode"]:checked')?.value || 'default';
+}
+
+function computeHours() {
+  const mode = getSelectedMode();
+  if (mode === 'off') return 0;
+  if (mode === 'manual') return Number($('#manualHours').value || 0);
+  let h = 0;
+  for (const entry of state.modalAreas) {
+    if (entry.floor_id) {
+      const f = state.floors.find(x => x.id === entry.floor_id);
+      if (f) h += Number(f.default_hours || 0);
+    }
+  }
+  return h;
+}
+
+function updatePreview() {
+  const mode = getSelectedMode();
+  const total = computeHours();
+  const ot = Number($('#otHours').value || 0);
+  const label = mode === 'off' ? 'OFF' : formatHours(total + ot);
+  $('#attPreview').textContent = label;
+}
+
+async function saveAttendance() {
+  if (!state.selectedEmployeeId || !state.editingDate) return;
+  const mode = getSelectedMode();
+  const total = computeHours();
+  const ot = Number($('#otHours').value || 0);
+
+  if (mode !== 'off' && total <= 0) {
+    toast('Vui lòng chọn khu vực hoặc nhập giờ'); return;
+  }
+
+  const payload = {
+    employee_id: state.selectedEmployeeId,
+    date: state.editingDate,
+    total_hours: mode === 'off' ? 0 : total,
+    ot_hours: mode === 'off' ? 0 : ot,
+    is_off: mode === 'off',
+    mode: mode,
+    manual_hours: mode === 'manual' ? Number($('#manualHours').value || 0) : null,
+    areas: mode === 'off' ? [] : state.modalAreas
+      .filter(a => a.building_id && a.floor_id)
+      .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: a.hours })),
+  };
+
+  const { error } = await supabase
+    .from('attendance')
+    .upsert(payload, { onConflict: 'employee_id,date' });
+
+  if (error) {
+    console.error(error);
+    toast('Lưu thất bại: ' + error.message);
+    return;
+  }
+  toast('Đã lưu chấm công ✓');
+  closeModal('attendanceModal');
+  await loadAttendanceForMonth();
+  renderCalendar();
+}
+
+/* ============ CALENDAR ============ */
+function renderCalendar() {
+  const y = state.currentMonth.getFullYear();
+  const m = state.currentMonth.getMonth();
+  $('#monthLabel').textContent = `Tháng ${m + 1}/${y}`;
+
+  const grid = $('#calendarGrid');
+  const first = new Date(y, m, 1);
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+  // T2=0 ... CN=6
+  const startCol = (first.getDay() + 6) % 7;
+  const attMap = {};
+  for (const a of state.attendance) attMap[a.date] = a;
+
+  const todayStr = toDateStr(new Date());
+
+  let html = '';
+  for (let i = 0; i < startCol; i++) html += `<div class="cal-day empty"></div>`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${y}-${pad(m + 1)}-${pad(d)}`;
+    const att = attMap[dateStr];
+    let cls = 'cal-day';
+    let sub = '';
+    if (att) {
+      if (att.is_off) {
+        cls += ' off-day';
+        sub = 'OFF';
+      } else {
+        cls += ' has-data';
+        sub = formatHours(att.total_hours);
+      }
+    }
+    if (dateStr === todayStr) cls += ' today';
+    html += `<div class="${cls}" data-date="${dateStr}">
+      <span class="day-num">${d}</span>
+      ${sub ? `<span class="day-hours">${sub}</span>` : ''}
+    </div>`;
+  }
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
+    attachLongPress(el, () => openAttendanceModal(el.dataset.date));
+  });
+}
+
+/* ============ LONG PRESS ============ */
+function attachLongPress(el, cb) {
+  let timer = null;
+  let moved = false;
+  const DURATION = 550;
+
+  const start = () => {
+    moved = false;
+    timer = setTimeout(() => {
+      if (!moved) {
+        if (navigator.vibrate) navigator.vibrate(30);
+        cb();
+      }
+    }, DURATION);
+  };
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  const move = () => { moved = true; cancel(); };
+
+  el.addEventListener('touchstart', start, { passive: true });
+  el.addEventListener('touchend', cancel);
+  el.addEventListener('touchmove', move, { passive: true });
+  el.addEventListener('touchcancel', cancel);
+  el.addEventListener('mousedown', start);
+  el.addEventListener('mouseup', cancel);
+  el.addEventListener('mouseleave', cancel);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
 /* ============ TABS ============ */
 function switchTab(name) {
   $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
@@ -571,11 +617,25 @@ function bindEvents() {
   // Login
   $('#loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = $('#loginEmail').value.trim();
+    let raw = $('#loginEmail').value.trim();
+    if (!raw) { $('#loginError').textContent = 'Nhập tên đăng nhập'; return; }
+    if (!raw.includes('@')) raw = `${raw}@${DEFAULT_DOMAIN}`;
     const pass = $('#loginPassword').value;
+    const remember = $('#rememberPass').checked;
+
     $('#loginError').textContent = '';
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    if (error) { $('#loginError').textContent = error.message; return; }
+    const { data, error } = await supabase.auth.signInWithPassword({ email: raw, password: pass });
+    if (error) { $('#loginError').textContent = 'Sai tên đăng nhập hoặc mật khẩu'; return; }
+
+    if (remember) {
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        username: $('#loginEmail').value.trim(),
+        password: pass,
+      }));
+    } else {
+      localStorage.removeItem(LS_KEY);
+    }
+
     await onLoggedIn(data.user);
   });
 
@@ -627,12 +687,25 @@ function bindEvents() {
   });
   $('#saveFloorsBtn').addEventListener('click', saveFloors);
 
+  // Employee modal
+  $('#addEmployeeBtn').addEventListener('click', () => {
+    $('#empUsername').value = '';
+    $('#empPassword').value = '';
+    $('#empFullName').value = '';
+    $('#empCreateError').textContent = '';
+    openModal('employeeModal');
+  });
+  $('#employeeModal').addEventListener('click', (e) => {
+    if (e.target.id === 'employeeModal') closeModal('employeeModal');
+  });
+  $('#saveEmployeeBtn').addEventListener('click', createEmployee);
+
   // Close buttons
   $$('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => closeModal(btn.dataset.close));
   });
 
-  // Auth listener
+  // Auth state listener
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session) showLogin();
   });
