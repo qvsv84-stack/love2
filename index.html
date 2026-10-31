@@ -79,6 +79,11 @@
           <button id="nextMonth" class="btn-icon">▶</button>
         </div>
 
+        <div id="calendarActions" style="display:none">
+          <button id="selectionToggleBtn" class="btn-secondary">☑️ Chọn nhiều ngày</button>
+          <button id="bulkCopyBtn" class="btn-secondary">📋 Copy ngày</button>
+        </div>
+
         <div class="calendar-wrap">
           <div class="weekdays">
             <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
@@ -115,8 +120,9 @@
           <button class="btn-close" data-close="attendanceModal">✕</button>
         </div>
         <div class="modal-body">
+          <p id="prefillNote" class="prefill-note" style="display:none"></p>
 
-          <!-- ============ SUPERVISOR MODE ============ -->
+          <!-- SUPERVISOR MODE -->
           <div id="supervisorModeSection" style="display:none">
             <div class="form-group">
               <label>Chế độ chấm công <span style="font-weight:400;color:var(--text-muted);font-size:11px">(Giám sát)</span></label>
@@ -147,7 +153,7 @@
             </div>
           </div>
 
-          <!-- ============ EMPLOYEE MODE ============ -->
+          <!-- EMPLOYEE MODE -->
           <div id="employeeModeSection">
             <div class="form-group">
               <label>1️⃣ Khu vực chính <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tính công thường)</span></label>
@@ -191,10 +197,40 @@
             </p>
           </div>
 
+          <p id="batchNote" class="prefill-note" style="display:none;margin-top:12px;margin-bottom:0"></p>
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" data-close="attendanceModal">Huỷ</button>
           <button id="saveAttendanceBtn" class="btn-primary">Lưu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: Copy ngày -->
+    <div id="bulkCopyModal" class="modal-overlay" style="display:none">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>📋 Copy chấm công</h3>
+          <button class="btn-close" data-close="bulkCopyModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+            Copy toàn bộ chấm công của <strong>tất cả nhân viên</strong> từ ngày nguồn sang ngày đích.
+            Nhân viên đã có dữ liệu ngày đích sẽ được bỏ qua.
+          </p>
+          <div class="form-group">
+            <label>Từ ngày (nguồn)</label>
+            <input type="date" id="bulkSourceDate" class="input" />
+          </div>
+          <div class="form-group">
+            <label>Sang ngày (đích)</label>
+            <input type="date" id="bulkTargetDate" class="input" />
+          </div>
+          <p id="bulkCopyInfo" style="font-size:12px; color:var(--text-muted); margin-top:8px;"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" data-close="bulkCopyModal">Huỷ</button>
+          <button id="bulkCopySubmit" class="btn-primary">Copy</button>
         </div>
       </div>
     </div>
@@ -278,6 +314,15 @@
           <button class="btn-secondary" data-close="employeeModal">Huỷ</button>
           <button id="saveEmployeeBtn" class="btn-primary">Tạo</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Selection bar (sticky bottom) -->
+    <div id="selectionBar" class="selection-bar" style="display:none;">
+      <div class="selection-bar-inner">
+        <span id="selectionCount">0 ngày đã chọn</span>
+        <button id="cancelSelectionBtn" class="btn-secondary">Huỷ</button>
+        <button id="applySelectionBtn" class="btn-primary" disabled>Chấm công</button>
       </div>
     </div>
 
