@@ -161,7 +161,7 @@ body {
 .month-nav h2 { font-size: 16px; color: var(--ocean-700); font-weight: 700; }
 .month-nav .btn-icon { background: var(--ocean-100); color: var(--ocean-700); }
 
-/* ============ Calendar Actions (multi-select + bulk copy) ============ */
+/* ============ Calendar Actions ============ */
 #calendarActions {
   display: flex; gap: 8px; margin-bottom: 12px;
 }
@@ -201,7 +201,7 @@ body {
 .cal-day.off-day { background: #fef3f2; color: var(--danger); border-color: #fecaca; }
 .cal-day.today { border-color: var(--ocean-500); box-shadow: 0 0 0 2px var(--ocean-100); }
 
-/* Selected state (multi-select mode) */
+/* Selected state */
 .cal-day.selected {
   background: var(--ocean-500) !important;
   color: white !important;
@@ -245,7 +245,7 @@ body {
   border-radius: 10px; border: 1px dashed var(--ocean-200);
 }
 
-/* ============ Prefill note (trong modal) ============ */
+/* ============ Prefill note ============ */
 .prefill-note {
   font-size: 12px; color: var(--ocean-700);
   background: var(--ocean-50); padding: 8px 12px;
@@ -306,6 +306,24 @@ body {
 .emp-info .emp-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 4px; }
 .status-active { background: #dcfce7; color: var(--success); }
 .status-inactive { background: #fee2e2; color: var(--danger); }
+
+/* Role select trong employee card */
+.emp-info .role-select {
+  display: block;
+  font-size: 12px; padding: 4px 8px; margin-top: 6px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--ocean-50); font-family: inherit;
+  color: var(--ocean-700); font-weight: 600;
+  cursor: pointer; transition: 0.15s;
+  max-width: 140px;
+}
+.emp-info .role-select:focus {
+  outline: none; border-color: var(--ocean-500);
+  background: white; box-shadow: 0 0 0 3px var(--ocean-100);
+}
+.emp-info .role-select:hover {
+  background: var(--ocean-100);
+}
 
 /* ============ Modal ============ */
 .modal-overlay {
@@ -428,4 +446,5 @@ body {
   .selection-bar-inner #selectionCount { font-size: 13px; }
   .selection-bar-inner .btn-primary { padding: 9px 14px; font-size: 13px; }
   .selection-bar-inner .btn-secondary { padding: 9px 10px; font-size: 12px; }
+  .emp-info .role-select { max-width: 120px; font-size: 11px; }
 }
