@@ -54,7 +54,6 @@ body {
 }
 .btn-icon:hover { background: rgba(255,255,255,0.25); }
 
-/* Nút Đăng nhập trên header (guest view) */
 .btn-header-login {
   background: rgba(255,255,255,0.2);
   border: 1px solid rgba(255,255,255,0.3);
@@ -242,7 +241,6 @@ body {
 .cal-day.off-day { background: #fef3f2; color: var(--danger); border-color: #fecaca; }
 .cal-day.today { border-color: var(--ocean-500); box-shadow: 0 0 0 2px var(--ocean-100); }
 
-/* Selected state */
 .cal-day.selected {
   background: var(--ocean-500) !important;
   color: white !important;
@@ -257,7 +255,7 @@ body {
 }
 .cal-day.off-day .day-hours { color: var(--danger); }
 
-/* ============ Selection bar (sticky bottom) ============ */
+/* ============ Selection bar ============ */
 .selection-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: white; padding: 12px 16px;
@@ -319,6 +317,8 @@ body {
   border-radius: 20px; color: var(--ocean-700); font-weight: 600;
 }
 .building-floors { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+/* ============ Floor row ============ */
 .floor-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 9px 12px; background: var(--ocean-50); border-radius: 9px;
@@ -326,6 +326,39 @@ body {
 }
 .floor-row .floor-name { font-weight: 600; color: var(--text); }
 .floor-row .floor-hours { color: var(--ocean-600); font-weight: 700; }
+
+/* ⭐ Floor có assignees → layout dọc */
+.floor-row.has-assignees {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.floor-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.floor-assignees-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 8px;
+  border-left: 2px solid var(--ocean-200);
+  margin-left: 2px;
+}
+.floor-assignee {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.floor-assignee::before {
+  content: '• ';
+  color: var(--ocean-500);
+  font-weight: 700;
+}
+.floor-assignee .phone-link { font-size: 12px; }
+
 .building-actions { margin-top: 10px; display: flex; gap: 8px; }
 
 /* ============ Employees list ============ */
@@ -349,7 +382,6 @@ body {
 .status-active { background: #dcfce7; color: var(--success); }
 .status-inactive { background: #fee2e2; color: var(--danger); }
 
-/* Role select trong employee card */
 .emp-info .role-select {
   display: block;
   font-size: 12px; padding: 4px 8px; margin-top: 6px;
@@ -367,7 +399,7 @@ body {
   background: var(--ocean-100);
 }
 
-/* ============ Action buttons (edit/toggle/delete) ============ */
+/* ============ Action buttons ============ */
 .emp-actions {
   display: flex;
   gap: 4px;
@@ -404,7 +436,6 @@ body {
   opacity: 0.7;
 }
 
-/* Link "+ Thêm SĐT" cho user chưa có phone */
 .phone-link-add {
   color: var(--warning);
   border-bottom-color: var(--warning);
@@ -447,7 +478,6 @@ body {
 .modal-footer .btn-primary { flex: 1; }
 .modal-footer .btn-secondary { flex: 0 0 auto; }
 
-/* Modal căn giữa (dùng cho phone action sheet) */
 .modal-overlay.center {
   align-items: center;
   padding: 20px;
@@ -557,4 +587,5 @@ body {
   .phone-link { font-size: 12px; }
   .btn-icon-sm { width: 28px; height: 28px; font-size: 13px; }
   .emp-actions { gap: 3px; margin-left: 4px; }
+  .floor-assignee { font-size: 11px; }
 }
