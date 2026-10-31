@@ -2,34 +2,23 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bảng chấm công - ĐH Nhân Văn CS2 - T10/2026</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { -webkit-text-size-adjust: 100%; }
 body {
-  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
   background: #f1f5f9; color: #1e293b; font-size: 14px; line-height: 1.5;
 }
-
-/* ================= HEADER ================= */
 .header {
   background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-  color: #fff; padding: 24px 32px; box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  color: white; padding: 24px 32px; box-shadow: 0 4px 12px rgba(0,0,0,.1);
 }
 .header h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
 .header .sub { font-size: 13px; opacity: .9; }
 .header .meta { display: flex; gap: 32px; margin-top: 16px; flex-wrap: wrap; }
 .header .meta-item { font-size: 14px; font-weight: 600; }
-.header .meta-item strong {
-  display: block; opacity: .75; font-size: 11px; text-transform: uppercase;
-  letter-spacing: .5px; margin-bottom: 2px; font-weight: 500;
-}
-
-/* ================= CONTAINER ================= */
-.container { max-width: 1600px; margin: 0 auto; padding: 24px; }
-
-/* ================= STATS ================= */
+.header .meta-item strong { display: block; opacity: .75; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; font-weight: 500; }
+.container { max-width: 1400px; margin: 0 auto; padding: 24px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 16px; margin-bottom: 24px; }
 .stat-card { background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border-left: 4px solid #3b82f6; }
 .stat-card.green { border-left-color: #16a34a; }
@@ -38,167 +27,66 @@ body {
 .stat-card .label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; font-weight: 500; }
 .stat-card .value { font-size: 28px; font-weight: 700; color: #0f172a; margin-top: 4px; }
 .stat-card .unit { font-size: 14px; color: #64748b; font-weight: 400; margin-left: 4px; }
-
-/* ================= TABS ================= */
 .tabs { display: flex; gap: 4px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; flex-wrap: wrap; }
-.tab {
-  padding: 12px 20px; background: none; border: none; cursor: pointer;
-  font-family: inherit; font-size: 14px; font-weight: 500; color: #64748b;
-  border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s;
-}
+.tab { padding: 12px 20px; background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 500; color: #64748b; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
 .tab:hover { color: #1e293b; background: #f8fafc; }
 .tab.active { color: #1e3a8a; border-bottom-color: #3b82f6; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
-
-/* ================= TABLE WRAP ================= */
 .table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.06); overflow: hidden; }
 .table-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; }
 .table-header h2 { font-size: 16px; font-weight: 600; }
 .table-header p { font-size: 13px; color: #64748b; margin-top: 2px; }
-.table-header p strong { color: #1e3a8a; }
-
-/* ================= GRID 31 NGÀY ================= */
-.grid-wrap { overflow: auto; max-height: 78vh; border-top: 1px solid #e2e8f0; }
-table.grid {
-  border-collapse: separate; border-spacing: 0;
-  table-layout: fixed; width: max-content; font-size: 12px;
-}
-
-/* độ rộng cột cố định */
-.grid .c-stt  { width: 42px;  min-width: 42px;  left: 0; }
-.grid .c-mnv  { width: 108px; min-width: 108px; left: 42px; }
-.grid .c-name { width: 156px; min-width: 156px; left: 150px; }
-.grid .c-pos  { width: 116px; min-width: 116px; left: 306px; }
-.grid .c-loai { width: 82px;  min-width: 82px;  left: 422px; }
-.grid .c-dv   { width: 48px;  min-width: 48px; }
-.grid .c-day  { width: 28px;  min-width: 28px; }
-
-/* ô cố định (sticky) */
-.grid th.sticky, .grid td.sticky {
-  position: sticky; z-index: 5; background: #fff;
-}
-.grid thead th { z-index: 10; }
-.grid thead th.sticky { z-index: 15; }
-.grid tbody td.sticky { z-index: 4; }
-
-/* ===== TIÊU ĐỀ ===== */
-.grid thead th {
-  position: sticky; top: 0; z-index: 10;
-  background: #dbe7f5; color: #0f2a4a;
-  font-weight: 700; text-align: center;
-  padding: 8px 4px; font-size: 12px;
-  border-bottom: 2px solid #64748b;
-  border-right: 1px solid #b8c2cf;
-  white-space: nowrap;
-}
-.grid thead th.we  { background: #f7e2a8; }
-.grid thead th.sun { background: #f8d39a; color: #7c2d12; }
-
-/* tiêu đề ngày */
-.grid thead .dh {
-  padding: 5px 2px; font-size: 12px; line-height: 1.15;
-}
-.grid thead .dh span {
-  display: block; font-size: 10px; font-weight: 600;
-  color: #475569; margin-top: 1px;
-}
-.grid thead .dh.we span  { color: #92400e; }
-.grid thead .dh.sun span { color: #7c2d12; }
-
-/* ===== THÂN ===== */
-.grid tbody td {
-  border-right: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 5px 4px;
-  text-align: center;
-  background: #fff;
-  font-size: 12px;
-  vertical-align: middle;
-  height: 30px;
-}
-.grid tbody td.sticky {
-  text-align: left;
-  font-weight: 600;
-  padding-left: 8px;
-}
-.grid tbody td.c-stt { text-align: center; color: #94a3b8; font-weight: 500; padding-left: 0; }
-.grid tbody td.c-mnv code { font-size: 11px; color: #1e3a8a; background: #eff6ff; padding: 1px 4px; border-radius: 3px; }
-.grid tbody td.c-name strong { font-size: 12px; color: #0f172a; }
-.grid tbody td.c-pos { font-size: 11px; color: #475569; font-weight: 500; }
-.grid tbody td.c-loai { font-size: 11px; font-weight: 600; color: #1e40af; }
-.grid tbody td.c-loai.tc { color: #c2410c; }
-.grid tbody td.c-dv { font-size: 11px; color: #64748b; }
-
-/* nhóm nhân viên - xen kẽ */
-.grid tbody tr.g0 td.sticky,
-.grid tbody tr.g0 td.c-dv,
-.grid tbody tr.g0 td.c-loai,
-.grid tbody tr.g0 td.day { background: #f0f5fb; }
-.grid tbody tr.g0.emp-2 td.sticky,
-.grid tbody tr.g0.emp-2 td.c-dv,
-.grid tbody tr.g0.emp-2 td.c-loai,
-.grid tbody tr.g0.emp-2 td.day { background: #f0f5fb; }
-
-/* ô ngày cuối tuần */
-.grid tbody td.day.we  { background: #fffbea; }
-.grid tbody td.day.sun { background: #fff3e0; }
-.grid tbody td.day.v   { font-weight: 700; color: #0f172a; }
-.grid tbody td.day.v.we  { color: #92400e; }
-.grid tbody td.day.v.sun { color: #7c2d12; }
-
-/* đường phân cách nhân viên */
-.grid tbody tr.gap td { border-top: 2px solid #94a3b8; }
-
-/* ===== CHÚ THÍCH DƯỚI ===== */
-.legend {
-  display: flex; gap: 18px; flex-wrap: wrap;
-  padding: 12px 20px; font-size: 12px; color: #64748b;
-  border-top: 1px solid #e2e8f0; background: #f8fafc;
-}
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #cbd5e1; }
-.legend .sw.we  { background: #fffbea; }
-.legend .sw.sun { background: #fff3e0; }
-
-/* ================= IN ẤN A4 NGANG ================= */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead { background: #f8fafc; position: sticky; top: 0; z-index: 1; }
+th { text-align: left; padding: 10px 12px; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: .3px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+tbody tr:hover { background: #f8fafc; }
+tbody tr.dup { background: #fef2f2; }
+tbody tr.dup:hover { background: #fee2e2; }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+.center { text-align: center; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.badge-ct { background: #dbeafe; color: #1e40af; }
+.badge-tv { background: #fed7aa; color: #9a3412; }
+.badge-gs { background: #e9d5ff; color: #6b21a8; }
+.badge-tt { background: #c7d2fe; color: #3730a3; }
+.badge-vs1 { background: #ccfbf1; color: #115e59; }
+.badge-vs2 { background: #cffafe; color: #155e75; }
+.badge-dk { background: #fef3c7; color: #92400e; }
+.badge-other { background: #e2e8f0; color: #475569; }
+.badge-warn { background: #fee2e2; color: #991b1b; }
+.alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: flex; gap: 12px; align-items: flex-start; line-height: 1.55; }
+.alert-icon { font-size: 18px; line-height: 1.2; flex-shrink: 0; }
+.alert-danger { background: #fef2f2; border-left: 4px solid #dc2626; color: #7f1d1d; }
+.alert-warning { background: #fffbeb; border-left: 4px solid #f59e0b; color: #78350f; }
+.alert-info { background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e3a8a; }
+.alert code, td code { background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+.note { font-size: 12px; color: #64748b; font-style: italic; }
+.text-muted { color: #94a3b8; }
+.text-success { color: #16a34a; font-weight: 600; }
+.footer { text-align: center; padding: 24px; color: #94a3b8; font-size: 12px; }
+.setup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 16px; padding: 20px; }
+.setup-card { background: #f8fafc; border-radius: 6px; padding: 16px; }
+.setup-card h3 { font-size: 13px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; font-weight: 600; letter-spacing: .5px; }
+.setup-card ul { list-style: none; }
+.setup-card li { padding: 6px 0; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+.setup-card li:last-child { border-bottom: none; }
+.empty-state { padding: 48px 20px; text-align: center; color: #94a3b8; }
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: .5; }
 @media print {
-  @page { size: A4 landscape; margin: 5mm; }
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { background: #fff; font-size: 8pt; }
-  .container { padding: 4px; max-width: none; }
-  .header { padding: 8px 12px; }
-  .header h1 { font-size: 12pt; }
-  .header .sub { font-size: 8pt; }
-  .header .meta { font-size: 8pt; gap: 14px; margin-top: 6px; }
-  .stats { display: none; }
-  .tabs { display: none; }
+  body { background: #fff; }
+  .header { background: #1e3a8a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .tabs, .tab:not(.active) { display: none; }
+  .stat-card, .alert, .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .container { padding: 12px; }
+  .tab-panel { display: block !important; page-break-inside: avoid; margin-bottom: 24px; }
   .tab-panel:not(.active) { display: none !important; }
-  .table-header { padding: 4px 8px; }
-  .table-header h2 { font-size: 9pt; }
-  .table-header p { font-size: 7pt; }
-  .grid-wrap { max-height: none; overflow: visible; }
-  .grid tbody td { height: auto; padding: 1px; font-size: 6pt; }
-  .grid thead th { padding: 2px 1px; font-size: 6pt; }
-  .grid thead .dh { padding: 1px; font-size: 6.5pt; }
-  .grid thead .dh span { font-size: 5pt; }
-  .grid tbody td.sticky { position: static; }
-  .grid thead th.sticky { position: static; }
-  .grid tbody td.c-stt { width: 4%; }
-  .grid tbody td.c-mnv { width: 6%; }
-  .grid tbody td.c-name { width: 10%; }
-  .grid tbody td.c-pos { width: 8%; }
-  .grid tbody td.c-loai { width: 5%; }
-  .grid tbody td.c-dv { width: 3%; }
-  .grid tbody td.c-day { width: 2%; }
-  .legend { font-size: 7pt; padding: 4px; }
-  .grid { width: 100%; table-layout: fixed; }
 }
 </style>
 </head>
 <body>
 
-<!-- ================= HEADER ================= -->
 <div class="header">
   <h1>Bảng chấm công tháng 10/2026</h1>
   <div class="sub">Trường Đại học Nhân Văn — Cơ sở 2</div>
@@ -212,421 +100,291 @@ table.grid {
 
 <div class="container">
 
-  <!-- ================= STATS ================= -->
   <div class="stats">
-    <div class="stat-card"><div class="label">Tổng nhân viên</div><div class="value">33<span class="unit">người</span></div></div>
-    <div class="stat-card green"><div class="label">Tổng công thường</div><div class="value">373,5<span class="unit">công</span></div></div>
-    <div class="stat-card orange"><div class="label">Tổng giờ tăng ca</div><div class="value">1.372<span class="unit">giờ</span></div></div>
-    <div class="stat-card purple"><div class="label">Mã NV trùng</div><div class="value">1<span class="unit">lỗi</span></div></div>
+    <div class="stat-card">
+      <div class="label">Tổng nhân viên</div>
+      <div class="value">33<span class="unit">người</span></div>
+    </div>
+    <div class="stat-card green">
+      <div class="label">Tổng công thường</div>
+      <div class="value">373,5<span class="unit">công</span></div>
+    </div>
+    <div class="stat-card orange">
+      <div class="label">Tổng giờ tăng ca</div>
+      <div class="value">1.372<span class="unit">giờ</span></div>
+    </div>
+    <div class="stat-card purple">
+      <div class="label">Mã NV trùng</div>
+      <div class="value">1<span class="unit">lỗi</span></div>
+    </div>
   </div>
 
-  <!-- ================= TABS ================= -->
   <div class="tabs">
-    <button class="tab active" onclick="showTab('chamcong', this)">📅 Chi tiết 31 ngày</button>
-    <button class="tab" onclick="showTab('tonghop', this)">📊 Tổng hợp</button>
+    <button class="tab active" onclick="showTab('chamcong', this)">📋 Bảng chấm công</button>
     <button class="tab" onclick="showTab('bangluong', this)">💰 Bảng lương</button>
     <button class="tab" onclick="showTab('setup', this)">⚙️ Danh mục</button>
-    <button class="tab" onclick="showTab('canhbao', this)">⚠️ Cảnh báo</button>
+    <button class="tab" onclick="showTab('canhbao', this)">⚠️ Cảnh báo dữ liệu</button>
   </div>
 
-  <!-- ================= TAB 1: CHI TIẾT 31 NGÀY ================= -->
+  <!-- TAB 1: Chấm công -->
   <div id="chamcong" class="tab-panel active">
     <div class="table-wrap">
       <div class="table-header">
-        <h2>Bảng chấm công chi tiết — Tháng 10/2026</h2>
-        <p>Mỗi nhân viên 2 dòng: <strong>Thường / Công</strong> và <strong>Tăng ca / Giờ</strong> · Ô trống = không có dữ liệu · Cột <b>MNV / Họ tên / Chức vụ</b> luôn dính khi cuộn ngang</p>
+        <h2>Danh sách chấm công chi tiết</h2>
+        <p>Tổng hợp theo nhân viên · Đơn vị: Công (8h) và Giờ tăng ca</p>
       </div>
-      <div class="grid-wrap">
-        <table class="grid">
-          <thead>
-            <tr>
-              <th rowspan="2" class="sticky c-stt">STT</th>
-              <th rowspan="2" class="sticky c-mnv">MNV</th>
-              <th rowspan="2" class="sticky c-name">Họ tên</th>
-              <th rowspan="2" class="sticky c-pos">Chức vụ</th>
-              <th rowspan="2" class="sticky c-loai">Loại</th>
-              <th rowspan="2" class="c-dv">Đơn vị</th>
-              <th colspan="31">NGÀY TRONG THÁNG 10 / 2026</th>
-            </tr>
-            <tr id="head-days"><!-- JS sinh 31 ô ngày --></tr>
-          </thead>
-          <tbody id="grid-body"><!-- JS sinh dữ liệu --></tbody>
-        </table>
-      </div>
-      <div class="legend">
-        <span><span class="sw we"></span> Thứ 7</span>
-        <span><span class="sw sun"></span> Chủ nhật</span>
-        <span><strong>Số</strong> = công / giờ đã làm</span>
-        <span>Ô trống = không có dữ liệu</span>
-      </div>
-    </div>
-  </div>
-<!-- ================= TAB 2: TỔNG HỢP ================= -->
-  <div id="tonghop" class="tab-panel">
-    <div class="table-wrap">
-      <div class="table-header">
-        <h2>Bảng tổng hợp công / giờ theo nhân viên</h2>
-        <p>Tổng hợp từ bảng chấm công 31 ngày · Đơn vị: Công (8h) và Giờ tăng ca</p>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead style="background:#f8fafc;position:sticky;top:0;z-index:1">
+      <table>
+        <thead>
           <tr>
-            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0">STT</th>
-            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0">MNV</th>
-            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0">Họ tên</th>
-            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0">Chức vụ</th>
-            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0">Tình trạng</th>
-            <th style="padding:10px 12px;text-align:right;font-weight:600;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0">Công</th>
-            <th style="padding:10px 12px;text-align:right;font-weight:600;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0">Giờ TC</th>
-            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0">Ghi chú</th>
+            <th style="width:40px">STT</th>
+            <th>MNV</th>
+            <th>Họ tên</th>
+            <th>Chức vụ</th>
+            <th>Tình trạng</th>
+            <th class="num">Công</th>
+            <th class="num">Giờ TC</th>
+            <th>Ghi chú</th>
           </tr>
         </thead>
-        <tbody id="tbody-tonghop"></tbody>
+        <tbody id="tbody-cong"></tbody>
       </table>
     </div>
   </div>
 
-  <!-- ================= TAB 3: BẢNG LƯƠNG ================= -->
+  <!-- TAB 2: Bảng lương -->
   <div id="bangluong" class="tab-panel">
     <div class="table-wrap">
       <div class="table-header">
-        <h2>Bảng lương tháng 10/2026 — Sheet "bang luong ĐH NV"</h2>
-        <p>Sheet đã thiết lập đầy đủ công thức, chưa có dữ liệu nhân viên</p>
+        <h2>Bảng lương tháng 8/2026 — Sheet "bang luong ĐH NV"</h2>
+        <p>Sheet đã được thiết lập đầy đủ công thức, chưa có dữ liệu nhân viên</p>
       </div>
-      <div class="empty-state" style="padding:48px 20px;text-align:center;color:#94a3b8">
-        <div style="font-size:40px;margin-bottom:12px;opacity:.5">📄</div>
+      <div class="empty-state">
+        <div class="icon">📄</div>
         <div><strong>Sheet trống — chỉ có cấu trúc tiêu đề</strong></div>
-        <div style="margin-top:8px;font-size:12px">Đã thiết lập các cột: Lương chuẩn, Đơn giá tăng ca, 33 loại phụ cấp, BHXH, Thuế TNCN, Thực lĩnh…</div>
+        <div style="margin-top:8px; font-size:12px;">Đã thiết lập các cột: Lương chuẩn, Đơn giá tăng ca, 33 loại phụ cấp, BHXH, Thuế TNCN, Thực lĩnh…</div>
       </div>
-      <div class="setup-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:20px;border-top:1px solid #e2e8f0">
-        <div class="setup-card" style="background:#f8fafc;border-radius:6px;padding:16px">
-          <h3 style="font-size:13px;text-transform:uppercase;color:#64748b;margin-bottom:12px;font-weight:600;letter-spacing:.5px">Nhóm 1 — Thông tin</h3>
-          <ul style="list-style:none;padding:0;margin:0">
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Mã SO · Tên CT · STT · MNV</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Họ tên · Chức vụ · Tình trạng · Ca</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Đơn vị · Công/Giờ chuẩn · Lương chuẩn</li>
-            <li style="padding:6px 0;font-size:13px">Đơn giá tăng ca (thường / CN / lễ)</li>
+      <div class="setup-grid" style="border-top:1px solid #e2e8f0;">
+        <div class="setup-card">
+          <h3>Nhóm 1 — Thông tin</h3>
+          <ul>
+            <li>Mã SO · Tên CT · STT · MNV</li>
+            <li>Họ tên · Chức vụ · Tình trạng · Ca</li>
+            <li>Đơn vị · Công/Giờ chuẩn · Lương chuẩn</li>
+            <li>Đơn giá tăng ca (thường / CN / lễ)</li>
           </ul>
         </div>
-        <div class="setup-card" style="background:#f8fafc;border-radius:6px;padding:16px">
-          <h3 style="font-size:13px;text-transform:uppercase;color:#64748b;margin-bottom:12px;font-weight:600;letter-spacing:.5px">Nhóm 2 — Ghi nhận công</h3>
-          <ul style="list-style:none;padding:0;margin:0">
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Công thường · Công lễ</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Ca tăng ca thường / CN / lễ</li>
-            <li style="padding:6px 0;font-size:13px">Lương thưởng · Lương lễ · Lương tăng ca</li>
+        <div class="setup-card">
+          <h3>Nhóm 2 — Ghi nhận công</h3>
+          <ul>
+            <li>Công thường · Công lễ</li>
+            <li>Ca tăng ca thường / CN / lễ</li>
+            <li>Lương thưởng · Lương lễ · Lương tăng ca</li>
           </ul>
         </div>
-        <div class="setup-card" style="background:#f8fafc;border-radius:6px;padding:16px">
-          <h3 style="font-size:13px;text-transform:uppercase;color:#64748b;margin-bottom:12px;font-weight:600;letter-spacing:.5px">Nhóm 3 — Phụ cấp (33 loại)</h3>
-          <ul style="list-style:none;padding:0;margin:0">
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Theo tỷ lệ công: đánh sàn, đánh máy, trà nước, đặc thù…</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Không theo tỷ lệ: trách nhiệm, BHYT, thâm niên, PCCC…</li>
-            <li style="padding:6px 0;font-size:13px">Tổng phụ cấp</li>
+        <div class="setup-card">
+          <h3>Nhóm 3 — Phụ cấp (33 loại)</h3>
+          <ul>
+            <li>Theo tỷ lệ công: đánh sàn, đánh máy, trà nước, đặc thù…</li>
+            <li>Không theo tỷ lệ: trách nhiệm, BHYT, thâm niên, PCCC, gửi xe, xăng xe, chuyên cần…</li>
+            <li>Tổng phụ cấp</li>
           </ul>
         </div>
-        <div class="setup-card" style="background:#f8fafc;border-radius:6px;padding:16px">
-          <h3 style="font-size:13px;text-transform:uppercase;color:#64748b;margin-bottom:12px;font-weight:600;letter-spacing:.5px">Nhóm 4 — Khấu trừ & chi trả</h3>
-          <ul style="list-style:none;padding:0;margin:0">
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Thưởng KPI · KD · Khác · CLTV</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">BHXH (10,5%) · CĐ · Thuế TNCN · Đồng phục</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Thực lĩnh · Đã thanh toán · Giữ lương · Còn phải chi</li>
-            <li style="padding:6px 0;font-size:13px">Thông tin ngân hàng (MB / Vietin) + Ngày vào làm</li>
+        <div class="setup-card">
+          <h3>Nhóm 4 — Khấu trừ & chi trả</h3>
+          <ul>
+            <li>Thưởng KPI · KD · Khác · CLTV</li>
+            <li>BHXH (10,5%) · CĐ · Thuế TNCN · Đồng phục</li>
+            <li>Thực lĩnh · Đã thanh toán · Giữ lương · Còn phải chi</li>
+            <li>Thông tin ngân hàng (MB / Vietin) + Ngày vào làm</li>
           </ul>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ================= TAB 4: DANH MỤC ================= -->
+  <!-- TAB 3: Setup -->
   <div id="setup" class="tab-panel">
     <div class="table-wrap">
       <div class="table-header">
         <h2>Danh mục tham chiếu — Sheet "Setup"</h2>
         <p>Các giá trị dropdown sử dụng trong toàn bộ file</p>
       </div>
-      <div class="setup-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:20px">
-        <div class="setup-card" style="background:#f8fafc;border-radius:6px;padding:16px">
-          <h3 style="font-size:13px;text-transform:uppercase;color:#64748b;margin-bottom:12px;font-weight:600;letter-spacing:.5px">Chức vụ</h3>
-          <ul style="list-style:none;padding:0;margin:0">
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Giám sát</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Tổ trưởng</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Vệ sinh trà nước 2</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Sảnh</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Ngoại cảnh</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Định kỳ</li>
-            <li style="padding:6px 0;font-size:13px">NC</li>
+      <div class="setup-grid">
+        <div class="setup-card">
+          <h3>Chức vụ</h3>
+          <ul>
+            <li>Giám sát</li>
+            <li>Tổ trưởng</li>
+            <li>Vệ sinh trà nước 2</li>
+            <li>Sảnh</li>
+            <li>Ngoại cảnh</li>
+            <li>Định kỳ</li>
+            <li>NC</li>
           </ul>
         </div>
-        <div class="setup-card" style="background:#f8fafc;border-radius:6px;padding:16px">
-          <h3 style="font-size:13px;text-transform:uppercase;color:#64748b;margin-bottom:12px;font-weight:600;letter-spacing:.5px">Ca làm việc</h3>
-          <ul style="list-style:none;padding:0;margin:0">
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Ca1 · Ca2 · Ca3</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Ca Sáng · Ca chiều</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Ca ngày · Ca đêm</li>
-            <li style="padding:6px 0;font-size:13px">Không</li>
+        <div class="setup-card">
+          <h3>Ca làm việc</h3>
+          <ul>
+            <li>Ca1 · Ca2 · Ca3</li>
+            <li>Ca Sáng · Ca chiều</li>
+            <li>Ca ngày · Ca đêm</li>
+            <li>Không</li>
           </ul>
         </div>
-        <div class="setup-card" style="background:#f8fafc;border-radius:6px;padding:16px">
-          <h3 style="font-size:13px;text-transform:uppercase;color:#64748b;margin-bottom:12px;font-weight:600;letter-spacing:.5px">Tình trạng</h3>
-          <ul style="list-style:none;padding:0;margin:0">
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">CT (Chính thức)</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">TV (Thời vụ)</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Tăng cường</li>
-            <li style="padding:6px 0;font-size:13px">Thời vụ</li>
+        <div class="setup-card">
+          <h3>Tình trạng</h3>
+          <ul>
+            <li>CT (Chính thức)</li>
+            <li>TV (Thời vụ)</li>
+            <li>Tăng cường</li>
+            <li>Thời vụ</li>
           </ul>
         </div>
-        <div class="setup-card" style="background:#f8fafc;border-radius:6px;padding:16px">
-          <h3 style="font-size:13px;text-transform:uppercase;color:#64748b;margin-bottom:12px;font-weight:600;letter-spacing:.5px">Thời gian</h3>
-          <ul style="list-style:none;padding:0;margin:0">
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Thường</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Tăng ca thường</li>
-            <li style="padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">Tăng ca CN</li>
-            <li style="padding:6px 0;font-size:13px">Tăng ca lễ</li>
+        <div class="setup-card">
+          <h3>Thời gian</h3>
+          <ul>
+            <li>Thường</li>
+            <li>Tăng ca thường</li>
+            <li>Tăng ca CN</li>
+            <li>Tăng ca lễ</li>
           </ul>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ================= TAB 5: CẢNH BÁO ================= -->
+  <!-- TAB 4: Cảnh báo -->
   <div id="canhbao" class="tab-panel">
-    <div style="padding:20px">
-      <div class="alert alert-danger" style="padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;gap:12px;line-height:1.55;background:#fef2f2;border-left:4px solid #dc2626;color:#7f1d1d">
-        <div style="font-size:18px;line-height:1.2;flex-shrink:0">🚫</div>
-        <div><strong>Mã NV trùng:</strong> <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px">SKO2159</code> đang gán cho 2 người (Phạm Ngọc Nam &amp; Huỳnh Thanh Tuấn). Phải tách mã trước khi tính lương/BHXH.</div>
-      </div>
-      <div class="alert alert-danger" style="padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;gap:12px;line-height:1.55;background:#fef2f2;border-left:4px solid #dc2626;color:#7f1d1d">
-        <div style="font-size:18px;flex-shrink:0">🔁</div>
-        <div><strong>Circular reference:</strong> Các ô <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px">AL5:AO5</code> (ngày 28–31) tự tham chiếu chính nó. Sửa thành tham chiếu ô liền trước (AK5, AL5, AM5, AN5).</div>
-      </div>
-      <div class="alert alert-danger" style="padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;gap:12px;line-height:1.55;background:#fef2f2;border-left:4px solid #dc2626;color:#7f1d1d">
-        <div style="font-size:18px;flex-shrink:0">📅</div>
-        <div><strong>Tham chiếu năm sai:</strong> <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px">K5 =DATE($Z$1,$V$1,1)</code> dùng năm ở Z1, nhưng "2026" nằm ở vùng AA1. Cần kiểm tra và sửa ô.</div>
-      </div>
-      <div class="alert alert-warning" style="padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;gap:12px;line-height:1.55;background:#fffbeb;border-left:4px solid #f59e0b;color:#78350f">
-        <div style="font-size:18px;flex-shrink:0">🔢</div>
-        <div><strong>STT dùng SUBTOTAL sai vùng:</strong> Nhiều dòng dùng <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px">SUBTOTAL(3,D$8:D48)</code> thay vì dòng hiện tại → STT nhảy/trùng.</div>
-      </div>
-      <div class="alert alert-warning" style="padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;gap:12px;line-height:1.55;background:#fffbeb;border-left:4px solid #f59e0b;color:#78350f">
-        <div style="font-size:18px;flex-shrink:0">⚖️</div>
-        <div><strong>Cộng lẫn Công và Giờ:</strong> <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px">AP = SUM(K:AO)</code> và <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px">AS = AP+AQ+AR</code> đang cộng hai đơn vị khác nhau. Cần tách riêng hoặc quy đổi (8 giờ = 1 công).</div>
-      </div>
-      <div class="alert alert-warning" style="padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;gap:12px;line-height:1.55;background:#fffbeb;border-left:4px solid #f59e0b;color:#78350f">
-        <div style="font-size:18px;flex-shrink:0">📝</div>
-        <div><strong>Ghi chú nằm trong vùng ngày công:</strong> Dòng 49 có chữ "nghỉ luôn" trong ô ngày, dòng 63/65 có STK ngân hàng. Phải chuyển ra cột Ghi chú.</div>
-      </div>
-      <div class="alert alert-warning" style="padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;gap:12px;line-height:1.55;background:#fffbeb;border-left:4px solid #f59e0b;color:#78350f">
-        <div style="font-size:18px;flex-shrink:0">🏷️</div>
-        <div><strong>Tình trạng không nhất quán:</strong> 5–6 người ghi chú "Thời vụ" nhưng cột Tình trạng vẫn là "CT" (Hồ Thị Lý, Nguyễn Văn Được, Nguyễn Văn Huy, Phạm Ngọc Nam, Huỳnh Thanh Tuấn…).</div>
-      </div>
-      <div class="alert alert-info" style="padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;gap:12px;line-height:1.55;background:#eff6ff;border-left:4px solid #3b82f6;color:#1e3a8a">
-        <div style="font-size:18px;flex-shrink:0">📖</div>
-        <div><strong>Chức vụ ngoài danh mục:</strong> "Vệ sinh trà nước 1" dùng phổ biến nhưng không có trong Sheet Setup (chỉ có "Vệ sinh trà nước 2").</div>
-      </div>
-      <div class="alert alert-info" style="padding:12px 16px;border-radius:8px;font-size:13px;display:flex;gap:12px;line-height:1.55;background:#eff6ff;border-left:4px solid #3b82f6;color:#1e3a8a">
-        <div style="font-size:18px;flex-shrink:0">📊</div>
-        <div><strong>Vùng công thức cố định:</strong> Tổng dùng <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px">K$9:K$81</code> trong khi data chỉ đến dòng 76 — thêm/xóa nhân viên sẽ sai. Nên chuyển sang Excel Table.</div>
-      </div>
+    <div class="alert alert-danger">
+      <div class="alert-icon">🚫</div>
+      <div><strong>Mã NV trùng:</strong> <code>SKO2159</code> đang gán cho 2 người (Phạm Ngọc Nam &amp; Huỳnh Thanh Tuấn). Phải tách mã trước khi tính lương/BHXH.</div>
+    </div>
+    <div class="alert alert-danger">
+      <div class="alert-icon">🔁</div>
+      <div><strong>Circular reference:</strong> Các ô <code>AL5:AO5</code> (ngày 28–31) tự tham chiếu chính nó. Sửa thành tham chiếu ô liền trước (AK5, AL5, AM5, AN5).</div>
+    </div>
+    <div class="alert alert-danger">
+      <div class="alert-icon">📅</div>
+      <div><strong>Tham chiếu năm sai:</strong> <code>K5 =DATE($Z$1,$V$1,1)</code> dùng năm ở Z1, nhưng "2026" nằm ở vùng AA1. Cần kiểm tra và sửa ô.</div>
+    </div>
+    <div class="alert alert-warning">
+      <div class="alert-icon">🔢</div>
+      <div><strong>STT dùng SUBTOTAL sai vùng:</strong> Nhiều dòng dùng <code>SUBTOTAL(3,D$8:D48)</code> thay vì dòng hiện tại → STT nhảy/trùng.</div>
+    </div>
+    <div class="alert alert-warning">
+      <div class="alert-icon">⚖️</div>
+      <div><strong>Cộng lẫn Công và Giờ:</strong> <code>AP = SUM(K:AO)</code> và <code>AS = AP+AQ+AR</code> đang cộng hai đơn vị khác nhau. Cần tách riêng hoặc quy đổi (8 giờ = 1 công) trước khi tổng hợp.</div>
+    </div>
+    <div class="alert alert-warning">
+      <div class="alert-icon">📝</div>
+      <div><strong>Ghi chú nằm trong vùng ngày công:</strong> Dòng 49 có chữ "nghỉ luôn" trong ô ngày, dòng 63/65 có STK ngân hàng. Phải chuyển ra cột Ghi chú.</div>
+    </div>
+    <div class="alert alert-warning">
+      <div class="alert-icon">🏷️</div>
+      <div><strong>Tình trạng không nhất quán:</strong> 5–6 người ghi chú "Thời vụ" nhưng cột Tình trạng vẫn là "CT" (Hồ Thị Lý, Nguyễn Văn Được, Nguyễn Văn Huy, Phạm Ngọc Nam, Huỳnh Thanh Tuấn…).</div>
+    </div>
+    <div class="alert alert-info">
+      <div class="alert-icon">📖</div>
+      <div><strong>Chức vụ ngoài danh mục:</strong> "Vệ sinh trà nước 1" dùng phổ biến nhưng không có trong Sheet Setup (chỉ có "Vệ sinh trà nước 2").</div>
+    </div>
+    <div class="alert alert-info">
+      <div class="alert-icon">📊</div>
+      <div><strong>Vùng công thức cố định:</strong> Tổng dùng <code>K$9:K$81</code> trong khi data chỉ đến dòng 76 — thêm/xóa nhân viên sẽ sai. Nên chuyển sang Excel Table.</div>
     </div>
   </div>
 
-</div><!-- /container -->
+</div>
 
-<!-- ================= FOOTER ================= -->
-<div class="footer" style="text-align:center;padding:24px;color:#94a3b8;font-size:12px">
+<div class="footer">
   Trích xuất từ <strong>BCC DH Nhan van CS2.xlsx</strong> · Sheet CS2, bang luong ĐH NV, Setup
 </div>
 
-<!-- ================= NÚT IN (FIXED) ================= -->
-<style>
-.print-btn {
-  position: fixed; right: 24px; bottom: 24px; z-index: 999;
-  padding: 14px 22px; font-family: inherit; font-size: 15px; font-weight: 700;
-  color: #fff; background: #1e40af; border: none; border-radius: 50px;
-  box-shadow: 0 6px 20px rgba(30,64,175,.35); cursor: pointer;
-  display: flex; align-items: center; gap: 8px;
-}
-.print-btn:hover { background: #1e3a8a; }
-@media print { .print-btn { display: none !important; } }
-</style>
-<button class="print-btn" onclick="window.print()">🖨 In / Xuất PDF</button>
-
 <script>
-/* ================= DỮ LIỆU NHÂN VIÊN ================= */
-const EMPLOYEES = [
-  { mnv:'SKO1851', name:'Trần Thị Cẩm Đường', pos:'Giám sát', status:'CT', cong:14, gio:0, note:'' },
-  { mnv:'SKO1849', name:'Nguyễn Thị Thùy', pos:'Tổ trưởng', status:'CT', cong:14, gio:84, note:'14 tiếng/ngày' },
-  { mnv:'SKO1847', name:'Lê Thị Thủy', pos:'Vệ sinh trà nước 1', status:'CT', cong:16, gio:187, note:'Làm choàng thêm 1 vị trí · quét lá ngoại cảnh · 1 công tầng trệt' },
-  { mnv:'SKO1848', name:'Trần Thị Hiên', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:136, note:'Nhận quét lá ngoại cảnh · nửa công tầng trệt' },
-  { mnv:'SKO1850', name:'Trần Thị Hạnh Nguyên', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:127, note:'Ngày 27–31 + choàng tòa B4 tầng trệt' },
-  { mnv:'SKO2165', name:'Châu Thị Ngọc Tuyến', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:'' },
-  { mnv:'SKO1853', name:'Lưu Thị Nụ', pos:'Vệ sinh trà nước 1', status:'CT', cong:13, gio:54, note:'Choàng 1 công ngày 31' },
-  { mnv:'SKO1854', name:'Trần Thị Huệ', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:84, note:'' },
-  { mnv:'SKO1855', name:'Dương Thị Thu Hà', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:36, note:'' },
-  { mnv:'SKO1856', name:'Trần Thị Thu Mai', pos:'Vệ sinh trà nước 1', status:'CT', cong:12, gio:18, note:'Nghỉ bệnh từ 27–31' },
-  { mnv:'SKO1857', name:'Đinh Thị Tuyết Lan', pos:'Vệ sinh trà nước 1', status:'CT', cong:9, gio:42, note:'' },
-  { mnv:'SKO2309', name:'Đặng Thị Thu', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:52, note:'' },
-  { mnv:'SKO1711', name:'Lâm Ngọc Huệ', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:'' },
-  { mnv:'SKO1860', name:'Nguyễn Thị Ngọc Thu', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:'' },
-  { mnv:'SKO2163', name:'Phạm Thị Vân', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:'' },
-  { mnv:'SKO1863', name:'Nguyễn Thị Kim Huấn', pos:'Vệ sinh trà nước 2', status:'CT', cong:14, gio:56, note:'' },
- { mnv:'SKO1866', name:'Hồ Thị Yến', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:103, note:'' },
-  { mnv:'SKO2161', name:'Nguyễn Thị Nhàn', pos:'Vệ sinh trà nước 1', status:'CT', cong:13, gio:39, note:'' },
-  { mnv:'SKO2160', name:'Trần Thị Định', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:56, note:'' },
-  { mnv:'SKO2045', name:'Đàm Thị Nga', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:'' },
-  { mnv:'SKO2159', name:'Phạm Ngọc Nam', pos:'Định kỳ', status:'CT', cong:7, gio:12, note:'Thời vụ · 350k/ngày', dup:true },
-  { mnv:'SKO2264', name:'Đinh Thị Duyên', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:38, note:'' },
-  { mnv:'SKO2363', name:'Hồ Thị Thu Nguyệt', pos:'Vệ sinh trà nước 1', status:'CT', cong:13, gio:30, note:'Nghỉ từ ngày 31' },
-  { mnv:'SKO2485', name:'Trần Thị Cúc', pos:'Vệ sinh trà nước 1', status:'CT', cong:12, gio:24, note:'' },
-  { mnv:'SKO2469', name:'Đặng Thị Tuyết', pos:'Vệ sinh trà nước 1', status:'CT', cong:13, gio:26, note:'' },
-  { mnv:'SKO2590', name:'Phạm Thị Nga', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:'' },
-  { mnv:'SK079159019355', name:'Hồ Thị Lý', pos:'Vệ sinh trà nước 1', status:'TV', cong:15, gio:0, note:'Thời vụ · STK ACB 49744677' },
-  { mnv:'SKO52068000037', name:'Nguyễn Văn Được', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ · TK Hoàng Mạnh Hà' },
-  { mnv:'SK070207003657', name:'Nguyễn Văn Huy', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ · TK Hoàng Mạnh Hà' },
-  { mnv:'SKO89207007094', name:'Nguyễn Hoàng Minh Trí', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ' },
-  { mnv:'SKO89207021621', name:'Trần Đức Thọ', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ' },
-  { mnv:'SKO68207003696', name:'Đinh Thành Đạt', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ' },
-  { mnv:'SKO2159', name:'Huỳnh Thanh Tuấn', pos:'Vệ sinh trà nước 1', status:'TV', cong:7.5, gio:0, note:'Thời vụ · quét lá ngoại cảnh · 350k/ngày', dup:true }
+const employees = [
+  {mnv:'SKO1851', name:'Trần Thị Cẩm Đường', pos:'Giám sát', status:'CT', cong:14, gio:0, note:''},
+  {mnv:'SKO1849', name:'Nguyễn Thị Thùy', pos:'Tổ trưởng', status:'CT', cong:14, gio:84, note:'14 tiếng/ngày'},
+  {mnv:'SKO1847', name:'Lê Thị Thủy', pos:'Vệ sinh trà nước 1', status:'CT', cong:16, gio:187, note:'Làm choàng thêm 1 vị trí · quét lá ngoại cảnh'},
+  {mnv:'SKO1848', name:'Trần Thị Hiên', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:136, note:'Nhận quét lá ngoại cảnh · nửa công tầng trệt'},
+  {mnv:'SKO1850', name:'Trần Thị Hạnh Nguyên', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:127, note:'Ngày 27–31 + choàng tòa B4 tầng trệt'},
+  {mnv:'SKO2165', name:'Châu Thị Ngọc Tuyến', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:''},
+  {mnv:'SKO1853', name:'Lưu Thị Nụ', pos:'Vệ sinh trà nước 1', status:'CT', cong:13, gio:54, note:'Choàng 1 công ngày 31'},
+  {mnv:'SKO1854', name:'Trần Thị Huệ', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:84, note:''},
+  {mnv:'SKO1855', name:'Dương Thị Thu Hà', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:36, note:''},
+  {mnv:'SKO1856', name:'Trần Thị Thu Mai', pos:'Vệ sinh trà nước 1', status:'CT', cong:12, gio:18, note:'Nghỉ bệnh 27–31'},
+  {mnv:'SKO1857', name:'Đinh Thị Tuyết Lan', pos:'Vệ sinh trà nước 1', status:'CT', cong:9, gio:42, note:''},
+  {mnv:'SKO2309', name:'Đặng Thị Thu', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:52, note:''},
+  {mnv:'SKO1711', name:'Lâm Ngọc Huệ', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:''},
+  {mnv:'SKO1860', name:'Nguyễn Thị Ngọc Thu', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:''},
+  {mnv:'SKO2163', name:'Phạm Thị Vân', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:''},
+  {mnv:'SKO1863', name:'Nguyễn Thị Kim Huấn', pos:'Vệ sinh trà nước 2', status:'CT', cong:14, gio:56, note:''},
+  {mnv:'SKO1866', name:'Hồ Thị Yến', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:103, note:''},
+  {mnv:'SKO2161', name:'Nguyễn Thị Nhàn', pos:'Vệ sinh trà nước 1', status:'CT', cong:13, gio:39, note:''},
+  {mnv:'SKO2160', name:'Trần Thị Định', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:56, note:''},
+  {mnv:'SKO2045', name:'Đàm Thị Nga', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:''},
+  {mnv:'SKO2159', name:'Phạm Ngọc Nam', pos:'Định kỳ', status:'CT', cong:7, gio:12, note:'Thời vụ · 350k/ngày', dup:true},
+  {mnv:'SKO2264', name:'Đinh Thị Duyên', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:38, note:''},
+  {mnv:'SKO2363', name:'Hồ Thị Thu Nguyệt', pos:'Vệ sinh trà nước 1', status:'CT', cong:13, gio:30, note:'Nghỉ từ ngày 31'},
+  {mnv:'SKO2485', name:'Trần Thị Cúc', pos:'Vệ sinh trà nước 1', status:'CT', cong:12, gio:24, note:''},
+  {mnv:'SKO2469', name:'Đặng Thị Tuyết', pos:'Vệ sinh trà nước 1', status:'CT', cong:13, gio:26, note:''},
+  {mnv:'SKO2590', name:'Phạm Thị Nga', pos:'Vệ sinh trà nước 1', status:'CT', cong:14, gio:28, note:''},
+  {mnv:'SK079159019355', name:'Hồ Thị Lý', pos:'Vệ sinh trà nước 1', status:'TV', cong:15, gio:0, note:'Thời vụ · STK ACB 49744677'},
+  {mnv:'SKO52068000037', name:'Nguyễn Văn Được', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ · TK Hoàng Mạnh Hà'},
+  {mnv:'SK070207003657', name:'Nguyễn Văn Huy', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ · TK Hoàng Mạnh Hà'},
+  {mnv:'SKO89207007094', name:'Nguyễn Hoàng Minh Trí', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ'},
+  {mnv:'SKO89207021621', name:'Trần Đức Thọ', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ'},
+  {mnv:'SKO68207003696', name:'Đinh Thành Đạt', pos:'Vệ sinh trà nước 1', status:'TV', cong:1, gio:0, note:'Thời vụ'},
+  {mnv:'SKO2159', name:'Huỳnh Thanh Tuấn', pos:'Vệ sinh trà nước 1', status:'TV', cong:7.5, gio:0, note:'Thời vụ · quét lá ngoại cảnh · 350k/ngày', dup:true}
 ];
 
-/* ================= TIỆN ÍCH NGÀY ================= */
-const YEAR = 2026, MONTH = 10; // Tháng 10/2026
-const WNAMES = ['CN','T2','T3','T4','T5','T6','T7'];
-
-function getWeekday(day) {
-  return new Date(YEAR, MONTH - 1, day).getDay(); // 0=CN, 6=T7
+function posBadge(p) {
+  if (p === 'Giám sát') return 'badge-gs';
+  if (p === 'Tổ trưởng') return 'badge-tt';
+  if (p === 'Vệ sinh trà nước 1') return 'badge-vs1';
+  if (p === 'Vệ sinh trà nước 2') return 'badge-vs2';
+  if (p === 'Định kỳ') return 'badge-dk';
+  return 'badge-other';
 }
-function dayClass(day) {
-  const w = getWeekday(day);
-  if (w === 0) return 'day sun';
-  if (w === 6) return 'day we';
-  return 'day';
-}
-
-/* ================= 1) SINH HEADER 31 NGÀY ================= */
-function renderDaysHeader() {
-  const el = document.getElementById('head-days');
-  if (!el) return;
-  let html = '';
-  for (let d = 1; d <= 31; d++) {
-    const w = getWeekday(d);
-    const isSun = w === 0, isSat = w === 6;
-    const cls = isSun ? 'dh c-day sun' : (isSat ? 'dh c-day we' : 'dh c-day');
-    html += `<th class="${cls}">${d}<span>${WNAMES[w]}</span></th>`;
-  }
-  el.innerHTML = html;
+function statusBadge(s) {
+  return s === 'CT' ? '<span class="badge badge-ct">CT</span>'
+       : s === 'TV' ? '<span class="badge badge-tv">TV</span>'
+       : `<span class="badge badge-other">${s}</span>`;
 }
 
-/* ================= 2) SINH LƯỚI 31 NGÀY (ô trống cho user điền) ================= */
-function renderGrid() {
-  const tbody = document.getElementById('grid-body');
-  if (!tbody) return;
-  let html = '';
+const tbody = document.getElementById('tbody-cong');
+employees.forEach((e, i) => {
+  const tr = document.createElement('tr');
+  if (e.dup) tr.classList.add('dup');
+  tr.innerHTML = `
+    <td class="center text-muted">${i+1}</td>
+    <td><code>${e.mnv}</code>${e.dup ? ' <span class="badge badge-warn">TRÙNG</span>' : ''}</td>
+    <td><strong>${e.name}</strong></td>
+    <td><span class="badge ${posBadge(e.pos)}">${e.pos}</span></td>
+    <td>${statusBadge(e.status)}</td>
+    <td class="num">${e.cong.toLocaleString('vi-VN')}</td>
+    <td class="num ${e.gio > 0 ? 'text-success' : 'text-muted'}">${e.gio.toLocaleString('vi-VN')}</td>
+    <td class="note">${e.note || '—'}</td>`;
+  tbody.appendChild(tr);
+});
 
-  EMPLOYEES.forEach((emp, idx) => {
-    const group = (idx % 2 === 0) ? 'g0' : 'g1';
-    const stt = idx + 1;
-    const dupIcon = emp.dup ? ' <span style="color:#dc2626;font-weight:800" title="Mã trùng">⚠</span>' : '';
+const totalCong = employees.reduce((s,e) => s + e.cong, 0);
+const totalGio  = employees.reduce((s,e) => s + e.gio, 0);
+const tr = document.createElement('tr');
+tr.style.background = '#f1f5f9';
+tr.style.fontWeight = '600';
+tr.innerHTML = `
+  <td colspan="5" style="text-align:right; padding-right:16px">TỔNG CỘNG</td>
+  <td class="num">${totalCong.toLocaleString('vi-VN')}</td>
+  <td class="num text-success">${totalGio.toLocaleString('vi-VN')}</td>
+  <td class="note">${employees.length} dòng · 32 nhân viên duy nhất</td>`;
+tbody.appendChild(tr);
 
-    /* --- Dòng 1: Thường / Công --- */
-    html += `<tr class="top ${group}">`;
-    html += `<td class="sticky c-stt" rowspan="2">${stt}</td>`;
-    html += `<td class="sticky c-mnv" rowspan="2"><code>${emp.mnv}</code>${dupIcon}</td>`;
-    html += `<td class="sticky c-name" rowspan="2"><strong>${emp.name}</strong></td>`;
-    html += `<td class="sticky c-pos" rowspan="2">${emp.pos}</td>`;
-    html += `<td class="sticky c-loai">Thường</td>`;
-    html += `<td class="c-dv">Công</td>`;
-    for (let d = 1; d <= 31; d++) html += `<td class="${dayClass(d)}"></td>`;
-    html += `</tr>`;
-
-    /* --- Dòng 2: Tăng ca thường / Giờ --- */
-    html += `<tr class="bot ${group}">`;
-    html += `<td class="sticky c-loai tc">Tăng ca</td>`;
-    html += `<td class="c-dv">Giờ</td>`;
-    for (let d = 1; d <= 31; d++) html += `<td class="${dayClass(d)}"></td>`;
-    html += `</tr>`;
-  });
-
-  tbody.innerHTML = html;
-}
-
-/* ================= 3) SINH BẢNG TỔNG HỢP ================= */
-function renderSummary() {
-  const tbody = document.getElementById('tbody-tonghop');
-  if (!tbody) return;
-
-  const posColor = {
-    'Giám sát': ['#e9d5ff','#6b21a8'],
-    'Tổ trưởng': ['#c7d2fe','#3730a3'],
-    'Vệ sinh trà nước 1': ['#ccfbf1','#115e59'],
-    'Vệ sinh trà nước 2': ['#cffafe','#155e75'],
-    'Định kỳ': ['#fef3c7','#92400e']
-  };
-  const posBadge = p => {
-    const [bg, fg] = posColor[p] || ['#e2e8f0','#475569'];
-    return `<span style="background:${bg};color:${fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">${p}</span>`;
-  };
-  const stBadge = s => s === 'CT'
-    ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">CT</span>'
-    : '<span style="background:#fed7aa;color:#9a3412;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">TV</span>';
-
-  let html = '';
-  EMPLOYEES.forEach((emp, idx) => {
-    const bg = emp.dup ? '#fef2f2' : '';
-    const dupBadge = emp.dup ? ' <span style="background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700">TRÙNG</span>' : '';
-    html += `<tr${bg ? ` style="background:${bg}"` : ''}>`;
-    html += `<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#94a3b8;text-align:center">${idx + 1}</td>`;
-    html += `<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><code style="background:#eff6ff;color:#1e3a8a;padding:1px 4px;border-radius:3px;font-size:11px">${emp.mnv}</code>${dupBadge}</td>`;
-    html += `<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><strong>${emp.name}</strong></td>`;
-    html += `<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9">${posBadge(emp.pos)}</td>`;
-    html += `<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9">${stBadge(emp.status)}</td>`;
-    html += `<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${emp.cong.toLocaleString('vi-VN')}</td>`;
-    html += `<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:${emp.gio > 0 ? '#16a34a' : '#94a3b8'}">${emp.gio.toLocaleString('vi-VN')}</td>`;
-    html += `<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#64748b;font-style:italic">${emp.note || '—'}</td>`;
-    html += `</tr>`;
-  });
-
-  const totalCong = EMPLOYEES.reduce((s, e) => s + e.cong, 0);
-  const totalGio  = EMPLOYEES.reduce((s, e) => s + e.gio, 0);
-  const uniqueMNV = new Set(EMPLOYEES.map(e => e.mnv)).size;
-
-  html += `<tr style="background:#e2e8f0;font-weight:700">`;
-  html += `<td colspan="5" style="padding:14px 12px;text-align:right;border-top:2px solid #64748b">TỔNG CỘNG</td>`;
-  html += `<td style="padding:14px 12px;text-align:right;border-top:2px solid #64748b;font-variant-numeric:tabular-nums">${totalCong.toLocaleString('vi-VN')}</td>`;
-  html += `<td style="padding:14px 12px;text-align:right;border-top:2px solid #64748b;font-variant-numeric:tabular-nums;color:#16a34a">${totalGio.toLocaleString('vi-VN')}</td>`;
-  html += `<td style="padding:14px 12px;border-top:2px solid #64748b;font-size:12px;color:#64748b;font-style:italic">${EMPLOYEES.length} dòng · ${uniqueMNV} nhân viên</td>`;
-  html += `</tr>`;
-
-  tbody.innerHTML = html;
-}
-
-/* ================= 4) CẬP NHẬT STATS ĐỘNG ================= */
-function updateStats() {
-  const totalCong = EMPLOYEES.reduce((s, e) => s + e.cong, 0);
-  const totalGio  = EMPLOYEES.reduce((s, e) => s + e.gio, 0);
-  const dupCount  = EMPLOYEES.filter(e => e.dup).length / 2; // mỗi cặp đếm 1 lỗi
-  const cards = document.querySelectorAll('.stat-card .value');
-  if (cards[1]) cards[1].innerHTML = `${totalCong.toLocaleString('vi-VN')}<span class="unit">công</span>`;
-  if (cards[2]) cards[2].innerHTML = `${totalGio.toLocaleString('vi-VN')}<span class="unit">giờ</span>`;
-  if (cards[3]) cards[3].innerHTML = `${Math.max(1, Math.round(dupCount))}<span class="unit">lỗi</span>`;
-}
-
-/* ================= 5) CHUYỂN TAB ================= */
 function showTab(id, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  const panel = document.getElementById(id);
-  if (panel) panel.classList.add('active');
-  if (btn) btn.classList.add('active');
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
 }
-
-/* ================= 6) KHỞI TẠO ================= */
-document.addEventListener('DOMContentLoaded', function () {
-  renderDaysHeader();
-  renderGrid();
-  renderSummary();
-  updateStats();
-});
 </script>
+
 </body>
 </html>
