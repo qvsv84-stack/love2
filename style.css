@@ -349,3 +349,14 @@ body {
   .stat-label { font-size: 10px; }
   .stat-value { font-size: 13px; }
 }
+/* OT area hours input */
+.area-entry .area-hours-input {
+  flex: 0 0 68px; padding: 10px 8px; font-size: 14px;
+  border: 1.5px solid var(--border); border-radius: 9px;
+  background: var(--ocean-50); font-family: inherit;
+  text-align: center;
+}
+.area-entry .area-hours-input:focus {
+  outline: none; border-color: var(--ocean-500);
+  background: white; box-shadow: 0 0 0 3px var(--ocean-100);
+}
