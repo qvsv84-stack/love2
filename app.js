@@ -42,6 +42,13 @@ function formatHours(h) {
 
 function floorLabel(n) { return n === 0 ? 'Trệt' : `Tầng ${n}`; }
 
+// ⭐ Label chức danh: admin → "Giám sát"
+function roleLabelOf(p) {
+  if (!p) return 'Nhân viên';
+  if (p.role === 'admin') return 'Giám sát';
+  return p.position || 'Nhân viên';
+}
+
 function openModal(id) { $('#' + id).style.display = 'flex'; }
 function closeModal(id) { $('#' + id).style.display = 'none'; }
 
@@ -84,6 +91,7 @@ async function onLoggedIn(user) {
     return;
   }
 
+  // ⭐ Chỉ có 1 role quản lý: admin (hiển thị "Giám sát")
   state.isAdmin = state.profile?.role === 'admin';
 
   $('#loading').style.display = 'none';
@@ -98,14 +106,12 @@ async function onLoggedIn(user) {
   $('#empSelectorRow').style.display = state.isAdmin ? '' : 'none';
   $('#calendarHint').style.display = state.isAdmin ? '' : 'none';
 
-  if (!state.isAdmin) {
-    state.selectedEmployeeId = user.id;
-    switchTab('calendar');
-  }
+  // ⭐ Mọi role mặc định xem lịch của CHÍNH MÌNH
+  state.selectedEmployeeId = user.id;
+  switchTab('calendar');
 
   await loadEmployees();
   await loadBuildings();
-  if (state.isAdmin) setupDefaultEmployeeSelect();
   await loadAttendanceForMonth();
   renderCalendar();
 }
@@ -126,22 +132,13 @@ async function loadEmployees() {
   if (error) { console.error(error); toast('Không tải được nhân viên'); return; }
   state.employees = data || [];
 
-  // Nếu user đang chọn đã bị xoá → reset
+  // User đang chọn bị xoá → quay về chính mình
   if (state.selectedEmployeeId && !state.employees.find(e => e.id === state.selectedEmployeeId)) {
-    state.selectedEmployeeId = null;
+    state.selectedEmployeeId = state.user?.id || (state.employees[0]?.id ?? null);
   }
 
   renderEmployeeSelect();
   renderEmployeeList();
-  if (state.isAdmin) setupDefaultEmployeeSelect();
-}
-
-function setupDefaultEmployeeSelect() {
-  if (state.employees.length && !state.selectedEmployeeId) {
-    state.selectedEmployeeId = state.employees[0].id;
-    $('#employeeSelect').value = state.selectedEmployeeId;
-    updateSummary();
-  }
 }
 
 function renderEmployeeSelect() {
@@ -163,7 +160,7 @@ function renderEmployeeList() {
     const initial = name.trim().charAt(0).toUpperCase();
     const isActive = e.status !== 'inactive';
     const statusText = isActive ? 'Đang làm' : 'Đã vô hiệu';
-    const roleText = e.role === 'admin' ? 'Admin' : (e.position || 'Nhân viên');
+    const roleLabel = roleLabelOf(e); // ⭐ "Giám sát" nếu admin
     const isSelf = e.id === state.user?.id;
     const canManage = state.isAdmin && !isSelf;
 
@@ -185,7 +182,7 @@ function renderEmployeeList() {
         <div class="avatar" style="${!isActive ? 'filter:grayscale(1)' : ''}">${initial}</div>
         <div class="emp-info">
           <div class="emp-fullname">${name}${isSelf ? ' <span style="font-size:11px;color:var(--text-muted)">(bạn)</span>' : ''}</div>
-          <div class="emp-pos">${roleText}${e.username ? ' · @' + e.username : ''}</div>
+          <div class="emp-pos">${roleLabel}${e.username ? ' · @' + e.username : ''}</div>
           <span class="emp-status status-${isActive ? 'active' : 'inactive'}">${statusText}</span>
         </div>
         ${actions}
@@ -244,7 +241,7 @@ async function deleteEmployee(userId, name) {
 }
 
 async function createEmployee() {
-  if (!state.isAdmin) { toast('Chỉ admin được tạo nhân viên'); return; }
+  if (!state.isAdmin) { toast('Chỉ Giám sát được tạo nhân viên'); return; }
   const username = $('#empUsername').value.trim().toLowerCase();
   const password = $('#empPassword').value;
   const full_name = $('#empFullName').value.trim();
@@ -328,7 +325,7 @@ async function deleteBuilding(id) {
 }
 
 async function saveBuilding() {
-  if (!state.isAdmin) { toast('Chỉ admin được thêm toà nhà'); return; }
+  if (!state.isAdmin) { toast('Chỉ Giám sát được thêm toà nhà'); return; }
   const name = $('#buildingName').value.trim();
   const count = parseInt($('#buildingFloors').value, 10);
   const noGround = $('#noGroundFloor').checked;
@@ -421,7 +418,7 @@ function updateSummary() {
     return;
   }
   $('#sumName').textContent = emp.full_name || emp.username || emp.email || '—';
-  $('#sumRole').textContent = emp.position || emp.role || 'Nhân viên';
+  $('#sumRole').textContent = roleLabelOf(emp); // ⭐ "Giám sát" nếu admin
   $('#sumStatus').textContent = emp.status === 'inactive' ? 'Nghỉ' : 'Đang làm';
 
   let work = 0, ot = 0;
@@ -435,7 +432,7 @@ function updateSummary() {
 }
 
 async function openAttendanceModal(dateStr) {
-  if (!state.isAdmin) { toast('Chỉ admin được chấm công'); return; }
+  if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
   state.editingDate = dateStr;
 
@@ -542,7 +539,7 @@ function updatePreview() {
 }
 
 async function saveAttendance() {
-  if (!state.isAdmin) { toast('Chỉ admin được chấm công'); return; }
+  if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId || !state.editingDate) return;
 
   const mode = getSelectedMode();
@@ -566,7 +563,6 @@ async function saveAttendance() {
   const { error } = await supabase.from('attendance').upsert(payload, { onConflict: 'employee_id,date' });
   if (error) { toast('Lưu thất bại: ' + error.message); return; }
 
-  // Tính lại giờ công cho toàn bộ user cùng ngày (chia đều nếu trùng tầng)
   const { error: rcErr } = await supabase.rpc('recalc_day_attendance', { p_date: state.editingDate });
   if (rcErr) console.warn('recalc failed:', rcErr);
 
@@ -609,7 +605,6 @@ function renderCalendar() {
   }
   grid.innerHTML = html;
 
-  // Chỉ admin mới được long-press chấm công
   if (state.isAdmin) {
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
       attachLongPress(el, () => openAttendanceModal(el.dataset.date)));
