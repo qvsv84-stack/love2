@@ -54,6 +54,22 @@ body {
 }
 .btn-icon:hover { background: rgba(255,255,255,0.25); }
 
+/* Nút Đăng nhập trên header (guest view) */
+.btn-header-login {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+.btn-header-login:hover { background: rgba(255,255,255,0.3); }
+
 /* ============ Loading ============ */
 .loading-screen {
   display: flex; flex-direction: column; align-items: center;
@@ -112,6 +128,26 @@ body {
   cursor: pointer; font-weight: 600; font-family: inherit; margin-top: 6px;
 }
 .error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; text-align: center; }
+
+/* ============ Guest banner ============ */
+.guest-banner {
+  background: linear-gradient(135deg, var(--ocean-100), var(--primary-light));
+  padding: 20px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  text-align: center;
+  border: 1.5px dashed var(--ocean-200);
+}
+.guest-banner p {
+  font-size: 14px;
+  color: var(--ocean-700);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.guest-banner .btn-primary {
+  width: auto;
+  padding: 11px 28px;
+}
 
 /* ============ Tabs ============ */
 .tabs {
@@ -447,4 +483,6 @@ body {
   .selection-bar-inner .btn-primary { padding: 9px 14px; font-size: 13px; }
   .selection-bar-inner .btn-secondary { padding: 9px 10px; font-size: 12px; }
   .emp-info .role-select { max-width: 120px; font-size: 11px; }
+  .btn-header-login { padding: 7px 10px; font-size: 12px; }
+  .guest-banner p { font-size: 13px; }
 }
