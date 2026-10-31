@@ -29,6 +29,7 @@ const state = {
   floorSetupBuildingId: null,
   selectionMode: false,
   selectedDates: new Set(),
+  phoneActionNumber: '',
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -117,7 +118,7 @@ async function showGuestView() {
   $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = 'none');
   $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = 'none');
 
-  // Guest: được chọn người để xem + xem summary
+  // Guest: chọn người để xem + xem summary
   $('#empSelectorRow').style.display = 'flex';
   $('#summaryCard').style.display = 'block';
   $('#guestBanner').style.display = 'block';
@@ -128,7 +129,6 @@ async function showGuestView() {
 
   switchTab('calendar');
 
-  // Load public data
   await loadPublicEmployees();
   await loadBuildings();
   await loadAttendanceForMonth();
@@ -186,7 +186,7 @@ async function handleLogout() {
 
 /* ============ EMPLOYEES ============ */
 async function loadPublicEmployees() {
-  // Guest: query view public (chỉ 5 cột an toàn)
+  // Guest: query view public
   const { data, error } = await supabase
     .from('profiles_public').select('*').order('full_name');
   if (error) { console.error(error); return; }
@@ -242,6 +242,11 @@ function renderEmployeeList() {
     const isSelf = e.id === state.user?.id;
     const canManage = state.isAdmin && !isSelf;
 
+    // Phone link
+    const phoneHtml = e.phone
+      ? ` - <a class="phone-link" data-phone="${e.phone}" href="javascript:void(0)">${e.phone}</a>`
+      : '';
+
     const roleSelect = canManage ? `
       <select class="role-select" data-emp-role="${e.id}" data-current="${e.role}">
         <option value="admin" ${e.role === 'admin' ? 'selected' : ''}>${ROLE_LABELS.admin}</option>
@@ -266,7 +271,7 @@ function renderEmployeeList() {
       <div class="employee-card" style="${!isActive ? 'opacity:0.75' : ''}">
         <div class="avatar" style="${!isActive ? 'filter:grayscale(1)' : ''}">${initial}</div>
         <div class="emp-info">
-          <div class="emp-fullname">${name}${isSelf ? ' <span style="font-size:11px;color:var(--text-muted)">(bạn)</span>' : ''}</div>
+          <div class="emp-fullname">${name}${isSelf ? ' <span style="font-size:11px;color:var(--text-muted)">(bạn)</span>' : ''}${phoneHtml}</div>
           <div class="emp-pos">${roleLabel}${e.username ? ' · @' + e.username : ''}</div>
           <span class="emp-status status-${isActive ? 'active' : 'inactive'}">${statusText}</span>
           ${roleSelect}
@@ -275,6 +280,7 @@ function renderEmployeeList() {
       </div>`;
   }).join('');
 
+  // Bind toggle / delete / role
   wrap.querySelectorAll('[data-emp-toggle]').forEach(btn => {
     btn.addEventListener('click', () =>
       toggleEmployeeStatus(btn.dataset.empToggle, btn.dataset.current));
@@ -288,8 +294,57 @@ function renderEmployeeList() {
       changeEmployeeRole(sel.dataset.empRole, sel.value, sel.dataset.current);
     });
   });
+
+  // ⭐ Bind phone click
+  wrap.querySelectorAll('[data-phone]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      showPhoneAction(el.dataset.phone);
+    });
+  });
 }
 
+/* ============ PHONE ACTIONS ============ */
+function showPhoneAction(phone) {
+  if (!phone) return;
+  state.phoneActionNumber = phone;
+  $('#phoneActionNumber').textContent = phone;
+  openModal('phoneActionModal');
+}
+
+function callPhoneNumber() {
+  const phone = state.phoneActionNumber;
+  if (!phone) return;
+  window.location.href = 'tel:' + phone;
+  closeModal('phoneActionModal');
+}
+
+async function copyPhoneNumber() {
+  const phone = state.phoneActionNumber;
+  if (!phone) return;
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(phone);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = phone;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    toast('📋 Đã sao chép ' + phone);
+    closeModal('phoneActionModal');
+  } catch (err) {
+    toast('Không sao chép được');
+  }
+}
+
+/* ============ ROLE / STATUS / DELETE ============ */
 async function changeEmployeeRole(userId, newRole, currentRole) {
   if (!state.isAdmin) return;
   if (newRole === currentRole) return;
@@ -308,8 +363,7 @@ async function changeEmployeeRole(userId, newRole, currentRole) {
   }
 
   const { error } = await supabase.rpc('admin_set_user_role', {
-    p_user_id: userId,
-    p_role: newRole,
+    p_user_id: userId, p_role: newRole,
   });
 
   if (error) {
@@ -358,23 +412,32 @@ async function deleteEmployee(userId, name) {
   renderCalendar();
 }
 
+/* ============ CREATE EMPLOYEE ============ */
 async function createEmployee() {
   if (!state.isAdmin) { toast('Chỉ Giám sát được tạo nhân viên'); return; }
   const username = $('#empUsername').value.trim().toLowerCase();
   const password = $('#empPassword').value;
   const full_name = $('#empFullName').value.trim();
+  const phone = $('#empPhone').value.trim();
   const errEl = $('#empCreateError');
   errEl.textContent = '';
 
   if (!username) { errEl.textContent = 'Nhập tên đăng nhập'; return; }
   if (password.length < 6) { errEl.textContent = 'Mật khẩu tối thiểu 6 ký tự'; return; }
   if (full_name.length < 2) { errEl.textContent = 'Tên hiển thị quá ngắn'; return; }
+  if (phone && !/^[0-9]{1,10}$/.test(phone)) {
+    errEl.textContent = 'Số điện thoại chỉ được chứa số, tối đa 10 ký tự';
+    return;
+  }
 
   const btn = $('#saveEmployeeBtn');
   btn.disabled = true; btn.textContent = 'Đang tạo...';
 
   const { error } = await supabase.rpc('admin_create_employee', {
-    p_username: username, p_password: password, p_full_name: full_name,
+    p_username: username,
+    p_password: password,
+    p_full_name: full_name,
+    p_phone: phone || null,
   });
 
   btn.disabled = false; btn.textContent = 'Tạo';
@@ -1246,7 +1309,10 @@ function bindEvents() {
   $('#saveFloorsBtn').addEventListener('click', saveFloors);
 
   $('#addEmployeeBtn').addEventListener('click', () => {
-    $('#empUsername').value = ''; $('#empPassword').value = ''; $('#empFullName').value = '';
+    $('#empUsername').value = '';
+    $('#empPassword').value = '';
+    $('#empFullName').value = '';
+    $('#empPhone').value = '';
     $('#empCreateError').textContent = '';
     openModal('employeeModal');
   });
@@ -1254,6 +1320,18 @@ function bindEvents() {
     if (e.target.id === 'employeeModal') closeModal('employeeModal');
   });
   $('#saveEmployeeBtn').addEventListener('click', createEmployee);
+
+  // Phone action sheet
+  $('#phoneCallBtn').addEventListener('click', callPhoneNumber);
+  $('#phoneCopyBtn').addEventListener('click', copyPhoneNumber);
+  $('#phoneActionModal').addEventListener('click', (e) => {
+    if (e.target.id === 'phoneActionModal') closeModal('phoneActionModal');
+  });
+
+  // Chỉ cho nhập số vào input phone (chặn paste ký tự)
+  $('#empPhone').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+  });
 
   $$('[data-close]').forEach(btn =>
     btn.addEventListener('click', () => closeModal(btn.dataset.close)));
