@@ -84,10 +84,15 @@ async function initAuth() {
 
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.user) await onLoggedIn(session.user);
-  else showGuestView();
+  else await showGuestView();
 }
 
-function showGuestView() {
+function showLoginScreen() {
+  $('#loginScreen').style.display = 'block';
+  $('#mainScreen').style.display = 'none';
+}
+
+async function showGuestView() {
   // Reset state
   state.user = null;
   state.profile = null;
@@ -104,15 +109,17 @@ function showGuestView() {
   $('#loginScreen').style.display = 'none';
   $('#mainScreen').style.display = 'block';
 
-  // Header buttons
+  // Header
   $('#loginBtn').style.display = 'block';
   $('#logoutBtn').style.display = 'none';
 
-  // Guest: hide admin stuff
+  // Tabs: chỉ Lịch công
   $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = 'none');
   $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = 'none');
-  $('#empSelectorRow').style.display = 'none';
-  $('#summaryCard').style.display = 'none';
+
+  // Guest: được chọn người để xem + xem summary
+  $('#empSelectorRow').style.display = 'flex';
+  $('#summaryCard').style.display = 'block';
   $('#guestBanner').style.display = 'block';
   $('#calendarActions').style.display = 'none';
   $('#calendarHint').style.display = 'none';
@@ -120,12 +127,12 @@ function showGuestView() {
   $('#selectionBar').style.display = 'none';
 
   switchTab('calendar');
-  renderCalendar();
-}
 
-function showLoginScreen() {
-  $('#loginScreen').style.display = 'block';
-  $('#mainScreen').style.display = 'none';
+  // Load public data
+  await loadPublicEmployees();
+  await loadBuildings();
+  await loadAttendanceForMonth();
+  renderCalendar();
 }
 
 async function onLoggedIn(user) {
@@ -137,7 +144,7 @@ async function onLoggedIn(user) {
 
   if (state.profile?.status === 'inactive') {
     await supabase.auth.signOut();
-    showGuestView();
+    await showGuestView();
     setTimeout(() => {
       showLoginScreen();
       $('#loginError').textContent = 'Tài khoản đã bị vô hiệu hoá. Liên hệ admin.';
@@ -151,11 +158,9 @@ async function onLoggedIn(user) {
   $('#loginScreen').style.display = 'none';
   $('#mainScreen').style.display = 'block';
 
-  // Header buttons
   $('#loginBtn').style.display = 'none';
   $('#logoutBtn').style.display = 'block';
 
-  // Show admin stuff
   $('#addEmployeeBtn').style.display = state.isAdmin ? 'block' : 'none';
   $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
   $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
@@ -176,11 +181,31 @@ async function onLoggedIn(user) {
 
 async function handleLogout() {
   await supabase.auth.signOut();
-  showGuestView();
+  await showGuestView();
 }
 
 /* ============ EMPLOYEES ============ */
+async function loadPublicEmployees() {
+  // Guest: query view public (chỉ 5 cột an toàn)
+  const { data, error } = await supabase
+    .from('profiles_public').select('*').order('full_name');
+  if (error) { console.error(error); return; }
+  state.employees = data || [];
+
+  if (state.employees.length && !state.selectedEmployeeId) {
+    state.selectedEmployeeId = state.employees[0].id;
+  }
+  if (state.selectedEmployeeId && !state.employees.find(e => e.id === state.selectedEmployeeId)) {
+    state.selectedEmployeeId = state.employees[0]?.id ?? null;
+  }
+
+  renderEmployeeSelect();
+  updateSummary();
+}
+
 async function loadEmployees() {
+  if (!state.user) return loadPublicEmployees();
+
   const { data, error } = await supabase.from('profiles').select('*').order('full_name');
   if (error) { console.error(error); toast('Không tải được nhân viên'); return; }
   state.employees = data || [];
@@ -195,9 +220,10 @@ async function loadEmployees() {
 
 function renderEmployeeSelect() {
   const sel = $('#employeeSelect');
-  sel.innerHTML = state.employees.map(e =>
-    `<option value="${e.id}">${e.full_name || e.username || e.email || 'N/A'}</option>`
-  ).join('');
+  sel.innerHTML = state.employees.map(e => {
+    const name = e.full_name || e.username || e.email || 'N/A';
+    return `<option value="${e.id}">${name}</option>`;
+  }).join('');
   if (state.selectedEmployeeId) sel.value = state.selectedEmployeeId;
 }
 
@@ -1233,9 +1259,8 @@ function bindEvents() {
     btn.addEventListener('click', () => closeModal(btn.dataset.close)));
 
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (!session && !$('#loginScreen').style.display.includes('block')) {
-      // Chỉ redirect về guest khi thực sự logout, không phải lúc đang ở login screen
-      if (state.user) showGuestView();
+    if (!session && state.user) {
+      showGuestView();
     }
   });
 }
