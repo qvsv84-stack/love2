@@ -9,6 +9,7 @@
 </head>
 <body>
   <div id="app">
+    <!-- Header -->
     <header class="app-header">
       <div class="header-title">
         <h1>ĐH XÃ HỘI VÀ NHÂN VĂN</h1>
@@ -17,11 +18,13 @@
       <button id="logoutBtn" class="btn-icon" title="Đăng xuất" style="display:none">⎋</button>
     </header>
 
+    <!-- Loading -->
     <div id="loading" class="loading-screen">
       <div class="spinner"></div>
       <p>Đang tải...</p>
     </div>
 
+    <!-- LOGIN -->
     <section id="loginScreen" class="login-screen" style="display:none">
       <div class="login-card">
         <h2>Đăng nhập</h2>
@@ -47,13 +50,16 @@
       </div>
     </section>
 
+    <!-- MAIN -->
     <main id="mainScreen" style="display:none">
+      <!-- Tabs -->
       <nav class="tabs">
         <button class="tab-btn active" data-tab="calendar">📅 Lịch công</button>
         <button class="tab-btn" data-tab="areas">🏢 Khu vực</button>
         <button class="tab-btn" data-tab="employees">👥 Nhân viên</button>
       </nav>
 
+      <!-- TAB: CALENDAR -->
       <section id="tab-calendar" class="tab-content active">
         <div class="employee-panel">
           <div class="emp-selector-row" id="empSelectorRow">
@@ -89,6 +95,7 @@
         <p class="hint" id="calendarHint">💡 Nhấn giữ (long-press) vào một ngày để chấm công</p>
       </section>
 
+      <!-- TAB: AREAS -->
       <section id="tab-areas" class="tab-content">
         <div class="section-header">
           <h2>🏢 Khu vực phụ trách</h2>
@@ -97,6 +104,7 @@
         <div id="buildingsList" class="buildings-list"></div>
       </section>
 
+      <!-- TAB: EMPLOYEES -->
       <section id="tab-employees" class="tab-content">
         <div class="section-header">
           <h2>👥 Danh sách nhân viên</h2>
@@ -248,6 +256,7 @@
       </div>
     </div>
 
+    <!-- Toast -->
     <div id="toast" class="toast" style="display:none"></div>
   </div>
 
