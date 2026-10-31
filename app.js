@@ -30,6 +30,7 @@ const state = {
   selectionMode: false,
   selectedDates: new Set(),
   phoneActionNumber: '',
+  editingEmployeeId: null,
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -94,7 +95,6 @@ function showLoginScreen() {
 }
 
 async function showGuestView() {
-  // Reset state
   state.user = null;
   state.profile = null;
   state.isAdmin = false;
@@ -110,15 +110,12 @@ async function showGuestView() {
   $('#loginScreen').style.display = 'none';
   $('#mainScreen').style.display = 'block';
 
-  // Header
   $('#loginBtn').style.display = 'block';
   $('#logoutBtn').style.display = 'none';
 
-  // Tabs: chỉ Lịch công
   $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = 'none');
   $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = 'none');
 
-  // Guest: chọn người để xem + xem summary
   $('#empSelectorRow').style.display = 'flex';
   $('#summaryCard').style.display = 'block';
   $('#guestBanner').style.display = 'block';
@@ -186,7 +183,6 @@ async function handleLogout() {
 
 /* ============ EMPLOYEES ============ */
 async function loadPublicEmployees() {
-  // Guest: query view public
   const { data, error } = await supabase
     .from('profiles_public').select('*').order('full_name');
   if (error) { console.error(error); return; }
@@ -240,13 +236,18 @@ function renderEmployeeList() {
     const statusText = isActive ? 'Đang làm' : 'Đã vô hiệu';
     const roleLabel = roleLabelOf(e);
     const isSelf = e.id === state.user?.id;
-    const canManage = state.isAdmin && !isSelf;
+    const canManage = state.isAdmin && !isSelf;   // toggle/delete
+    const canEdit = state.isAdmin;                 // edit info (cho phép cả self)
 
-    // Phone link
-    const phoneHtml = e.phone
-      ? ` - <a class="phone-link" data-phone="${e.phone}" href="javascript:void(0)">${e.phone}</a>`
-      : '';
+    // Phone display
+    let phoneHtml = '';
+    if (e.phone) {
+      phoneHtml = ` - <a class="phone-link" data-phone="${e.phone}" href="javascript:void(0)">${e.phone}</a>`;
+    } else if (canEdit) {
+      phoneHtml = ` - <a class="phone-link phone-link-add" data-emp-edit="${e.id}" href="javascript:void(0)">+ Thêm SĐT</a>`;
+    }
 
+    // Role select
     const roleSelect = canManage ? `
       <select class="role-select" data-emp-role="${e.id}" data-current="${e.role}">
         <option value="admin" ${e.role === 'admin' ? 'selected' : ''}>${ROLE_LABELS.admin}</option>
@@ -254,18 +255,27 @@ function renderEmployeeList() {
         <option value="employee" ${e.role === 'employee' ? 'selected' : ''}>${ROLE_LABELS.employee}</option>
       </select>` : '';
 
-    const actions = canManage ? `
-      <div style="display:flex;flex-direction:column;gap:6px;margin-left:8px;flex-shrink:0">
-        <button class="btn-small" data-emp-toggle="${e.id}" data-current="${isActive ? 'active' : 'inactive'}"
-          style="background:${isActive ? '#fef3c7;color:#b45309' : '#dcfce7;color:#16a34a'};padding:6px 10px;margin:0"
+    // Action buttons
+    let actionsHtml = '';
+    if (canEdit) {
+      const toggleBtn = canManage ? `
+        <button class="btn-icon-sm" data-emp-toggle="${e.id}" data-current="${isActive ? 'active' : 'inactive'}"
+          style="background:${isActive ? '#fef3c7;color:#b45309' : '#dcfce7;color:#16a34a'}"
           title="${isActive ? 'Vô hiệu hoá' : 'Kích hoạt lại'}">
           ${isActive ? '⏸' : '▶'}
-        </button>
-        <button class="btn-small" data-emp-delete="${e.id}" data-name="${name.replace(/"/g, '&quot;')}"
-          style="background:#fee2e2;color:#e74c3c;padding:6px 10px;margin:0" title="Xoá vĩnh viễn">
-          🗑
-        </button>
-      </div>` : '';
+        </button>` : '';
+      const deleteBtn = canManage ? `
+        <button class="btn-icon-sm" data-emp-delete="${e.id}" data-name="${name.replace(/"/g, '&quot;')}"
+          style="background:#fee2e2;color:#e74c3c" title="Xoá vĩnh viễn">🗑</button>` : '';
+
+      actionsHtml = `
+        <div class="emp-actions">
+          ${toggleBtn}
+          <button class="btn-icon-sm" data-emp-edit="${e.id}"
+            style="background:var(--ocean-100);color:var(--ocean-700)" title="Sửa thông tin">✏️</button>
+          ${deleteBtn}
+        </div>`;
+    }
 
     return `
       <div class="employee-card" style="${!isActive ? 'opacity:0.75' : ''}">
@@ -276,11 +286,11 @@ function renderEmployeeList() {
           <span class="emp-status status-${isActive ? 'active' : 'inactive'}">${statusText}</span>
           ${roleSelect}
         </div>
-        ${actions}
+        ${actionsHtml}
       </div>`;
   }).join('');
 
-  // Bind toggle / delete / role
+  // Bind toggle / delete / role change
   wrap.querySelectorAll('[data-emp-toggle]').forEach(btn => {
     btn.addEventListener('click', () =>
       toggleEmployeeStatus(btn.dataset.empToggle, btn.dataset.current));
@@ -295,7 +305,7 @@ function renderEmployeeList() {
     });
   });
 
-  // ⭐ Bind phone click
+  // Bind phone link (call/copy)
   wrap.querySelectorAll('[data-phone]').forEach(el => {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -303,6 +313,72 @@ function renderEmployeeList() {
       showPhoneAction(el.dataset.phone);
     });
   });
+
+  // Bind edit (từ nút ✏️ và từ link "+ Thêm SĐT")
+  wrap.querySelectorAll('[data-emp-edit]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      openEditEmployeeModal(el.dataset.empEdit);
+    });
+  });
+}
+
+/* ============ EDIT EMPLOYEE ============ */
+function openEditEmployeeModal(userId) {
+  const emp = state.employees.find(e => e.id === userId);
+  if (!emp) return;
+  state.editingEmployeeId = userId;
+
+  $('#editEmpTitle').textContent = `Sửa: ${emp.full_name || emp.username || emp.email || 'N/A'}`;
+  $('#editEmpUsername').value = emp.username || emp.email || '—';
+  $('#editEmpFullName').value = emp.full_name || '';
+  $('#editEmpPhone').value = emp.phone || '';
+  $('#editEmpPassword').value = '';
+  $('#editEmpError').textContent = '';
+  openModal('editEmployeeModal');
+}
+
+async function saveEditEmployee() {
+  if (!state.isAdmin) return;
+  if (!state.editingEmployeeId) return;
+
+  const full_name = $('#editEmpFullName').value.trim();
+  const phone = $('#editEmpPhone').value.trim();
+  const password = $('#editEmpPassword').value.trim();
+  const errEl = $('#editEmpError');
+  errEl.textContent = '';
+
+  if (full_name.length < 2) { errEl.textContent = 'Tên hiển thị quá ngắn'; return; }
+  if (phone && !/^[0-9]{1,10}$/.test(phone)) {
+    errEl.textContent = 'Số điện thoại chỉ được chứa số, tối đa 10 ký tự';
+    return;
+  }
+  if (password && password.length < 6) {
+    errEl.textContent = 'Mật khẩu tối thiểu 6 ký tự (hoặc để trống)';
+    return;
+  }
+
+  const btn = $('#saveEditEmpBtn');
+  btn.disabled = true; btn.textContent = 'Đang lưu...';
+
+  const { error } = await supabase.rpc('admin_update_employee', {
+    p_user_id: state.editingEmployeeId,
+    p_full_name: full_name,
+    p_phone: phone || null,
+    p_password: password || null,
+  });
+
+  btn.disabled = false; btn.textContent = 'Lưu';
+  if (error) {
+    errEl.textContent = (error.message || 'Lưu thất bại').replace(/^ERROR:\s*/i, '');
+    return;
+  }
+
+  toast('Đã cập nhật nhân viên ✓');
+  closeModal('editEmployeeModal');
+  await loadEmployees();
+  if (state.selectedEmployeeId === state.editingEmployeeId) updateSummary();
 }
 
 /* ============ PHONE ACTIONS ============ */
@@ -323,7 +399,6 @@ function callPhoneNumber() {
 async function copyPhoneNumber() {
   const phone = state.phoneActionNumber;
   if (!phone) return;
-
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(phone);
@@ -1321,6 +1396,12 @@ function bindEvents() {
   });
   $('#saveEmployeeBtn').addEventListener('click', createEmployee);
 
+  // Edit employee modal
+  $('#editEmployeeModal').addEventListener('click', (e) => {
+    if (e.target.id === 'editEmployeeModal') closeModal('editEmployeeModal');
+  });
+  $('#saveEditEmpBtn').addEventListener('click', saveEditEmployee);
+
   // Phone action sheet
   $('#phoneCallBtn').addEventListener('click', callPhoneNumber);
   $('#phoneCopyBtn').addEventListener('click', copyPhoneNumber);
@@ -1328,9 +1409,11 @@ function bindEvents() {
     if (e.target.id === 'phoneActionModal') closeModal('phoneActionModal');
   });
 
-  // Chỉ cho nhập số vào input phone (chặn paste ký tự)
-  $('#empPhone').addEventListener('input', (e) => {
-    e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+  // Chỉ cho nhập số
+  ['#empPhone', '#editEmpPhone'].forEach(id => {
+    $(id).addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+    });
   });
 
   $$('[data-close]').forEach(btn =>
