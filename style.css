@@ -361,6 +361,24 @@ body {
   background: var(--ocean-100);
 }
 
+/* ============ Phone link ============ */
+.phone-link {
+  color: var(--ocean-600);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--ocean-200);
+  cursor: pointer;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+.phone-link:hover {
+  color: var(--ocean-700);
+  border-bottom-color: var(--ocean-500);
+}
+.phone-link:active {
+  opacity: 0.7;
+}
+
 /* ============ Modal ============ */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(15, 46, 51, 0.55);
@@ -392,6 +410,21 @@ body {
 }
 .modal-footer .btn-primary { flex: 1; }
 .modal-footer .btn-secondary { flex: 0 0 auto; }
+
+/* Modal căn giữa (dùng cho phone action sheet) */
+.modal-overlay.center {
+  align-items: center;
+  padding: 20px;
+}
+.modal-overlay.center .modal {
+  border-radius: 20px;
+  max-height: 80vh;
+  animation: popIn 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes popIn {
+  from { transform: scale(0.92); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
 
 /* ============ Radio ============ */
 .radio-group { display: flex; flex-direction: column; gap: 8px; }
@@ -485,4 +518,5 @@ body {
   .emp-info .role-select { max-width: 120px; font-size: 11px; }
   .btn-header-login { padding: 7px 10px; font-size: 12px; }
   .guest-banner p { font-size: 13px; }
+  .phone-link { font-size: 12px; }
 }
