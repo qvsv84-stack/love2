@@ -103,7 +103,7 @@
           <button id="addEmployeeBtn" class="btn-primary" style="display:none">+ Tạo nhân viên</button>
         </div>
         <div id="employeesList" class="employees-list"></div>
-        <p class="hint">Nhân viên được tạo bởi Admin. Tên đăng nhập tự động gắn @skyone.vn.</p>
+        <p class="hint">Nhân viên được tạo bởi Giám sát. Tên đăng nhập tự động gắn @skyone.vn.</p>
       </section>
     </main>
 
@@ -115,40 +115,49 @@
           <button class="btn-close" data-close="attendanceModal">✕</button>
         </div>
         <div class="modal-body">
+          <!-- Dòng 1: Khu vực chính -->
           <div class="form-group">
-            <label>Khu vực phụ trách</label>
-            <div id="areaPicker" class="area-picker"></div>
-            <button id="addAreaEntryBtn" class="btn-small">+ Thêm khu vực / tầng khác</button>
-          </div>
-
-          <div class="form-group">
-            <label>Chế độ giờ công</label>
-            <div class="radio-group">
+            <label>1️⃣ Khu vực chính <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tính công thường)</span></label>
+            <div class="radio-group" style="margin-bottom:10px">
               <label class="radio"><input type="radio" name="attMode" value="default" checked /> Mặc định (theo khu vực)</label>
               <label class="radio"><input type="radio" name="attMode" value="manual" /> Thủ công</label>
               <label class="radio"><input type="radio" name="attMode" value="off" /> OFF (nghỉ)</label>
             </div>
+            <div id="mainAreaSection">
+              <div id="mainAreaPicker" class="area-picker"></div>
+              <button id="addMainAreaBtn" class="btn-small">+ Thêm khu vực chính</button>
+            </div>
+            <div class="form-group" id="manualHoursGroup" style="display:none;margin-top:10px">
+              <label>Nhập số giờ công</label>
+              <input type="number" id="manualHours" step="0.5" min="0" max="24" class="input" placeholder="VD: 8" />
+            </div>
           </div>
 
-          <div class="form-group" id="manualHoursGroup" style="display:none">
-            <label>Nhập số giờ công</label>
-            <input type="number" id="manualHours" step="0.5" min="0" max="24" class="input" placeholder="VD: 8" />
+          <!-- Dòng 2: Khu vực tăng ca -->
+          <div class="form-group" id="otSection">
+            <label>2️⃣ Khu vực tăng ca <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tuỳ chọn)</span></label>
+            <div id="otAreaPicker" class="area-picker"></div>
+            <button id="addOtAreaBtn" class="btn-small">+ Thêm khu vực tăng ca</button>
           </div>
 
-          <div class="form-group">
-            <label>Tăng ca (giờ, tuỳ chọn)</label>
-            <input type="number" id="otHours" step="0.5" min="0" max="12" class="input" placeholder="0" />
-          </div>
-
+          <!-- Preview -->
           <div class="preview-box" style="flex-direction:column;align-items:stretch;gap:6px">
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span>Tổng giờ công dự kiến:</span>
-              <strong id="attPreview">0h</strong>
+              <span>Giờ công chính:</span>
+              <strong id="mainHoursPreview">0h</strong>
             </div>
-            <p id="shareNote" style="font-size:11px;color:var(--text-muted);margin:0;display:none">
-              ⚠️ Nếu có người khác cùng tầng, giờ công sẽ được chia đều
-            </p>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>Tăng ca:</span>
+              <strong id="otHoursPreview">0h</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--border);padding-top:6px;margin-top:2px">
+              <span>Tổng:</span>
+              <strong id="totalHoursPreview" style="color:var(--ocean-600);font-size:20px">0h</strong>
+            </div>
           </div>
+          <p id="shareNote" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px;display:none">
+            ⚠️ Nếu có người khác cùng tầng, giờ công chính sẽ được chia đều
+          </p>
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" data-close="attendanceModal">Huỷ</button>
