@@ -75,6 +75,15 @@ async function onLoggedIn(user) {
   const { data: profile } = await supabase
     .from('profiles').select('*').eq('id', user.id).single();
   state.profile = profile || { full_name: user.email, role: 'employee', status: 'active' };
+
+  // Bị vô hiệu hoá → kick ra
+  if (state.profile?.status === 'inactive') {
+    await supabase.auth.signOut();
+    showLogin();
+    $('#loginError').textContent = 'Tài khoản đã bị vô hiệu hoá. Liên hệ admin.';
+    return;
+  }
+
   state.isAdmin = state.profile?.role === 'admin';
 
   $('#loading').style.display = 'none';
@@ -106,7 +115,7 @@ async function handleLogout() {
   Object.assign(state, {
     user: null, profile: null, isAdmin: false, employees: [],
     selectedEmployeeId: null, buildings: [], floors: [],
-    attendance: [], selectedEmployeeId: null,
+    attendance: [],
   });
   showLogin();
 }
@@ -116,8 +125,15 @@ async function loadEmployees() {
   const { data, error } = await supabase.from('profiles').select('*').order('full_name');
   if (error) { console.error(error); toast('Không tải được nhân viên'); return; }
   state.employees = data || [];
+
+  // Nếu user đang chọn đã bị xoá → reset
+  if (state.selectedEmployeeId && !state.employees.find(e => e.id === state.selectedEmployeeId)) {
+    state.selectedEmployeeId = null;
+  }
+
   renderEmployeeSelect();
   renderEmployeeList();
+  if (state.isAdmin) setupDefaultEmployeeSelect();
 }
 
 function setupDefaultEmployeeSelect() {
@@ -145,19 +161,86 @@ function renderEmployeeList() {
   wrap.innerHTML = state.employees.map(e => {
     const name = e.full_name || e.username || e.email || 'N/A';
     const initial = name.trim().charAt(0).toUpperCase();
-    const status = e.status === 'inactive' ? 'inactive' : 'active';
-    const statusText = status === 'active' ? 'Đang làm' : 'Nghỉ';
+    const isActive = e.status !== 'inactive';
+    const statusText = isActive ? 'Đang làm' : 'Đã vô hiệu';
     const roleText = e.role === 'admin' ? 'Admin' : (e.position || 'Nhân viên');
+    const isSelf = e.id === state.user?.id;
+    const canManage = state.isAdmin && !isSelf;
+
+    const actions = canManage ? `
+      <div style="display:flex;flex-direction:column;gap:6px;margin-left:8px;flex-shrink:0">
+        <button class="btn-small" data-emp-toggle="${e.id}" data-current="${isActive ? 'active' : 'inactive'}"
+          style="background:${isActive ? '#fef3c7;color:#b45309' : '#dcfce7;color:#16a34a'};padding:6px 10px;margin:0"
+          title="${isActive ? 'Vô hiệu hoá' : 'Kích hoạt lại'}">
+          ${isActive ? '⏸' : '▶'}
+        </button>
+        <button class="btn-small" data-emp-delete="${e.id}" data-name="${name.replace(/"/g, '&quot;')}"
+          style="background:#fee2e2;color:#e74c3c;padding:6px 10px;margin:0" title="Xoá vĩnh viễn">
+          🗑
+        </button>
+      </div>` : '';
+
     return `
-      <div class="employee-card">
-        <div class="avatar">${initial}</div>
+      <div class="employee-card" style="${!isActive ? 'opacity:0.75' : ''}">
+        <div class="avatar" style="${!isActive ? 'filter:grayscale(1)' : ''}">${initial}</div>
         <div class="emp-info">
-          <div class="emp-fullname">${name}</div>
+          <div class="emp-fullname">${name}${isSelf ? ' <span style="font-size:11px;color:var(--text-muted)">(bạn)</span>' : ''}</div>
           <div class="emp-pos">${roleText}${e.username ? ' · @' + e.username : ''}</div>
-          <span class="emp-status status-${status}">${statusText}</span>
+          <span class="emp-status status-${isActive ? 'active' : 'inactive'}">${statusText}</span>
         </div>
+        ${actions}
       </div>`;
   }).join('');
+
+  wrap.querySelectorAll('[data-emp-toggle]').forEach(btn => {
+    btn.addEventListener('click', () =>
+      toggleEmployeeStatus(btn.dataset.empToggle, btn.dataset.current));
+  });
+  wrap.querySelectorAll('[data-emp-delete]').forEach(btn => {
+    btn.addEventListener('click', () =>
+      deleteEmployee(btn.dataset.empDelete, btn.dataset.name));
+  });
+}
+
+async function toggleEmployeeStatus(userId, currentStatus) {
+  if (!state.isAdmin) return;
+  const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+  const msg = newStatus === 'inactive'
+    ? 'Vô hiệu hoá nhân viên này?\n\nHọ sẽ không đăng nhập được nữa.'
+    : 'Kích hoạt lại nhân viên này?';
+  if (!confirm(msg)) return;
+
+  const { error } = await supabase.rpc('admin_set_user_status', {
+    p_user_id: userId,
+    p_status: newStatus,
+  });
+  if (error) {
+    toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, ''));
+    return;
+  }
+  toast(newStatus === 'inactive' ? '⏸ Đã vô hiệu hoá' : '▶ Đã kích hoạt');
+  await loadEmployees();
+}
+
+async function deleteEmployee(userId, name) {
+  if (!state.isAdmin) return;
+  const ok = confirm(
+    `Xoá vĩnh viễn "${name}"?\n\n` +
+    `• Tài khoản đăng nhập sẽ bị xoá\n` +
+    `• Toàn bộ lịch sử chấm công sẽ bị xoá\n` +
+    `• Không thể hoàn tác`
+  );
+  if (!ok) return;
+
+  const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userId });
+  if (error) {
+    toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, ''));
+    return;
+  }
+  toast('🗑 Đã xoá nhân viên');
+  await loadEmployees();
+  await loadAttendanceForMonth();
+  renderCalendar();
 }
 
 async function createEmployee() {
@@ -309,7 +392,6 @@ async function saveFloors() {
   toast('Đã lưu giờ tầng ✓');
   closeModal('floorModal');
   await loadBuildings();
-  // Recalc lại tháng hiện tại vì giờ tầng có thể thay đổi
   await loadAttendanceForMonth();
   renderCalendar();
 }
