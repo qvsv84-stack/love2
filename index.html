@@ -9,19 +9,25 @@
 </head>
 <body>
   <div id="app">
+    <!-- Header -->
     <header class="app-header">
       <div class="header-title">
         <h1>ĐH XÃ HỘI VÀ NHÂN VĂN</h1>
         <p class="subtitle">Hệ thống giám sát chấm công</p>
       </div>
-      <button id="logoutBtn" class="btn-icon" title="Đăng xuất" style="display:none">⎋</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <button id="loginBtn" class="btn-header-login" style="display:none">Đăng nhập</button>
+        <button id="logoutBtn" class="btn-icon" title="Đăng xuất" style="display:none">⎋</button>
+      </div>
     </header>
 
+    <!-- Loading -->
     <div id="loading" class="loading-screen">
       <div class="spinner"></div>
       <p>Đang tải...</p>
     </div>
 
+    <!-- LOGIN -->
     <section id="loginScreen" class="login-screen" style="display:none">
       <div class="login-card">
         <h2>Đăng nhập</h2>
@@ -42,25 +48,34 @@
             <input type="checkbox" id="rememberPass" /> <span style="font-size:13px">Lưu mật khẩu</span>
           </label>
           <button type="submit" class="btn-primary">Đăng nhập</button>
+          <button type="button" id="cancelLoginBtn" class="btn-secondary" style="width:100%;margin-top:10px">← Quay lại</button>
           <p id="loginError" class="error-msg"></p>
         </form>
       </div>
     </section>
 
+    <!-- MAIN -->
     <main id="mainScreen" style="display:none">
       <nav class="tabs">
         <button class="tab-btn active" data-tab="calendar">📅 Lịch công</button>
-        <button class="tab-btn" data-tab="areas">🏢 Khu vực</button>
-        <button class="tab-btn" data-tab="employees">👥 Nhân viên</button>
+        <button class="tab-btn" data-tab="areas" style="display:none">🏢 Khu vực</button>
+        <button class="tab-btn" data-tab="employees" style="display:none">👥 Nhân viên</button>
       </nav>
 
       <section id="tab-calendar" class="tab-content active">
+        <!-- Guest banner -->
+        <div id="guestBanner" class="guest-banner" style="display:none">
+          <p>🔑 Đăng nhập để xem lịch công và chấm công</p>
+          <button id="guestLoginBtn" class="btn-primary">Đăng nhập</button>
+        </div>
+
+        <!-- Employee panel (logged in) -->
         <div class="employee-panel">
-          <div class="emp-selector-row" id="empSelectorRow">
+          <div class="emp-selector-row" id="empSelectorRow" style="display:none">
             <label>Nhân viên:</label>
             <select id="employeeSelect" class="select-input"></select>
           </div>
-          <div class="summary-card">
+          <div class="summary-card" id="summaryCard" style="display:none">
             <div class="summary-line">
               <span class="emp-name" id="sumName">—</span>
               <span class="emp-role" id="sumRole">—</span>
@@ -91,7 +106,7 @@
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
 
-        <p class="hint" id="calendarHint">💡 Nhấn giữ (long-press) vào một ngày để chấm công</p>
+        <p class="hint" id="calendarHint" style="display:none">💡 Nhấn giữ (long-press) vào một ngày để chấm công</p>
       </section>
 
       <section id="tab-areas" class="tab-content">
@@ -122,7 +137,6 @@
         <div class="modal-body">
           <p id="prefillNote" class="prefill-note" style="display:none"></p>
 
-          <!-- SUPERVISOR MODE -->
           <div id="supervisorModeSection" style="display:none">
             <div class="form-group">
               <label>Chế độ chấm công <span style="font-weight:400;color:var(--text-muted);font-size:11px">(Giám sát)</span></label>
@@ -153,7 +167,6 @@
             </div>
           </div>
 
-          <!-- EMPLOYEE MODE -->
           <div id="employeeModeSection">
             <div class="form-group">
               <label>1️⃣ Khu vực chính <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tính công thường)</span></label>
@@ -317,7 +330,7 @@
       </div>
     </div>
 
-    <!-- Selection bar (sticky bottom) -->
+    <!-- Selection bar -->
     <div id="selectionBar" class="selection-bar" style="display:none;">
       <div class="selection-bar-inner">
         <span id="selectionCount">0 ngày đã chọn</span>
