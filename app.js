@@ -1,5 +1,6 @@
 // app.js
 import { supabase } from './supabase.js';
+import { initExportModule } from './export.js';
 
 const DEFAULT_DOMAIN = 'skyone.vn';
 const LS_KEY = 'cc_saved_login';
@@ -11,7 +12,7 @@ const ROLE_LABELS = {
   employee: 'Nhân viên',
 };
 
-// ⭐ Thứ tự sắp xếp: Giám sát → Nhân viên → Thời vụ
+// Thứ tự sắp xếp: Giám sát → Nhân viên → Thời vụ
 const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3 };
 
 const state = {
@@ -34,8 +35,10 @@ const state = {
   selectedDates: new Set(),
   phoneActionNumber: '',
   editingEmployeeId: null,
-  floorAssignments: {},   // ⭐ floor_id -> [employee_id]
+  floorAssignments: {},
 };
+
+let exportModule = null;
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -74,7 +77,6 @@ function roleLabelOf(p) {
   return p.position || ROLE_LABELS.employee;
 }
 
-// ⭐ Sort theo role, cùng role thì sort theo tên
 function sortEmployees(arr) {
   return [...arr].sort((a, b) => {
     const oa = ROLE_ORDER[a.role] || 99;
@@ -86,7 +88,6 @@ function sortEmployees(arr) {
   });
 }
 
-// ⭐ Lấy tên ngắn (từ cuối): "Lê Văn Anh" → "Anh"
 function getShortName(fullName) {
   if (!fullName) return '';
   const parts = fullName.trim().split(/\s+/);
@@ -144,6 +145,7 @@ async function showGuestView() {
   $('#summaryCard').style.display = 'block';
   $('#guestBanner').style.display = 'block';
   $('#calendarActions').style.display = 'none';
+  $('#exportActionRow').style.display = 'block';
   $('#calendarHint').style.display = 'none';
   $('#addEmployeeBtn').style.display = 'none';
   $('#selectionBar').style.display = 'none';
@@ -189,6 +191,7 @@ async function onLoggedIn(user) {
   $('#summaryCard').style.display = 'block';
   $('#guestBanner').style.display = 'none';
   $('#calendarActions').style.display = state.isAdmin ? 'flex' : 'none';
+  $('#exportActionRow').style.display = 'block';
   $('#calendarHint').style.display = state.isAdmin ? '' : 'none';
 
   state.selectedEmployeeId = user.id;
@@ -210,7 +213,7 @@ async function loadPublicEmployees() {
   const { data, error } = await supabase
     .from('profiles_public').select('*').order('full_name');
   if (error) { console.error(error); return; }
-  state.employees = sortEmployees(data || []);   // ⭐ sort
+  state.employees = sortEmployees(data || []);
 
   if (state.employees.length && !state.selectedEmployeeId) {
     state.selectedEmployeeId = state.employees[0].id;
@@ -228,7 +231,7 @@ async function loadEmployees() {
 
   const { data, error } = await supabase.from('profiles').select('*').order('full_name');
   if (error) { console.error(error); toast('Không tải được nhân viên'); return; }
-  state.employees = sortEmployees(data || []);   // ⭐ sort
+  state.employees = sortEmployees(data || []);
 
   if (state.selectedEmployeeId && !state.employees.find(e => e.id === state.selectedEmployeeId)) {
     state.selectedEmployeeId = state.user?.id || (state.employees[0]?.id ?? null);
@@ -557,12 +560,10 @@ async function loadBuildings() {
     state.floors = floors || [];
   } else state.floors = [];
 
-  // ⭐ Load assignments hôm nay
   await loadTodayAssignments();
   renderBuildings();
 }
 
-// ⭐ Load ai đang được phân công vào tầng nào hôm nay
 async function loadTodayAssignments() {
   const todayStr = toDateStr(new Date());
   const { data, error } = await supabase
@@ -591,7 +592,6 @@ async function loadTodayAssignments() {
   }
   state.floorAssignments = map;
 
-  // Update hint
   const hint = $('#areasHint');
   if (hint) {
     hint.textContent = `📅 Đang hiển thị nhân viên được phân công hôm nay (${formatDateVN(todayStr)})`;
@@ -609,7 +609,6 @@ function renderBuildings() {
       .sort((a, c) => a.floor_number - c.floor_number);
 
     const floorRows = floors.map(f => {
-      // ⭐ Lấy assignees của tầng này
       const userIds = state.floorAssignments[f.id] || [];
       const assignees = userIds
         .map(id => state.employees.find(e => e.id === id))
@@ -654,7 +653,6 @@ function renderBuildings() {
   wrap.querySelectorAll('[data-delete]').forEach(btn =>
     btn.addEventListener('click', () => deleteBuilding(btn.dataset.delete)));
 
-  // ⭐ Bind phone link trong buildings
   wrap.querySelectorAll('[data-phone]').forEach(el => {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -1189,9 +1187,9 @@ async function saveAttendance() {
   if (wasSelection) exitSelectionMode();
 
   await loadAttendanceForMonth();
-  await loadTodayAssignments();       // ⭐ refresh assignments
+  await loadTodayAssignments();
   renderCalendar();
-  renderBuildings();                  // ⭐ refresh tab Khu vực
+  renderBuildings();
 }
 
 /* ============ SELECTION MODE ============ */
@@ -1377,7 +1375,7 @@ async function bulkCopySubmit() {
   toast(`Đã copy ${payloads.length} bản ghi ✓`);
   closeModal('bulkCopyModal');
   await loadAttendanceForMonth();
-  await loadTodayAssignments();       // ⭐ refresh
+  await loadTodayAssignments();
   renderCalendar();
   renderBuildings();
 }
@@ -1443,6 +1441,22 @@ function bindEvents() {
     if (e.target.id === 'bulkCopyModal') closeModal('bulkCopyModal');
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
+
+  // ⭐ Export Excel
+  $('#exportExcelBtn').addEventListener('click', () => {
+    if (exportModule) exportModule.openExportModal();
+  });
+  $('#exportModal').addEventListener('click', (e) => {
+    if (e.target.id === 'exportModal') closeModal('exportModal');
+  });
+  $('#exportSubmitBtn').addEventListener('click', () => {
+    if (exportModule) exportModule.doExport();
+  });
+  $$('input[name="exportScope"]').forEach(r => {
+    r.addEventListener('change', () => {
+      $('#exportOnePersonGroup').style.display = r.value === 'one' ? 'block' : 'none';
+    });
+  });
 
   $('#attendanceModal').addEventListener('click', (e) => {
     if (e.target.id === 'attendanceModal') closeModal('attendanceModal');
@@ -1520,6 +1534,14 @@ function bindEvents() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Khởi tạo export module
+  exportModule = initExportModule({
+    state,
+    toast,
+    openModal,
+    closeModal,
+  });
+
   bindEvents();
   initAuth();
 });
