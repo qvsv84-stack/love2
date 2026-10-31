@@ -32,7 +32,7 @@ body {
 
 #app { max-width: 520px; margin: 0 auto; min-height: 100vh; background: var(--bg); }
 
-/* Header */
+/* ============ Header ============ */
 .app-header {
   background: linear-gradient(135deg, var(--ocean-500), var(--ocean-700));
   color: white;
@@ -54,7 +54,7 @@ body {
 }
 .btn-icon:hover { background: rgba(255,255,255,0.25); }
 
-/* Loading */
+/* ============ Loading ============ */
 .loading-screen {
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; padding: 80px 20px; gap: 16px;
@@ -67,7 +67,7 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Login */
+/* ============ Login ============ */
 .login-screen { padding: 40px 20px; }
 .login-card {
   background: var(--card); border-radius: var(--radius);
@@ -76,7 +76,7 @@ body {
 .login-card h2 { font-size: 22px; color: var(--ocean-700); margin-bottom: 4px; }
 .login-hint { font-size: 13px; color: var(--text-muted); margin-bottom: 22px; }
 
-/* Forms */
+/* ============ Forms ============ */
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
 .input, .select-input {
@@ -98,6 +98,7 @@ body {
 }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(14,165,183,0.3); }
 .btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn-secondary {
   padding: 11px 20px; font-size: 14px; font-weight: 600;
   background: var(--ocean-100); color: var(--ocean-700);
@@ -110,7 +111,7 @@ body {
 }
 .error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; text-align: center; }
 
-/* Tabs */
+/* ============ Tabs ============ */
 .tabs {
   display: flex; gap: 6px; padding: 14px 16px 0;
   background: var(--bg); position: sticky; top: 76px; z-index: 40;
@@ -131,7 +132,7 @@ body {
 .tab-content.active { display: block; animation: fadeIn 0.25s; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Employee panel */
+/* ============ Employee panel ============ */
 .employee-panel { margin-bottom: 16px; }
 .emp-selector-row {
   display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
@@ -150,7 +151,7 @@ body {
 .stat-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
 .stat-value { display: block; font-size: 15px; font-weight: 700; color: var(--ocean-600); }
 
-/* Month nav */
+/* ============ Month nav ============ */
 .month-nav {
   display: flex; align-items: center; justify-content: space-between;
   margin: 18px 0 12px;
@@ -158,7 +159,7 @@ body {
 .month-nav h2 { font-size: 16px; color: var(--ocean-700); font-weight: 700; }
 .month-nav .btn-icon { background: var(--ocean-100); color: var(--ocean-700); }
 
-/* Calendar */
+/* ============ Calendar ============ */
 .calendar-wrap {
   background: var(--card); border-radius: var(--radius);
   padding: 14px; box-shadow: var(--shadow); border: 1.5px solid var(--border);
@@ -193,14 +194,14 @@ body {
 }
 .cal-day.off-day .day-hours { color: var(--danger); }
 
-/* Hint */
+/* ============ Hint ============ */
 .hint {
   font-size: 12px; color: var(--text-muted); text-align: center;
   margin-top: 14px; padding: 10px; background: var(--ocean-50);
   border-radius: 10px; border: 1px dashed var(--ocean-200);
 }
 
-/* Section header */
+/* ============ Section header ============ */
 .section-header {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 14px;
@@ -208,7 +209,7 @@ body {
 .section-header h2 { font-size: 17px; color: var(--ocean-700); }
 .section-header .btn-primary { width: auto; padding: 10px 16px; font-size: 13px; }
 
-/* Buildings */
+/* ============ Buildings ============ */
 .buildings-list { display: flex; flex-direction: column; gap: 12px; }
 .building-card {
   background: var(--card); border-radius: var(--radius);
@@ -233,7 +234,7 @@ body {
 .floor-row .floor-hours { color: var(--ocean-600); font-weight: 700; }
 .building-actions { margin-top: 10px; display: flex; gap: 8px; }
 
-/* Employees list */
+/* ============ Employees list ============ */
 .employees-list { display: flex; flex-direction: column; gap: 10px; }
 .employee-card {
   background: var(--card); border-radius: var(--radius);
@@ -246,14 +247,14 @@ body {
   color: white; display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 16px; flex-shrink: 0;
 }
-.emp-info { flex: 1; }
+.emp-info { flex: 1; min-width: 0; }
 .emp-info .emp-fullname { font-size: 14px; font-weight: 600; color: var(--text); }
 .emp-info .emp-pos { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .emp-info .emp-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 4px; }
 .status-active { background: #dcfce7; color: var(--success); }
 .status-inactive { background: #fee2e2; color: var(--danger); }
 
-/* Modal */
+/* ============ Modal ============ */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(15, 46, 51, 0.55);
   display: flex; align-items: flex-end; justify-content: center;
@@ -285,7 +286,7 @@ body {
 .modal-footer .btn-primary { flex: 1; }
 .modal-footer .btn-secondary { flex: 0 0 auto; }
 
-/* Radio */
+/* ============ Radio ============ */
 .radio-group { display: flex; flex-direction: column; gap: 8px; }
 .radio {
   display: flex; align-items: center; gap: 10px; padding: 11px 14px;
@@ -295,7 +296,7 @@ body {
 .radio:has(input:checked) { background: var(--ocean-100); border-color: var(--ocean-500); }
 .radio input { accent-color: var(--ocean-500); width: 18px; height: 18px; }
 
-/* Area picker */
+/* ============ Area picker ============ */
 .area-picker { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
 .area-entry {
   display: flex; gap: 8px; align-items: center;
@@ -304,14 +305,29 @@ body {
   flex: 1; padding: 10px 12px; font-size: 14px;
   border: 1.5px solid var(--border); border-radius: 9px;
   background: var(--ocean-50); font-family: inherit;
+  min-width: 0;
+}
+.area-entry select:focus {
+  outline: none; border-color: var(--ocean-500);
+  background: white; box-shadow: 0 0 0 3px var(--ocean-100);
 }
 .area-entry .remove-area {
   background: #fef2f2; color: var(--danger); border: none;
   width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
   font-size: 16px; flex-shrink: 0;
 }
+.area-entry .area-hours-input {
+  flex: 0 0 68px; padding: 10px 8px; font-size: 14px;
+  border: 1.5px solid var(--border); border-radius: 9px;
+  background: var(--ocean-50); font-family: inherit;
+  text-align: center; min-width: 0;
+}
+.area-entry .area-hours-input:focus {
+  outline: none; border-color: var(--ocean-500);
+  background: white; box-shadow: 0 0 0 3px var(--ocean-100);
+}
 
-/* Preview */
+/* ============ Preview ============ */
 .preview-box {
   display: flex; justify-content: space-between; align-items: center;
   background: linear-gradient(135deg, var(--ocean-100), var(--primary-light));
@@ -320,7 +336,7 @@ body {
 }
 .preview-box strong { font-size: 20px; }
 
-/* Floors form */
+/* ============ Floors form ============ */
 .floors-form { display: flex; flex-direction: column; gap: 12px; }
 .floor-form-row {
   display: flex; gap: 8px; align-items: center;
@@ -330,33 +346,30 @@ body {
   background: var(--ocean-100); padding: 8px 10px; border-radius: 8px;
   white-space: nowrap; min-width: 60px; text-align: center;
 }
-.floor-form-row input { flex: 1; padding: 10px 12px; font-size: 14px; border: 1.5px solid var(--border); border-radius: 9px; background: var(--ocean-50); font-family: inherit; }
+.floor-form-row input {
+  flex: 1; padding: 10px 12px; font-size: 14px;
+  border: 1.5px solid var(--border); border-radius: 9px;
+  background: var(--ocean-50); font-family: inherit;
+}
 .floor-form-row input.hours-input { flex: 0 0 80px; }
 
-/* Toast */
+/* ============ Toast ============ */
 .toast {
   position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
   background: var(--text); color: white; padding: 12px 22px;
   border-radius: 30px; font-size: 14px; font-weight: 500;
   z-index: 200; box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   animation: toastIn 0.3s;
+  max-width: 90vw;
+  text-align: center;
 }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
-/* Responsive */
+/* ============ Responsive ============ */
 @media (max-width: 380px) {
   .summary-stats { grid-template-columns: repeat(3, 1fr); }
   .stat-label { font-size: 10px; }
   .stat-value { font-size: 13px; }
-}
-/* OT area hours input */
-.area-entry .area-hours-input {
-  flex: 0 0 68px; padding: 10px 8px; font-size: 14px;
-  border: 1.5px solid var(--border); border-radius: 9px;
-  background: var(--ocean-50); font-family: inherit;
-  text-align: center;
-}
-.area-entry .area-hours-input:focus {
-  outline: none; border-color: var(--ocean-500);
-  background: white; box-shadow: 0 0 0 3px var(--ocean-100);
+  .area-entry select { font-size: 13px; padding: 9px 8px; }
+  .area-entry .area-hours-input { flex: 0 0 56px; font-size: 13px; padding: 9px 4px; }
 }
