@@ -19,17 +19,16 @@ function floorLabel(n) { return n === 0 ? 'Trệt' : `Tầng ${n}`; }
 
 /* ============ MAIN ENTRY ============ */
 export function initExportModule(ctx) {
-  // ctx = { state, toast, openModal, closeModal }
   const { state, toast } = ctx;
 
   function openExportModal() {
-    // Default = tháng hiện tại đang xem
     const y = state.currentMonth.getFullYear();
     const m = state.currentMonth.getMonth() + 1;
     $('#exportMonth').value = `${y}-${pad(m)}`;
     $('#exportRole').value = 'all';
     $('#exportStatus').value = 'all';
-    document.querySelector('input[name="exportScope"][value="all"]').checked = true;
+    const allRadio = document.querySelector('input[name="exportScope"][value="all"]');
+    if (allRadio) allRadio.checked = true;
     $('#exportOnePersonGroup').style.display = 'none';
     $('#exportError').textContent = '';
     fillEmployeeSelectForExport();
@@ -79,10 +78,10 @@ export function initExportModule(ctx) {
     const startDate = `${year}-${pad(month)}-01`;
     const endDate = `${year}-${pad(month)}-${pad(daysInMonth)}`;
 
-    // 2. Query profiles (view public - dùng được cho cả guest)
     const btn = $('#exportSubmitBtn');
     btn.disabled = true; btn.textContent = 'Đang xử lý...';
 
+    // 2. Query profiles
     const { data: profiles, error: e1 } = await supabase
       .from('profiles_public')
       .select('*')
@@ -135,7 +134,7 @@ export function initExportModule(ctx) {
     }
 
     // 5. Build dữ liệu
-    const attByEmpDay = {};  // emp_id -> { day: attRow }
+    const attByEmpDay = {};
     for (const a of attendance || []) {
       if (!attByEmpDay[a.employee_id]) attByEmpDay[a.employee_id] = {};
       const day = Number(a.date.split('-')[2]);
@@ -196,7 +195,6 @@ export function initExportModule(ctx) {
     const buildingMap = {};
     for (const b of state.buildings) buildingMap[b.id] = b;
 
-    // Sort attendance theo ngày tăng dần
     const sortedAtt = [...(attendance || [])].sort((a, b) => a.date.localeCompare(b.date));
 
     for (const a of sortedAtt) {
@@ -247,7 +245,7 @@ export function initExportModule(ctx) {
       ...Array(daysInMonth).fill({ wch: 4 }),
       { wch: 10 }, { wch: 10 },
     ];
-    const lastCol1 = 4 + daysInMonth + 2 - 1;  // 0-indexed cột cuối
+    const lastCol1 = 4 + daysInMonth + 2 - 1;
     ws1['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol1 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol1 } },
@@ -272,15 +270,62 @@ export function initExportModule(ctx) {
     }
     fn += '.xlsx';
 
+    // 10. Xuất file — hỗ trợ cả iOS Safari và desktop
     try {
-      XLSX.writeFile(wb, fn);
-      toast('✅ Đã xuất file: ' + fn);
-      ctx.closeModal('exportModal');
+      // Tạo file dạng Blob (tương thích iOS + desktop)
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const blob = new Blob([wbout], { type: mimeType });
+      const file = new File([blob], fn, { type: mimeType });
+
+      // iOS 15+ Safari: dùng Web Share API → hiện share sheet
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const canShareFile = navigator.canShare && navigator.canShare({ files: [file] });
+
+      if (isIOS && canShareFile) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Bảng chấm công',
+            text: fn,
+          });
+          toast('✅ Đã chia sẻ file');
+          ctx.closeModal('exportModal');
+        } catch (shareErr) {
+          // User bấm Cancel trên share sheet → không phải lỗi thật
+          if (shareErr.name === 'AbortError') {
+            btn.disabled = false; btn.textContent = 'Xuất file';
+            return;
+          }
+          // Share fail → fallback về download
+          downloadBlob(blob, fn);
+          toast('✅ Đã tải file: ' + fn);
+          ctx.closeModal('exportModal');
+        }
+      } else {
+        // Desktop hoặc iOS cũ → download truyền thống
+        downloadBlob(blob, fn);
+        toast('✅ Đã tải file: ' + fn);
+        ctx.closeModal('exportModal');
+      }
     } catch (err) {
       errEl.textContent = 'Lỗi tạo file: ' + err.message;
     }
 
     btn.disabled = false; btn.textContent = 'Xuất file';
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
   }
 
   function roleLabelOf(p) {
