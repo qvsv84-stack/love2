@@ -3,11 +3,13 @@ import { supabase } from './supabase.js';
 
 const DEFAULT_DOMAIN = 'skyone.vn';
 const LS_KEY = 'cc_saved_login';
+const SUPERVISOR_HOURS = 8;
 
 const state = {
   user: null,
   profile: null,
   isAdmin: false,
+  isSupervisorMode: false,
   employees: [],
   selectedEmployeeId: null,
   buildings: [],
@@ -104,7 +106,6 @@ async function onLoggedIn(user) {
   $('#empSelectorRow').style.display = state.isAdmin ? '' : 'none';
   $('#calendarHint').style.display = state.isAdmin ? '' : 'none';
 
-  // Mọi role mặc định xem lịch của chính mình
   state.selectedEmployeeId = user.id;
   switchTab('calendar');
 
@@ -117,8 +118,8 @@ async function onLoggedIn(user) {
 async function handleLogout() {
   await supabase.auth.signOut();
   Object.assign(state, {
-    user: null, profile: null, isAdmin: false, employees: [],
-    selectedEmployeeId: null, buildings: [], floors: [],
+    user: null, profile: null, isAdmin: false, isSupervisorMode: false,
+    employees: [], selectedEmployeeId: null, buildings: [], floors: [],
     attendance: [], editingDate: null, modalAreas: [], modalOtAreas: [],
     floorSetupBuildingId: null,
   });
@@ -208,10 +209,7 @@ async function toggleEmployeeStatus(userId, currentStatus) {
   const { error } = await supabase.rpc('admin_set_user_status', {
     p_user_id: userId, p_status: newStatus,
   });
-  if (error) {
-    toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, ''));
-    return;
-  }
+  if (error) { toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, '')); return; }
   toast(newStatus === 'inactive' ? '⏸ Đã vô hiệu hoá' : '▶ Đã kích hoạt');
   await loadEmployees();
 }
@@ -427,17 +425,46 @@ function updateSummary() {
   $('#sumOT').textContent = formatHours(ot);
 }
 
+/* ============ OPEN ATTENDANCE MODAL ============ */
 async function openAttendanceModal(dateStr) {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
   state.editingDate = dateStr;
 
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
-  $('#attModalTitle').textContent = `Chấm công — ${emp?.full_name || ''} — ${dateStr}`;
+  const targetIsSupervisor = emp?.role === 'admin';
+  state.isSupervisorMode = targetIsSupervisor;
 
+  $('#attModalTitle').textContent = `Chấm công — ${emp?.full_name || ''} — ${dateStr}`;
+  $('#supervisorModeSection').style.display = targetIsSupervisor ? 'block' : 'none';
+  $('#employeeModeSection').style.display = targetIsSupervisor ? 'none' : 'block';
+
+  if (targetIsSupervisor) openSupervisorModeContent(dateStr);
+  else openEmployeeModeContent(dateStr);
+
+  updatePreview();
+  openModal('attendanceModal');
+}
+
+function openSupervisorModeContent(dateStr) {
   const existing = state.attendance.find(a => a.date === dateStr);
 
-  // Lọc entry trỏ tới building/floor đã bị xoá
+  let mode = 'default';
+  let otH = 0;
+  if (existing) {
+    if (existing.is_off) mode = 'off';
+    else if (Number(existing.ot_hours) > 0) mode = 'ot';
+    otH = Number(existing.ot_hours || 0);
+  }
+
+  $$('input[name="supMode"]').forEach(r => r.checked = r.value === mode);
+  $('#supOtHours').value = otH > 0 ? otH : '';
+  toggleSupOtGroup(mode);
+}
+
+function openEmployeeModeContent(dateStr) {
+  const existing = state.attendance.find(a => a.date === dateStr);
+
   const validFloorIds = new Set(state.floors.map(f => f.id));
   const validBuildingIds = new Set(state.buildings.map(b => b.id));
 
@@ -445,21 +472,15 @@ async function openAttendanceModal(dateStr) {
   if (existing && Array.isArray(existing.areas) && existing.areas.length) {
     state.modalAreas = existing.areas
       .filter(a => validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id))
-      .map(a => ({
-        building_id: a.building_id,
-        floor_id: a.floor_id,
-        hours: Number(a.hours || 0),
-      }));
-    if (!state.modalAreas.length) {
-      state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
-    }
+      .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: Number(a.hours || 0) }));
+    if (!state.modalAreas.length) state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
   } else if (existing && existing.is_off) {
     state.modalAreas = [];
   } else {
     state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
   }
 
-  // Khu vực tăng ca — hours = null nghĩa là auto-follow floor.default_hours
+  // Khu vực tăng ca
   if (existing && Array.isArray(existing.ot_areas) && existing.ot_areas.length) {
     state.modalOtAreas = existing.ot_areas
       .filter(a => validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id))
@@ -483,11 +504,9 @@ async function openAttendanceModal(dateStr) {
   $$('input[name="attMode"]').forEach(r => r.checked = r.value === mode);
   toggleModeSections(mode);
   $('#manualHours').value = existing?.manual_hours ?? '';
-  updatePreview();
-  openModal('attendanceModal');
 }
 
-/* ============ AREA PICKER (dùng chung cho main + OT) ============ */
+/* ============ AREA PICKER ============ */
 function renderAreaPickerInto(wrapId, areasState, isOt) {
   const rerender = () => renderAreaPickerInto(wrapId, areasState, isOt);
   const wrap = $('#' + wrapId);
@@ -511,7 +530,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
     let hoursInput = '';
     if (isOt) {
       const floor = entry.floor_id ? state.floors.find(x => x.id === entry.floor_id) : null;
-      // Nếu hours = null → để trống, placeholder hiển thị giờ mặc định của floor
       const displayVal = entry.hours != null ? entry.hours : '';
       const placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
       hoursInput = `<input type="number" class="area-hours-input" data-hours-idx="${idx}"
@@ -545,7 +563,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
     fSel.addEventListener('change', () => {
       areasState[idx].floor_id = fSel.value;
       if (isOt) {
-        // Reset về auto-follow floor
         areasState[idx].hours = null;
         if (hInput) {
           const floor = state.floors.find(x => x.id === fSel.value);
@@ -553,7 +570,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
           hInput.placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
         }
       } else {
-        // Khu vực chính: giữ hours theo floor hiện tại (dùng cho legacy)
         const floor = state.floors.find(x => x.id === fSel.value);
         areasState[idx].hours = floor ? Number(floor.default_hours || 0) : 0;
       }
@@ -584,16 +600,26 @@ function renderOtAreaPicker() {
   renderAreaPickerInto('otAreaPicker', state.modalOtAreas, true);
 }
 
+/* ============ MODE TOGGLES ============ */
 function toggleModeSections(mode) {
   $('#manualHoursGroup').style.display = mode === 'manual' ? 'block' : 'none';
   $('#mainAreaSection').style.display = mode === 'default' ? 'block' : 'none';
   $('#otSection').style.display = mode === 'off' ? 'none' : 'block';
 }
 
+function toggleSupOtGroup(mode) {
+  $('#supOtGroup').style.display = mode === 'ot' ? 'block' : 'none';
+}
+
 function getSelectedMode() {
   return document.querySelector('input[name="attMode"]:checked')?.value || 'default';
 }
 
+function getSelectedSupMode() {
+  return document.querySelector('input[name="supMode"]:checked')?.value || 'default';
+}
+
+/* ============ HOURS CALC ============ */
 function computeMainHours() {
   const mode = getSelectedMode();
   if (mode === 'off') return 0;
@@ -622,7 +648,19 @@ function computeOtHours() {
   return h;
 }
 
+/* ============ PREVIEW ============ */
 function updatePreview() {
+  if (state.isSupervisorMode) {
+    const mode = getSelectedSupMode();
+    const isOff = mode === 'off';
+    const mainH = isOff ? 0 : SUPERVISOR_HOURS;
+    const otH = mode === 'ot' ? Number($('#supOtHours').value || 0) : 0;
+    $('#supMainPreview').textContent = isOff ? 'OFF' : formatHours(SUPERVISOR_HOURS);
+    $('#supOtPreview').textContent = formatHours(otH);
+    $('#supTotalPreview').textContent = formatHours(mainH + otH);
+    return;
+  }
+
   const mode = getSelectedMode();
   const mainH = computeMainHours();
   const otH = mode === 'off' ? 0 : computeOtHours();
@@ -632,10 +670,47 @@ function updatePreview() {
   $('#shareNote').style.display = (mode === 'default' && mainH > 0) ? 'block' : 'none';
 }
 
+/* ============ SAVE ATTENDANCE ============ */
 async function saveAttendance() {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId || !state.editingDate) return;
 
+  if (state.isSupervisorMode) return saveSupervisorAttendance();
+  return saveEmployeeAttendance();
+}
+
+async function saveSupervisorAttendance() {
+  const mode = getSelectedSupMode();
+  const isOff = mode === 'off';
+  const otH = mode === 'ot' ? Number($('#supOtHours').value || 0) : 0;
+
+  if (mode === 'ot' && otH <= 0) {
+    toast('Nhập số giờ tăng ca (> 0)'); return;
+  }
+
+  const payload = {
+    employee_id: state.selectedEmployeeId,
+    date: state.editingDate,
+    total_hours: isOff ? 0 : SUPERVISOR_HOURS,
+    ot_hours: isOff ? 0 : otH,
+    is_off: isOff,
+    // mode='manual' để recalc_day_attendance KHÔNG ghi đè
+    mode: isOff ? 'off' : 'manual',
+    manual_hours: isOff ? null : SUPERVISOR_HOURS,
+    areas: [],
+    ot_areas: [],
+  };
+
+  const { error } = await supabase
+    .from('attendance').upsert(payload, { onConflict: 'employee_id,date' });
+  if (error) { toast('Lưu thất bại: ' + error.message); return; }
+  toast('Đã lưu chấm công ✓');
+  closeModal('attendanceModal');
+  await loadAttendanceForMonth();
+  renderCalendar();
+}
+
+async function saveEmployeeAttendance() {
   const mode = getSelectedMode();
   const mainH = computeMainHours();
   const otH = mode === 'off' ? 0 : computeOtHours();
@@ -660,7 +735,6 @@ async function saveAttendance() {
       .map(a => ({
         building_id: a.building_id,
         floor_id: a.floor_id,
-        // null = để server tự lấy default_hours của floor
         hours: a.hours != null && !isNaN(a.hours) ? Number(a.hours) : null,
       })),
   };
@@ -668,8 +742,6 @@ async function saveAttendance() {
   const { error } = await supabase
     .from('attendance').upsert(payload, { onConflict: 'employee_id,date' });
   if (error) { toast('Lưu thất bại: ' + error.message); return; }
-
-  // Trigger trg_attendance_recalc đã tự recalc — không cần RPC
   toast('Đã lưu chấm công ✓');
   closeModal('attendanceModal');
   await loadAttendanceForMonth();
@@ -788,10 +860,18 @@ function bindEvents() {
   $('#attendanceModal').addEventListener('click', (e) => {
     if (e.target.id === 'attendanceModal') closeModal('attendanceModal');
   });
+
+  // Employee mode radios
   $$('input[name="attMode"]').forEach(r => r.addEventListener('change', () => {
     toggleModeSections(r.value); updatePreview();
   }));
   $('#manualHours').addEventListener('input', updatePreview);
+
+  // Supervisor mode radios
+  $$('input[name="supMode"]').forEach(r => r.addEventListener('change', () => {
+    toggleSupOtGroup(r.value); updatePreview();
+  }));
+  $('#supOtHours').addEventListener('input', updatePreview);
 
   $('#addMainAreaBtn').addEventListener('click', () => {
     state.modalAreas.push({ building_id: '', floor_id: '', hours: 0 });
