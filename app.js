@@ -12,7 +12,6 @@ const ROLE_LABELS = {
   employee: 'Nhân viên',
 };
 
-// Thứ tự sắp xếp: Giám sát → Nhân viên → Thời vụ
 const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3 };
 
 const state = {
@@ -1442,7 +1441,7 @@ function bindEvents() {
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
 
-  // ⭐ Export Excel
+  // ============ EXPORT EXCEL ============
   $('#exportExcelBtn').addEventListener('click', () => {
     if (exportModule) exportModule.openExportModal();
   });
@@ -1457,7 +1456,12 @@ function bindEvents() {
       $('#exportOnePersonGroup').style.display = r.value === 'one' ? 'block' : 'none';
     });
   });
+  // ⭐ Đổi tháng → reload data cache trong export module
+  $('#exportMonth').addEventListener('change', () => {
+    if (exportModule) exportModule.onMonthChanged();
+  });
 
+  // ============ ATTENDANCE MODAL ============
   $('#attendanceModal').addEventListener('click', (e) => {
     if (e.target.id === 'attendanceModal') closeModal('attendanceModal');
   });
@@ -1534,7 +1538,6 @@ function bindEvents() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Khởi tạo export module
   exportModule = initExportModule({
     state,
     toast,
