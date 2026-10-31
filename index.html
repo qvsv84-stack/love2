@@ -63,11 +63,13 @@
       </nav>
 
       <section id="tab-calendar" class="tab-content active">
+        <!-- Guest banner -->
         <div id="guestBanner" class="guest-banner" style="display:none">
           <p>🔑 Đăng nhập để chấm công và quản lý</p>
           <button id="guestLoginBtn" class="btn-primary">Đăng nhập</button>
         </div>
 
+        <!-- Employee panel -->
         <div class="employee-panel">
           <div class="emp-selector-row" id="empSelectorRow" style="display:none">
             <label>Nhân viên:</label>
@@ -92,9 +94,15 @@
           <button id="nextMonth" class="btn-icon">▶</button>
         </div>
 
+        <!-- Admin actions (multi-select, bulk copy) -->
         <div id="calendarActions" style="display:none">
           <button id="selectionToggleBtn" class="btn-secondary">☑️ Chọn nhiều ngày</button>
           <button id="bulkCopyBtn" class="btn-secondary">📋 Copy ngày</button>
+        </div>
+
+        <!-- Export action (mọi người) -->
+        <div id="exportActionRow" style="display:none; margin-bottom:12px">
+          <button id="exportExcelBtn" class="btn-secondary" style="width:100%">📥 Xuất Excel</button>
         </div>
 
         <div class="calendar-wrap">
@@ -136,6 +144,7 @@
         <div class="modal-body">
           <p id="prefillNote" class="prefill-note" style="display:none"></p>
 
+          <!-- SUPERVISOR MODE -->
           <div id="supervisorModeSection" style="display:none">
             <div class="form-group">
               <label>Chế độ chấm công <span style="font-weight:400;color:var(--text-muted);font-size:11px">(Giám sát)</span></label>
@@ -166,6 +175,7 @@
             </div>
           </div>
 
+          <!-- EMPLOYEE MODE -->
           <div id="employeeModeSection">
             <div class="form-group">
               <label>1️⃣ Khu vực chính <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tính công thường)</span></label>
@@ -386,6 +396,61 @@
       </div>
     </div>
 
+    <!-- MODAL: Xuất Excel -->
+    <div id="exportModal" class="modal-overlay center" style="display:none">
+      <div class="modal" style="max-width:440px">
+        <div class="modal-header">
+          <h3>📥 Xuất bảng chấm công</h3>
+          <button class="btn-close" data-close="exportModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Tháng</label>
+            <input type="month" id="exportMonth" class="input" />
+          </div>
+          <div class="form-group">
+            <label>Vai trò</label>
+            <select id="exportRole" class="input">
+              <option value="all">Tất cả vai trò</option>
+              <option value="admin">Chỉ Giám sát</option>
+              <option value="employee">Chỉ Nhân viên</option>
+              <option value="temporary">Chỉ Thời vụ</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Trạng thái</label>
+            <select id="exportStatus" class="input">
+              <option value="all">Tất cả</option>
+              <option value="active">Đang làm</option>
+              <option value="inactive">Đã vô hiệu</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Phạm vi</label>
+            <div class="radio-group">
+              <label class="radio">
+                <input type="radio" name="exportScope" value="all" checked />
+                <span>Toàn bộ (theo bộ lọc trên)</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="exportScope" value="one" />
+                <span>Chỉ 1 người</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group" id="exportOnePersonGroup" style="display:none">
+            <label>Chọn nhân viên</label>
+            <select id="exportOnePerson" class="input"></select>
+          </div>
+          <p class="error-msg" id="exportError" style="text-align:left"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" data-close="exportModal">Huỷ</button>
+          <button id="exportSubmitBtn" class="btn-primary">Xuất file</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Selection bar -->
     <div id="selectionBar" class="selection-bar" style="display:none;">
       <div class="selection-bar-inner">
@@ -398,6 +463,8 @@
     <div id="toast" class="toast" style="display:none"></div>
   </div>
 
+  <!-- SheetJS CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
