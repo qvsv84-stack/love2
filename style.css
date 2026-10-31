@@ -30,7 +30,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#app { max-width: 520px; margin: 0 auto; min-height: 100vh; background: var(--bg); }
+#app { max-width: 520px; margin: 0 auto; min-height: 100vh; background: var(--bg); padding-bottom: 80px; }
 
 /* ============ Header ============ */
 .app-header {
@@ -103,7 +103,9 @@ body {
   padding: 11px 20px; font-size: 14px; font-weight: 600;
   background: var(--ocean-100); color: var(--ocean-700);
   border: none; border-radius: 10px; cursor: pointer; font-family: inherit;
+  transition: 0.2s;
 }
+.btn-secondary:hover { background: var(--ocean-200); }
 .btn-small {
   font-size: 12px; padding: 7px 12px; background: var(--ocean-100);
   color: var(--ocean-700); border: none; border-radius: 8px;
@@ -159,6 +161,16 @@ body {
 .month-nav h2 { font-size: 16px; color: var(--ocean-700); font-weight: 700; }
 .month-nav .btn-icon { background: var(--ocean-100); color: var(--ocean-700); }
 
+/* ============ Calendar Actions (multi-select + bulk copy) ============ */
+#calendarActions {
+  display: flex; gap: 8px; margin-bottom: 12px;
+}
+#calendarActions button { flex: 1; }
+
+#selectionToggleBtn.active {
+  background: var(--ocean-500); color: white;
+}
+
 /* ============ Calendar ============ */
 .calendar-wrap {
   background: var(--card); border-radius: var(--radius);
@@ -188,17 +200,58 @@ body {
 .cal-day.has-data { background: var(--ocean-100); color: var(--ocean-700); border-color: var(--ocean-200); }
 .cal-day.off-day { background: #fef3f2; color: var(--danger); border-color: #fecaca; }
 .cal-day.today { border-color: var(--ocean-500); box-shadow: 0 0 0 2px var(--ocean-100); }
+
+/* Selected state (multi-select mode) */
+.cal-day.selected {
+  background: var(--ocean-500) !important;
+  color: white !important;
+  border-color: var(--ocean-700) !important;
+  box-shadow: 0 0 0 2px var(--ocean-200) !important;
+}
+.cal-day.selected .day-hours { color: white !important; }
+
 .cal-day .day-hours {
   font-size: 9px; font-weight: 700; color: var(--ocean-600);
   margin-top: 1px; line-height: 1;
 }
 .cal-day.off-day .day-hours { color: var(--danger); }
 
+/* ============ Selection bar (sticky bottom) ============ */
+.selection-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: white; padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
+  z-index: 60;
+}
+.selection-bar-inner {
+  display: flex; gap: 10px; align-items: center;
+  max-width: 520px; margin: 0 auto;
+}
+.selection-bar-inner #selectionCount {
+  flex: 1; font-size: 14px; font-weight: 600; color: var(--ocean-700);
+}
+.selection-bar-inner .btn-primary {
+  width: auto; padding: 10px 18px; font-size: 14px;
+}
+.selection-bar-inner .btn-secondary {
+  padding: 10px 14px; font-size: 13px;
+}
+
 /* ============ Hint ============ */
 .hint {
   font-size: 12px; color: var(--text-muted); text-align: center;
   margin-top: 14px; padding: 10px; background: var(--ocean-50);
   border-radius: 10px; border: 1px dashed var(--ocean-200);
+}
+
+/* ============ Prefill note (trong modal) ============ */
+.prefill-note {
+  font-size: 12px; color: var(--ocean-700);
+  background: var(--ocean-50); padding: 8px 12px;
+  border-radius: 8px; margin-bottom: 12px;
+  border: 1px dashed var(--ocean-200);
+  line-height: 1.4;
 }
 
 /* ============ Section header ============ */
@@ -372,4 +425,7 @@ body {
   .stat-value { font-size: 13px; }
   .area-entry select { font-size: 13px; padding: 9px 8px; }
   .area-entry .area-hours-input { flex: 0 0 56px; font-size: 13px; padding: 9px 4px; }
+  .selection-bar-inner #selectionCount { font-size: 13px; }
+  .selection-bar-inner .btn-primary { padding: 9px 14px; font-size: 13px; }
+  .selection-bar-inner .btn-secondary { padding: 9px 10px; font-size: 12px; }
 }
