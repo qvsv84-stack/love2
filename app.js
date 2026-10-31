@@ -11,6 +11,9 @@ const ROLE_LABELS = {
   employee: 'Nhân viên',
 };
 
+// ⭐ Thứ tự sắp xếp: Giám sát → Nhân viên → Thời vụ
+const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3 };
+
 const state = {
   user: null,
   profile: null,
@@ -31,6 +34,7 @@ const state = {
   selectedDates: new Set(),
   phoneActionNumber: '',
   editingEmployeeId: null,
+  floorAssignments: {},   // ⭐ floor_id -> [employee_id]
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -70,6 +74,25 @@ function roleLabelOf(p) {
   return p.position || ROLE_LABELS.employee;
 }
 
+// ⭐ Sort theo role, cùng role thì sort theo tên
+function sortEmployees(arr) {
+  return [...arr].sort((a, b) => {
+    const oa = ROLE_ORDER[a.role] || 99;
+    const ob = ROLE_ORDER[b.role] || 99;
+    if (oa !== ob) return oa - ob;
+    const na = a.full_name || a.username || '';
+    const nb = b.full_name || b.username || '';
+    return na.localeCompare(nb, 'vi');
+  });
+}
+
+// ⭐ Lấy tên ngắn (từ cuối): "Lê Văn Anh" → "Anh"
+function getShortName(fullName) {
+  if (!fullName) return '';
+  const parts = fullName.trim().split(/\s+/);
+  return parts[parts.length - 1];
+}
+
 function openModal(id) { $('#' + id).style.display = 'flex'; }
 function closeModal(id) { $('#' + id).style.display = 'none'; }
 
@@ -105,6 +128,7 @@ async function showGuestView() {
   state.selectionMode = false;
   state.selectedDates.clear();
   state.batchDates = null;
+  state.floorAssignments = {};
 
   $('#loading').style.display = 'none';
   $('#loginScreen').style.display = 'none';
@@ -186,7 +210,7 @@ async function loadPublicEmployees() {
   const { data, error } = await supabase
     .from('profiles_public').select('*').order('full_name');
   if (error) { console.error(error); return; }
-  state.employees = data || [];
+  state.employees = sortEmployees(data || []);   // ⭐ sort
 
   if (state.employees.length && !state.selectedEmployeeId) {
     state.selectedEmployeeId = state.employees[0].id;
@@ -204,7 +228,7 @@ async function loadEmployees() {
 
   const { data, error } = await supabase.from('profiles').select('*').order('full_name');
   if (error) { console.error(error); toast('Không tải được nhân viên'); return; }
-  state.employees = data || [];
+  state.employees = sortEmployees(data || []);   // ⭐ sort
 
   if (state.selectedEmployeeId && !state.employees.find(e => e.id === state.selectedEmployeeId)) {
     state.selectedEmployeeId = state.user?.id || (state.employees[0]?.id ?? null);
@@ -236,10 +260,9 @@ function renderEmployeeList() {
     const statusText = isActive ? 'Đang làm' : 'Đã vô hiệu';
     const roleLabel = roleLabelOf(e);
     const isSelf = e.id === state.user?.id;
-    const canManage = state.isAdmin && !isSelf;   // toggle/delete
-    const canEdit = state.isAdmin;                 // edit info (cho phép cả self)
+    const canManage = state.isAdmin && !isSelf;
+    const canEdit = state.isAdmin;
 
-    // Phone display
     let phoneHtml = '';
     if (e.phone) {
       phoneHtml = ` - <a class="phone-link" data-phone="${e.phone}" href="javascript:void(0)">${e.phone}</a>`;
@@ -247,7 +270,6 @@ function renderEmployeeList() {
       phoneHtml = ` - <a class="phone-link phone-link-add" data-emp-edit="${e.id}" href="javascript:void(0)">+ Thêm SĐT</a>`;
     }
 
-    // Role select
     const roleSelect = canManage ? `
       <select class="role-select" data-emp-role="${e.id}" data-current="${e.role}">
         <option value="admin" ${e.role === 'admin' ? 'selected' : ''}>${ROLE_LABELS.admin}</option>
@@ -255,7 +277,6 @@ function renderEmployeeList() {
         <option value="employee" ${e.role === 'employee' ? 'selected' : ''}>${ROLE_LABELS.employee}</option>
       </select>` : '';
 
-    // Action buttons
     let actionsHtml = '';
     if (canEdit) {
       const toggleBtn = canManage ? `
@@ -290,7 +311,6 @@ function renderEmployeeList() {
       </div>`;
   }).join('');
 
-  // Bind toggle / delete / role change
   wrap.querySelectorAll('[data-emp-toggle]').forEach(btn => {
     btn.addEventListener('click', () =>
       toggleEmployeeStatus(btn.dataset.empToggle, btn.dataset.current));
@@ -304,8 +324,6 @@ function renderEmployeeList() {
       changeEmployeeRole(sel.dataset.empRole, sel.value, sel.dataset.current);
     });
   });
-
-  // Bind phone link (call/copy)
   wrap.querySelectorAll('[data-phone]').forEach(el => {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -313,8 +331,6 @@ function renderEmployeeList() {
       showPhoneAction(el.dataset.phone);
     });
   });
-
-  // Bind edit (từ nút ✏️ và từ link "+ Thêm SĐT")
   wrap.querySelectorAll('[data-emp-edit]').forEach(el => {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -378,6 +394,7 @@ async function saveEditEmployee() {
   toast('Đã cập nhật nhân viên ✓');
   closeModal('editEmployeeModal');
   await loadEmployees();
+  if (state.isAdmin) renderBuildings();
   if (state.selectedEmployeeId === state.editingEmployeeId) updateSummary();
 }
 
@@ -484,7 +501,9 @@ async function deleteEmployee(userId, name) {
   toast('🗑 Đã xoá nhân viên');
   await loadEmployees();
   await loadAttendanceForMonth();
+  await loadTodayAssignments();
   renderCalendar();
+  renderBuildings();
 }
 
 /* ============ CREATE EMPLOYEE ============ */
@@ -537,7 +556,46 @@ async function loadBuildings() {
       .from('floors').select('*').in('building_id', ids).order('floor_number');
     state.floors = floors || [];
   } else state.floors = [];
+
+  // ⭐ Load assignments hôm nay
+  await loadTodayAssignments();
   renderBuildings();
+}
+
+// ⭐ Load ai đang được phân công vào tầng nào hôm nay
+async function loadTodayAssignments() {
+  const todayStr = toDateStr(new Date());
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('employee_id, areas, is_off')
+    .eq('date', todayStr)
+    .eq('is_off', false);
+
+  if (error) {
+    console.error(error);
+    state.floorAssignments = {};
+    return;
+  }
+
+  const map = {};
+  for (const a of data || []) {
+    if (!Array.isArray(a.areas)) continue;
+    for (const area of a.areas) {
+      const fid = area.floor_id;
+      if (!fid) continue;
+      if (!map[fid]) map[fid] = [];
+      if (!map[fid].includes(a.employee_id)) {
+        map[fid].push(a.employee_id);
+      }
+    }
+  }
+  state.floorAssignments = map;
+
+  // Update hint
+  const hint = $('#areasHint');
+  if (hint) {
+    hint.textContent = `📅 Đang hiển thị nhân viên được phân công hôm nay (${formatDateVN(todayStr)})`;
+  }
 }
 
 function renderBuildings() {
@@ -549,11 +607,36 @@ function renderBuildings() {
   wrap.innerHTML = state.buildings.map(b => {
     const floors = state.floors.filter(f => f.building_id === b.id)
       .sort((a, c) => a.floor_number - c.floor_number);
-    const floorRows = floors.map(f => `
-      <div class="floor-row">
-        <span class="floor-name">${floorLabel(f.floor_number)}</span>
-        <span class="floor-hours">${formatHours(f.default_hours)}</span>
-      </div>`).join('') || '<p class="hint" style="margin:0">Chưa setup tầng</p>';
+
+    const floorRows = floors.map(f => {
+      // ⭐ Lấy assignees của tầng này
+      const userIds = state.floorAssignments[f.id] || [];
+      const assignees = userIds
+        .map(id => state.employees.find(e => e.id === id))
+        .filter(Boolean);
+
+      let assigneesHtml = '';
+      if (assignees.length) {
+        const items = assignees.map(emp => {
+          const shortName = getShortName(emp.full_name || emp.username || '');
+          const phoneHtml = emp.phone
+            ? ` - <a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a>`
+            : '';
+          return `<div class="floor-assignee">${shortName}${phoneHtml}</div>`;
+        }).join('');
+        assigneesHtml = `<div class="floor-assignees-list">${items}</div>`;
+      }
+
+      const hasAssignees = assignees.length > 0;
+      return `
+        <div class="floor-row${hasAssignees ? ' has-assignees' : ''}">
+          <div class="floor-row-head">
+            <span class="floor-name">${floorLabel(f.floor_number)}</span>
+            <span class="floor-hours">${formatHours(f.default_hours)}</span>
+          </div>
+          ${assigneesHtml}
+        </div>`;
+    }).join('') || '<p class="hint" style="margin:0">Chưa setup tầng</p>';
 
     return `
       <div class="building-card" data-id="${b.id}">
@@ -570,6 +653,15 @@ function renderBuildings() {
     btn.addEventListener('click', () => openFloorSetup(btn.dataset.setup)));
   wrap.querySelectorAll('[data-delete]').forEach(btn =>
     btn.addEventListener('click', () => deleteBuilding(btn.dataset.delete)));
+
+  // ⭐ Bind phone link trong buildings
+  wrap.querySelectorAll('[data-phone]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      showPhoneAction(el.dataset.phone);
+    });
+  });
 }
 
 async function deleteBuilding(id) {
@@ -1097,7 +1189,9 @@ async function saveAttendance() {
   if (wasSelection) exitSelectionMode();
 
   await loadAttendanceForMonth();
+  await loadTodayAssignments();       // ⭐ refresh assignments
   renderCalendar();
+  renderBuildings();                  // ⭐ refresh tab Khu vực
 }
 
 /* ============ SELECTION MODE ============ */
@@ -1283,7 +1377,9 @@ async function bulkCopySubmit() {
   toast(`Đã copy ${payloads.length} bản ghi ✓`);
   closeModal('bulkCopyModal');
   await loadAttendanceForMonth();
+  await loadTodayAssignments();       // ⭐ refresh
   renderCalendar();
+  renderBuildings();
 }
 
 /* ============ EVENTS ============ */
@@ -1396,20 +1492,17 @@ function bindEvents() {
   });
   $('#saveEmployeeBtn').addEventListener('click', createEmployee);
 
-  // Edit employee modal
   $('#editEmployeeModal').addEventListener('click', (e) => {
     if (e.target.id === 'editEmployeeModal') closeModal('editEmployeeModal');
   });
   $('#saveEditEmpBtn').addEventListener('click', saveEditEmployee);
 
-  // Phone action sheet
   $('#phoneCallBtn').addEventListener('click', callPhoneNumber);
   $('#phoneCopyBtn').addEventListener('click', copyPhoneNumber);
   $('#phoneActionModal').addEventListener('click', (e) => {
     if (e.target.id === 'phoneActionModal') closeModal('phoneActionModal');
   });
 
-  // Chỉ cho nhập số
   ['#empPhone', '#editEmpPhone'].forEach(id => {
     $(id).addEventListener('input', (e) => {
       e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
