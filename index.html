@@ -320,6 +320,11 @@
             <input type="text" id="empPassword" class="input" placeholder="Tối thiểu 6 ký tự" />
           </div>
           <div class="form-group">
+            <label>Số điện thoại <span style="font-weight:400;color:var(--text-muted);font-size:11px">(không bắt buộc)</span></label>
+            <input type="tel" id="empPhone" class="input" placeholder="VD: 0912345678"
+              maxlength="10" pattern="[0-9]{0,10}" inputmode="numeric" autocomplete="off" />
+          </div>
+          <div class="form-group">
             <label>Tên hiển thị</label>
             <input type="text" id="empFullName" class="input" placeholder="Nguyễn Văn A" />
           </div>
@@ -328,6 +333,24 @@
         <div class="modal-footer">
           <button class="btn-secondary" data-close="employeeModal">Huỷ</button>
           <button id="saveEmployeeBtn" class="btn-primary">Tạo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: Phone actions -->
+    <div id="phoneActionModal" class="modal-overlay center" style="display:none">
+      <div class="modal" style="max-width: 340px;">
+        <div class="modal-header">
+          <h3 id="phoneActionNumber">—</h3>
+          <button class="btn-close" data-close="phoneActionModal">✕</button>
+        </div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
+          <button id="phoneCallBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px">
+            📞 Gọi
+          </button>
+          <button id="phoneCopyBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
+            📋 Sao chép số
+          </button>
         </div>
       </div>
     </div>
