@@ -8,7 +8,6 @@ const ROLE_LABELS = {
   employee: 'Nhân viên',
 };
 
-/* ============ LOCAL HELPERS ============ */
 function pad(n) { return String(n).padStart(2, '0'); }
 function formatDateVN(dateStr) {
   if (!dateStr) return '';
@@ -17,13 +16,18 @@ function formatDateVN(dateStr) {
 }
 function floorLabel(n) { return n === 0 ? 'Trệt' : `Tầng ${n}`; }
 
-/* ============ MAIN ENTRY ============ */
 export function initExportModule(ctx) {
   const { state, toast } = ctx;
 
-  function openExportModal() {
+  // Cache data của tháng đã chọn — khi bấm "Tải file" không cần await
+  let cachedData = null;
+  let isLoading = false;
+
+  /* ---------- MỞ MODAL ---------- */
+  async function openExportModal() {
     const y = state.currentMonth.getFullYear();
     const m = state.currentMonth.getMonth() + 1;
+
     $('#exportMonth').value = `${y}-${pad(m)}`;
     $('#exportRole').value = 'all';
     $('#exportStatus').value = 'all';
@@ -32,9 +36,65 @@ export function initExportModule(ctx) {
     $('#exportOnePersonGroup').style.display = 'none';
     $('#exportError').textContent = '';
     fillEmployeeSelectForExport();
+
+    cachedData = null;
     ctx.openModal('exportModal');
+
+    await loadMonthData(y, m);
   }
 
+  /* ---------- LOAD DATA (chỉ gọi khi đổi tháng) ---------- */
+  async function loadMonthData(year, month) {
+    if (isLoading) return;
+    isLoading = true;
+
+    const btn = $('#exportSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Đang tải dữ liệu...';
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const startDate = `${year}-${pad(month)}-01`;
+    const endDate = `${year}-${pad(month)}-${pad(daysInMonth)}`;
+
+    try {
+      const [profRes, attRes] = await Promise.all([
+        supabase.from('profiles_public').select('*').order('full_name'),
+        supabase.from('attendance').select('*').gte('date', startDate).lte('date', endDate),
+      ]);
+
+      if (profRes.error) throw profRes.error;
+      if (attRes.error) throw attRes.error;
+
+      cachedData = {
+        year,
+        month,
+        daysInMonth,
+        profiles: profRes.data || [],
+        attendance: attRes.data || [],
+      };
+
+      btn.textContent = '📥 Tải file';
+      btn.disabled = false;
+      $('#exportError').textContent = '';
+    } catch (err) {
+      $('#exportError').textContent = 'Lỗi tải dữ liệu: ' + err.message;
+      btn.textContent = 'Thử lại';
+      btn.disabled = false;
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  /* ---------- ĐỔI THÁNG ---------- */
+  async function onMonthChanged() {
+    const val = $('#exportMonth').value;
+    if (!val) return;
+    const [y, m] = val.split('-').map(Number);
+    cachedData = null;
+    await loadMonthData(y, m);
+  }
+
+  /* ---------- FILL EMPLOYEE DROPDOWN ---------- */
   function fillEmployeeSelectForExport() {
     const sel = $('#exportOnePerson');
     if (!sel) return;
@@ -56,44 +116,35 @@ export function initExportModule(ctx) {
     });
   }
 
-  async function doExport() {
+  function roleLabelOf(p) {
+    if (!p) return 'Nhân viên';
+    if (p.role === 'admin') return ROLE_LABELS.admin;
+    if (p.role === 'temporary') return ROLE_LABELS.temporary;
+    return p.position || ROLE_LABELS.employee;
+  }
+
+  /* ---------- TẢI FILE — SYNC 100% ---------- */
+  function doExport() {
     if (typeof XLSX === 'undefined') {
       toast('Chưa tải được thư viện Excel, vui lòng refresh trang');
+      return;
+    }
+
+    if (!cachedData) {
+      toast('Vui lòng chờ dữ liệu tải xong');
       return;
     }
 
     const errEl = $('#exportError');
     errEl.textContent = '';
 
-    // 1. Đọc form
-    const monthVal = $('#exportMonth').value;
     const roleFilter = $('#exportRole').value;
     const statusFilter = $('#exportStatus').value;
     const scope = document.querySelector('input[name="exportScope"]:checked')?.value || 'all';
 
-    if (!monthVal) { errEl.textContent = 'Chọn tháng'; return; }
+    const { year, month, daysInMonth, profiles, attendance } = cachedData;
 
-    const [year, month] = monthVal.split('-').map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const startDate = `${year}-${pad(month)}-01`;
-    const endDate = `${year}-${pad(month)}-${pad(daysInMonth)}`;
-
-    const btn = $('#exportSubmitBtn');
-    btn.disabled = true; btn.textContent = 'Đang xử lý...';
-
-    // 2. Query profiles
-    const { data: profiles, error: e1 } = await supabase
-      .from('profiles_public')
-      .select('*')
-      .order('full_name');
-
-    if (e1) {
-      errEl.textContent = 'Lỗi tải nhân viên: ' + e1.message;
-      btn.disabled = false; btn.textContent = 'Xuất file';
-      return;
-    }
-
-    // 3. Filter
+    // Filter trong memory
     let selected = (profiles || []).filter(p => {
       if (roleFilter !== 'all' && p.role !== roleFilter) return false;
       if (statusFilter !== 'all' && p.status !== statusFilter) return false;
@@ -102,46 +153,30 @@ export function initExportModule(ctx) {
 
     if (scope === 'one') {
       const oneId = $('#exportOnePerson').value;
-      if (!oneId) {
-        errEl.textContent = 'Chọn nhân viên';
-        btn.disabled = false; btn.textContent = 'Xuất file';
-        return;
-      }
+      if (!oneId) { errEl.textContent = 'Chọn nhân viên'; return; }
       selected = selected.filter(p => p.id === oneId);
     }
 
     if (!selected.length) {
       errEl.textContent = 'Không có nhân viên nào khớp bộ lọc';
-      btn.disabled = false; btn.textContent = 'Xuất file';
       return;
     }
 
     selected = sortByRole(selected);
+    const selectedIds = new Set(selected.map(p => p.id));
 
-    // 4. Query attendance
-    const ids = selected.map(p => p.id);
-    const { data: attendance, error: e2 } = await supabase
-      .from('attendance')
-      .select('*')
-      .in('employee_id', ids)
-      .gte('date', startDate)
-      .lte('date', endDate);
+    // Chỉ lấy attendance của người được chọn
+    const attFiltered = (attendance || []).filter(a => selectedIds.has(a.employee_id));
 
-    if (e2) {
-      errEl.textContent = 'Lỗi tải chấm công: ' + e2.message;
-      btn.disabled = false; btn.textContent = 'Xuất file';
-      return;
-    }
-
-    // 5. Build dữ liệu
+    // Build map: emp_id -> { day: att }
     const attByEmpDay = {};
-    for (const a of attendance || []) {
+    for (const a of attFiltered) {
       if (!attByEmpDay[a.employee_id]) attByEmpDay[a.employee_id] = {};
       const day = Number(a.date.split('-')[2]);
       attByEmpDay[a.employee_id][day] = a;
     }
 
-    // 6. Sheet 1: Bảng công
+    // ============ SHEET 1 ============
     const aoa1 = [];
     aoa1.push(['TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN']);
     aoa1.push([`BẢNG CHẤM CÔNG THÁNG ${month}/${year}`]);
@@ -159,12 +194,7 @@ export function initExportModule(ctx) {
 
     let stt = 1;
     for (const emp of selected) {
-      const row = [
-        stt++,
-        emp.full_name || '',
-        roleLabelOf(emp),
-        emp.phone || '',
-      ];
+      const row = [stt++, emp.full_name || '', roleLabelOf(emp), emp.phone || ''];
       let totalWork = 0;
       let totalOT = 0;
 
@@ -183,7 +213,7 @@ export function initExportModule(ctx) {
       aoa1.push(row);
     }
 
-    // 7. Sheet 2: Chi tiết khu vực
+    // ============ SHEET 2 ============
     const aoa2 = [['Ngày', 'Họ tên', 'Tòa nhà', 'Tầng', 'Giờ công', 'Tăng ca']];
 
     const empMap = {};
@@ -195,50 +225,40 @@ export function initExportModule(ctx) {
     const buildingMap = {};
     for (const b of state.buildings) buildingMap[b.id] = b;
 
-    const sortedAtt = [...(attendance || [])].sort((a, b) => a.date.localeCompare(b.date));
+    const sortedAtt = [...attFiltered].sort((a, b) => a.date.localeCompare(b.date));
 
     for (const a of sortedAtt) {
       const emp = empMap[a.employee_id];
       if (!emp) continue;
-
       const dateStr = formatDateVN(a.date);
 
-      // Khu vực chính
       for (const area of (a.areas || [])) {
         if (!area.floor_id) continue;
         const floor = floorMap[area.floor_id];
         const building = buildingMap[area.building_id || floor?.building_id];
         aoa2.push([
-          dateStr,
-          emp.full_name || '',
-          building?.name || '',
+          dateStr, emp.full_name || '', building?.name || '',
           floor ? floorLabel(floor.floor_number) : '?',
-          Number(Number(area.hours || 0).toFixed(2)),
-          0,
+          Number(Number(area.hours || 0).toFixed(2)), 0,
         ]);
       }
 
-      // Khu vực tăng ca
       for (const area of (a.ot_areas || [])) {
         if (!area.floor_id) continue;
         const floor = floorMap[area.floor_id];
         const building = buildingMap[area.building_id || floor?.building_id];
         const h = area.hours != null ? Number(area.hours) : Number(floor?.default_hours || 0);
         aoa2.push([
-          dateStr,
-          emp.full_name || '',
-          building?.name || '',
+          dateStr, emp.full_name || '', building?.name || '',
           floor ? floorLabel(floor.floor_number) : '?',
-          0,
-          Number(h.toFixed(2)),
+          0, Number(h.toFixed(2)),
         ]);
       }
     }
 
-    // 8. Tạo workbook
+    // ============ TẠO WORKBOOK ============
     const wb = XLSX.utils.book_new();
 
-    // Sheet 1
     const ws1 = XLSX.utils.aoa_to_sheet(aoa1);
     ws1['!cols'] = [
       { wch: 5 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
@@ -253,14 +273,13 @@ export function initExportModule(ctx) {
     ];
     XLSX.utils.book_append_sheet(wb, ws1, 'BangCong');
 
-    // Sheet 2
     const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
     ws2['!cols'] = [
       { wch: 12 }, { wch: 22 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
     ];
     XLSX.utils.book_append_sheet(wb, ws2, 'ChiTiet');
 
-    // 9. Filename
+    // Filename
     let fn = `BangChamCong_${pad(month)}_${year}`;
     if (roleFilter !== 'all') fn += `_${ROLE_LABELS[roleFilter].replace(/\s/g, '')}`;
     if (statusFilter === 'inactive') fn += '_DaVoHieu';
@@ -270,50 +289,54 @@ export function initExportModule(ctx) {
     }
     fn += '.xlsx';
 
-    // 10. Xuất file — hỗ trợ cả iOS Safari và desktop
+    // ============ XUẤT FILE — KHÔNG CÓ AWAIT ============
     try {
-      // Tạo file dạng Blob (tương thích iOS + desktop)
       const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
       const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       const blob = new Blob([wbout], { type: mimeType });
-      const file = new File([blob], fn, { type: mimeType });
 
-      // iOS 15+ Safari: dùng Web Share API → hiện share sheet
+      // iOS Safari: thử share trước (sync — gesture vẫn còn)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const canShareFile = navigator.canShare && navigator.canShare({ files: [file] });
 
-      if (isIOS && canShareFile) {
-        try {
-          await navigator.share({
+      if (isIOS) {
+        const file = new File([blob], fn, { type: mimeType });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          // Gọi share KHÔNG await — nếu await sẽ mất gesture
+          navigator.share({
             files: [file],
             title: 'Bảng chấm công',
             text: fn,
+          }).then(() => {
+            toast('✅ Đã chia sẻ file');
+            closeAfterSuccess();
+          }).catch((shareErr) => {
+            if (shareErr.name === 'AbortError') return; // user cancel
+            // Fallback: download Blob
+            downloadBlob(blob, fn);
+            toast('✅ Đã tải file: ' + fn);
+            closeAfterSuccess();
           });
-          toast('✅ Đã chia sẻ file');
-          ctx.closeModal('exportModal');
-        } catch (shareErr) {
-          // User bấm Cancel trên share sheet → không phải lỗi thật
-          if (shareErr.name === 'AbortError') {
-            btn.disabled = false; btn.textContent = 'Xuất file';
-            return;
-          }
-          // Share fail → fallback về download
-          downloadBlob(blob, fn);
-          toast('✅ Đã tải file: ' + fn);
-          ctx.closeModal('exportModal');
+          return;
         }
-      } else {
-        // Desktop hoặc iOS cũ → download truyền thống
+        // Không share được → fallback download
         downloadBlob(blob, fn);
         toast('✅ Đã tải file: ' + fn);
-        ctx.closeModal('exportModal');
+        closeAfterSuccess();
+        return;
       }
+
+      // Desktop → download thẳng
+      downloadBlob(blob, fn);
+      toast('✅ Đã tải file: ' + fn);
+      closeAfterSuccess();
     } catch (err) {
       errEl.textContent = 'Lỗi tạo file: ' + err.message;
     }
+  }
 
-    btn.disabled = false; btn.textContent = 'Xuất file';
+  function closeAfterSuccess() {
+    setTimeout(() => ctx.closeModal('exportModal'), 300);
   }
 
   function downloadBlob(blob, filename) {
@@ -322,18 +345,12 @@ export function initExportModule(ctx) {
     a.href = url;
     a.download = filename;
     a.rel = 'noopener';
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
-  function roleLabelOf(p) {
-    if (!p) return 'Nhân viên';
-    if (p.role === 'admin') return ROLE_LABELS.admin;
-    if (p.role === 'temporary') return ROLE_LABELS.temporary;
-    return p.position || ROLE_LABELS.employee;
-  }
-
-  return { openExportModal, doExport, fillEmployeeSelectForExport };
+  return { openExportModal, doExport, onMonthChanged, fillEmployeeSelectForExport };
 }
