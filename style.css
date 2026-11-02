@@ -22,6 +22,12 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
+html, body {
+  overflow-x: hidden !important;
+  max-width: 100vw;
+  width: 100%;
+}
+
 body {
   font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
   background: var(--bg);
@@ -30,7 +36,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#app { max-width: 520px; margin: 0 auto; min-height: 100vh; background: var(--bg); padding-bottom: 80px; }
+#app {
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg);
+  padding-bottom: 80px;
+  overflow-x: hidden !important;
+  width: 100%;
+}
 
 /* ============ Header ============ */
 .app-header {
@@ -43,7 +57,9 @@ body {
   border-radius: 0 0 20px 20px;
   position: sticky; top: 0; z-index: 50;
   box-shadow: 0 4px 16px rgba(10, 107, 122, 0.2);
+  gap: 8px;
 }
+.header-title { min-width: 0; flex: 1; }
 .header-title h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.3px; }
 .subtitle { font-size: 12px; opacity: 0.85; margin-top: 3px; }
 .btn-icon {
@@ -51,6 +67,7 @@ body {
   border: none; color: white; font-size: 18px;
   width: 38px; height: 38px; border-radius: 10px;
   cursor: pointer; transition: 0.2s;
+  flex-shrink: 0;
 }
 .btn-icon:hover { background: rgba(255,255,255,0.25); }
 
@@ -66,6 +83,7 @@ body {
   cursor: pointer;
   transition: 0.2s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .btn-header-login:hover { background: rgba(255,255,255,0.3); }
 
@@ -99,6 +117,9 @@ body {
   border: 1.5px solid var(--border); border-radius: 10px;
   background: var(--ocean-50); color: var(--text);
   font-family: inherit; transition: 0.2s;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .input:focus, .select-input:focus {
   outline: none; border-color: var(--ocean-500);
@@ -108,6 +129,21 @@ body {
   background: #f1f5f9;
   cursor: not-allowed;
   color: var(--text-muted);
+}
+
+/* Fix input month/date không tràn */
+input[type="month"],
+input[type="date"] {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+}
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
 }
 
 .btn-primary {
@@ -155,27 +191,46 @@ body {
 
 /* ============ Tabs ============ */
 .tabs {
-  display: flex; gap: 6px; padding: 14px 16px 0;
-  background: var(--bg); position: sticky; top: 76px; z-index: 40;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  display: flex;
+  gap: 6px;
+  padding: 14px 16px 0;
+  background: var(--bg);
+  position: sticky;
+  top: 76px;
+  z-index: 40;
+  overflow-x: hidden;
 }
-.tabs::-webkit-scrollbar { display: none; }
 .tab-btn {
-  flex: 1; padding: 11px 6px; font-size: 13px; font-weight: 600;
-  background: var(--card); color: var(--text-muted);
-  border: 1.5px solid var(--border); border-radius: 11px;
-  cursor: pointer; font-family: inherit; transition: 0.2s;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 11px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--card);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: 0.2s;
   white-space: nowrap;
-  min-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tab-btn.active {
-  background: var(--ocean-500); color: white;
+  background: var(--ocean-500);
+  color: white;
   border-color: var(--ocean-500);
   box-shadow: 0 3px 10px rgba(14,165,183,0.25);
 }
 
-.tab-content { display: none; padding: 16px; }
+.tab-content {
+  display: none;
+  padding: 16px;
+  overflow-x: hidden !important;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 .tab-content.active { display: block; animation: fadeIn 0.25s; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -194,7 +249,7 @@ body {
 .emp-name { font-size: 17px; font-weight: 700; color: var(--ocean-700); }
 .emp-role { font-size: 12px; color: var(--text-muted); background: var(--ocean-100); padding: 3px 9px; border-radius: 20px; }
 .summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.stat { text-align: center; background: white; border-radius: 10px; padding: 9px 4px; border: 1px solid var(--border); }
+.stat { text-align: center; background: white; border-radius: 10px; padding: 9px 4px; border: 1px solid var(--border); min-width: 0; }
 .stat-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
 .stat-value { display: block; font-size: 15px; font-weight: 700; color: var(--ocean-600); }
 
@@ -239,6 +294,7 @@ body {
   background: var(--ocean-50); color: var(--text); position: relative;
   transition: 0.15s; user-select: none; -webkit-user-select: none;
   padding: 2px;
+  min-width: 0;
 }
 .cal-day:active { transform: scale(0.94); }
 .cal-day.empty { background: transparent; cursor: default; pointer-events: none; }
@@ -274,6 +330,7 @@ body {
 }
 .selection-bar-inner #selectionCount {
   flex: 1; font-size: 14px; font-weight: 600; color: var(--ocean-700);
+  min-width: 0;
 }
 .selection-bar-inner .btn-primary {
   width: auto; padding: 10px 18px; font-size: 14px;
@@ -296,6 +353,7 @@ body {
   border-radius: 8px; margin-bottom: 12px;
   border: 1px dashed var(--ocean-200);
   line-height: 1.4;
+  word-break: break-word;
 }
 
 /* ============ Section header ============ */
@@ -313,10 +371,14 @@ body {
   background: var(--card); border-radius: var(--radius);
   padding: 14px 16px; box-shadow: var(--shadow);
   border: 1.5px solid var(--border);
+  max-width: 100%;
+  overflow: hidden;
 }
 .building-card h3 {
   font-size: 15px; color: var(--ocean-700);
   display: flex; justify-content: space-between; align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .building-card h3 span.floor-count {
   font-size: 11px; background: var(--ocean-100); padding: 3px 10px;
@@ -328,6 +390,9 @@ body {
   display: flex; justify-content: space-between; align-items: center;
   padding: 9px 12px; background: var(--ocean-50); border-radius: 9px;
   font-size: 13px;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .floor-row .floor-name { font-weight: 600; color: var(--text); }
 .floor-row .floor-hours { color: var(--ocean-600); font-weight: 700; }
@@ -350,11 +415,14 @@ body {
   padding-left: 8px;
   border-left: 2px solid var(--ocean-200);
   margin-left: 2px;
+  max-width: 100%;
 }
 .floor-assignee {
   font-size: 12px;
   color: var(--text);
   line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .floor-assignee::before {
   content: '• ';
@@ -372,6 +440,9 @@ body {
   padding: 14px 16px; box-shadow: var(--shadow);
   border: 1.5px solid var(--border);
   display: flex; align-items: flex-start; gap: 12px;
+  max-width: 100%;
+  overflow: hidden;
+  word-wrap: break-word;
 }
 .avatar {
   width: 42px; height: 42px; border-radius: 50%;
@@ -379,8 +450,13 @@ body {
   color: white; display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 16px; flex-shrink: 0;
 }
-.emp-info { flex: 1; min-width: 0; }
-.emp-info .emp-fullname { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4; }
+.emp-info { flex: 1; min-width: 0; overflow: hidden; }
+.emp-info .emp-fullname {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
 .emp-info .emp-pos { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .emp-info .emp-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 4px; }
 .status-active { background: #dcfce7; color: var(--success); }
@@ -450,31 +526,58 @@ body {
   border-bottom-color: #b45309;
 }
 
-/* ============ Salary tab ============ */
+/* ============ Salary tab — FIX SCROLL ============ */
+#tab-salary {
+  overflow-x: hidden !important;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#tab-salary * {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+#tab-salary input,
+#tab-salary select,
+#tab-salary button {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .salary-meta {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 16px;
   background: var(--ocean-50);
-  padding: 12px 10px;
+  padding: 12px 8px;
   border-radius: var(--radius);
   border: 1.5px solid var(--border);
+  overflow: hidden;
 }
 .salary-meta-item {
   text-align: center;
+  min-width: 0;
+  overflow: hidden;
 }
 .salary-meta-item .label {
   display: block;
   font-size: 11px;
   color: var(--text-muted);
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .salary-meta-item .value {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--ocean-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .salary-card {
@@ -484,19 +587,27 @@ body {
   padding: 12px 14px;
   margin-bottom: 10px;
   box-shadow: var(--shadow);
+  overflow: hidden !important;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 .salary-card-head {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
+  min-width: 0;
+  max-width: 100%;
 }
 .salary-card-head .avatar {
   width: 38px; height: 38px; font-size: 14px;
+  flex-shrink: 0;
 }
 .salary-card-info {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 .salary-card-info .name {
   font-size: 14px;
@@ -510,19 +621,36 @@ body {
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.salary-amount {
+
+/* Chỗ này đổi từ tiền → giờ */
+.salary-hours {
   font-size: 15px;
   font-weight: 700;
-  color: var(--success);
+  color: var(--ocean-600);
   white-space: nowrap;
+  flex-shrink: 0;
+  text-align: right;
 }
+.salary-hours small {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
 .salary-card-detail {
   font-size: 12px;
   color: var(--text-muted);
   padding-top: 8px;
   border-top: 1px dashed var(--border);
   line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .salary-card-detail strong {
   color: var(--ocean-700);
@@ -539,10 +667,26 @@ body {
   font-weight: 700;
   color: var(--ocean-700);
   font-size: 13px;
+  gap: 10px;
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+.salary-total-box span {
+  min-width: 0;
+  word-break: break-word;
 }
 .salary-total-box strong {
   font-size: 18px;
-  color: var(--success);
+  color: var(--ocean-700);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#salarySearch {
+  background: var(--ocean-50);
+}
+#salarySearch:focus {
+  background: white;
 }
 
 /* ============ Modal ============ */
@@ -667,10 +811,21 @@ body {
   animation: toastIn 0.3s;
   max-width: 90vw;
   text-align: center;
+  word-break: break-word;
 }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 /* ============ Responsive ============ */
+@media (max-width: 400px) {
+  .tab-btn {
+    font-size: 11px;
+    padding: 10px 3px;
+  }
+  .salary-hours { font-size: 13px; }
+  .salary-card-info .name { font-size: 13px; }
+  .salary-meta-item .value { font-size: 11px; }
+}
+
 @media (max-width: 380px) {
   .summary-stats { grid-template-columns: repeat(3, 1fr); }
   .stat-label { font-size: 10px; }
@@ -687,9 +842,15 @@ body {
   .btn-icon-sm { width: 28px; height: 28px; font-size: 13px; }
   .emp-actions { gap: 3px; margin-left: 4px; }
   .floor-assignee { font-size: 11px; }
-  .salary-meta-item .value { font-size: 12px; }
-  .salary-amount { font-size: 14px; }
-  .salary-total-box { font-size: 12px; }
-  .salary-total-box strong { font-size: 16px; }
-  .tab-btn { min-width: 75px; font-size: 12px; padding: 10px 4px; }
+  .salary-meta-item .value { font-size: 10px; }
+  .salary-hours { font-size: 12px; }
+  .salary-total-box { font-size: 11px; }
+  .salary-total-box strong { font-size: 15px; }
+}
+
+@media (max-width: 360px) {
+  .tab-btn {
+    font-size: 10px;
+    padding: 9px 2px;
+  }
 }
