@@ -29,7 +29,6 @@ export function initSalaryModule(ctx) {
       const $list = document.getElementById('salaryList');
       if ($list) $list.innerHTML = '<p class="hint">Đang tải...</p>';
 
-      // ⭐ Clear state cũ để không hiển thị data tháng trước
       state.salaryData = [];
       state.salaryMeta = null;
       const $summary = document.getElementById('salarySummary');
@@ -85,9 +84,22 @@ export function initSalaryModule(ctx) {
       filterVal === 'temporary' ? ['temporary'] :
       ['employee', 'temporary'];
 
-    const selected = profiles.filter(p =>
-      includeRoles.includes(p.role) && p.status !== 'inactive'
-    );
+    // ⭐ Search filter
+    const search = (state.salarySearch || '').toLowerCase().trim();
+
+    const selected = profiles.filter(p => {
+      if (!includeRoles.includes(p.role)) return false;
+      if (p.status === 'inactive') return false;
+      if (search) {
+        const name = (p.full_name || '').toLowerCase();
+        const phone = (p.phone || '').toLowerCase();
+        const username = (p.username || '').toLowerCase();
+        if (!name.includes(search) && !phone.includes(search) && !username.includes(search)) {
+          return false;
+        }
+      }
+      return true;
+    });
 
     const attByEmp = {};
     for (const a of attendance) {
@@ -117,11 +129,21 @@ export function initSalaryModule(ctx) {
         totalHours,
         salary: totalHours * hourlyRate,
       };
-    }).sort((a, b) => {
-      const oa = ROLE_ORDER[a.role] || 99;
-      const ob = ROLE_ORDER[b.role] || 99;
-      if (oa !== ob) return oa - ob;
-      return a.name.localeCompare(b.name, 'vi');
+    });
+
+    // ⭐ Sort theo state.salarySort
+    const sortVal = state.salarySort || 'salary_desc';
+    result.sort((a, b) => {
+      if (sortVal === 'salary_desc') return b.salary - a.salary;
+      if (sortVal === 'salary_asc') return a.salary - b.salary;
+      if (sortVal === 'name') return a.name.localeCompare(b.name, 'vi');
+      if (sortVal === 'role') {
+        const oa = ROLE_ORDER[a.role] || 99;
+        const ob = ROLE_ORDER[b.role] || 99;
+        if (oa !== ob) return oa - ob;
+        return a.name.localeCompare(b.name, 'vi');
+      }
+      return 0;
     });
 
     state.salaryData = result;
@@ -155,7 +177,8 @@ export function initSalaryModule(ctx) {
     const $list = document.getElementById('salaryList');
     if ($list) {
       if (!data.length) {
-        $list.innerHTML = '<p class="hint">Không có nhân viên nào trong nhóm đã chọn</p>';
+        const search = state.salarySearch || '';
+        $list.innerHTML = `<p class="hint">Không có nhân viên nào${search ? ' khớp "' + search + '"' : ' trong nhóm đã chọn'}</p>`;
       } else {
         $list.innerHTML = data.map(e => `
           <div class="salary-card">
@@ -209,5 +232,38 @@ export function initSalaryModule(ctx) {
     renderSalary();
   }
 
-  return { loadSalaryForMonth, renderSalary, onMonthChanged, onRoleFilterChanged };
+  // ⭐ Search changed
+  function onSearchChanged() {
+    state.salarySearch = document.getElementById('salarySearch').value;
+
+    if (!cache.profiles) {
+      loadSalaryForMonth(true);
+      return;
+    }
+
+    computeSalary();
+    renderSalary();
+  }
+
+  // ⭐ Sort changed
+  function onSortChanged() {
+    state.salarySort = document.getElementById('salarySort').value;
+
+    if (!cache.profiles) {
+      loadSalaryForMonth(true);
+      return;
+    }
+
+    computeSalary();
+    renderSalary();
+  }
+
+  return {
+    loadSalaryForMonth,
+    renderSalary,
+    onMonthChanged,
+    onRoleFilterChanged,
+    onSearchChanged,
+    onSortChanged,
+  };
 }
