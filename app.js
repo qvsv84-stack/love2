@@ -36,7 +36,6 @@ const state = {
   phoneActionNumber: '',
   editingEmployeeId: null,
   floorAssignments: {},
-  // Salary
   salaryMonth: new Date(),
   salaryRoleFilter: 'nv_tv',
   salaryData: [],
@@ -577,11 +576,12 @@ async function loadBuildings() {
   renderBuildings();
 }
 
+/* ⭐ Load assignments: cả khu vực chính + OT, gộp theo floor */
 async function loadTodayAssignments() {
   const todayStr = toDateStr(new Date());
   const { data, error } = await supabase
     .from('attendance')
-    .select('employee_id, areas, is_off')
+    .select('employee_id, areas, ot_areas, is_off')
     .eq('date', todayStr)
     .neq('is_off', true);
 
@@ -592,17 +592,49 @@ async function loadTodayAssignments() {
   }
 
   const map = {};
+
   for (const a of data || []) {
-    if (!Array.isArray(a.areas)) continue;
-    for (const area of a.areas) {
-      const fid = area.floor_id;
-      if (!fid) continue;
+    const perFloor = {};
+
+    if (Array.isArray(a.areas)) {
+      for (const area of a.areas) {
+        const fid = area.floor_id;
+        if (!fid) continue;
+        if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
+        perFloor[fid].main += Number(area.hours || 0);
+      }
+    }
+
+    if (Array.isArray(a.ot_areas)) {
+      for (const area of a.ot_areas) {
+        const fid = area.floor_id;
+        if (!fid) continue;
+        if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
+        let h = area.hours != null ? Number(area.hours) : null;
+        if (h == null) {
+          const floor = state.floors.find(x => x.id === fid);
+          h = floor ? Number(floor.default_hours || 0) : 0;
+        }
+        perFloor[fid].ot += h;
+      }
+    }
+
+    for (const [fid, h] of Object.entries(perFloor)) {
       if (!map[fid]) map[fid] = [];
-      if (!map[fid].includes(a.employee_id)) {
-        map[fid].push(a.employee_id);
+      const existing = map[fid].find(x => x.employee_id === a.employee_id);
+      if (existing) {
+        existing.main_hours += h.main;
+        existing.ot_hours += h.ot;
+      } else {
+        map[fid].push({
+          employee_id: a.employee_id,
+          main_hours: h.main,
+          ot_hours: h.ot,
+        });
       }
     }
   }
+
   state.floorAssignments = map;
 
   const hint = $('#areasHint');
@@ -611,6 +643,7 @@ async function loadTodayAssignments() {
   }
 }
 
+/* ⭐ Render: hiển thị cả giờ công + OT mỗi người */
 function renderBuildings() {
   const wrap = $('#buildingsList');
   if (!state.buildings.length) {
@@ -622,24 +655,29 @@ function renderBuildings() {
       .sort((a, c) => a.floor_number - c.floor_number);
 
     const floorRows = floors.map(f => {
-      const userIds = state.floorAssignments[f.id] || [];
-      const assignees = userIds
-        .map(id => state.employees.find(e => e.id === id))
-        .filter(Boolean);
+      const assignments = state.floorAssignments[f.id] || [];
 
       let assigneesHtml = '';
-      if (assignees.length) {
-        const items = assignees.map(emp => {
+      if (assignments.length) {
+        const items = assignments.map(item => {
+          const emp = state.employees.find(e => e.id === item.employee_id);
+          if (!emp) return '';
           const shortName = getShortName(emp.full_name || emp.username || '');
           const phoneHtml = emp.phone
             ? ` - <a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a>`
             : '';
-          return `<div class="floor-assignee">${shortName}${phoneHtml}</div>`;
-        }).join('');
+
+          const parts = [];
+          if (item.main_hours > 0) parts.push(formatHours(item.main_hours));
+          if (item.ot_hours > 0) parts.push(formatHours(item.ot_hours) + ' OT');
+          const hoursStr = parts.length ? ` · ${parts.join(' + ')}` : '';
+
+          return `<div class="floor-assignee">${shortName}${phoneHtml}${hoursStr}</div>`;
+        }).filter(Boolean).join('');
         assigneesHtml = `<div class="floor-assignees-list">${items}</div>`;
       }
 
-      const hasAssignees = assignees.length > 0;
+      const hasAssignees = assignments.length > 0;
       return `
         <div class="floor-row${hasAssignees ? ' has-assignees' : ''}">
           <div class="floor-row-head">
@@ -1315,13 +1353,12 @@ function switchTab(name) {
   $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $$('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
 
-  // Auto-load salary khi mở tab
   if (name === 'salary' && state.isAdmin && salaryModule) {
     const y = state.salaryMonth.getFullYear();
     const m = state.salaryMonth.getMonth() + 1;
     $('#salaryMonth').value = `${y}-${String(m).padStart(2, '0')}`;
     $('#salaryRoleFilter').value = state.salaryRoleFilter;
-    salaryModule.loadSalaryForMonth();
+    salaryModule.loadSalaryForMonth(true);
   }
 }
 
@@ -1464,7 +1501,6 @@ function bindEvents() {
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
 
-  // EXPORT EXCEL
   $('#exportExcelBtn').addEventListener('click', () => {
     if (exportModule) exportModule.openExportModal();
   });
@@ -1483,7 +1519,6 @@ function bindEvents() {
     if (exportModule) exportModule.onMonthChanged();
   });
 
-  // SALARY
   $('#salaryMonth').addEventListener('change', () => {
     if (salaryModule) salaryModule.onMonthChanged();
   });
@@ -1494,7 +1529,6 @@ function bindEvents() {
     if (exportModule && exportModule.doExportSalary) exportModule.doExportSalary();
   });
 
-  // ATTENDANCE MODAL
   $('#attendanceModal').addEventListener('click', (e) => {
     if (e.target.id === 'attendanceModal') closeModal('attendanceModal');
   });
