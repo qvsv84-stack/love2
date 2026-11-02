@@ -3,21 +3,17 @@ import { supabase } from './supabase.js';
 
 const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3, external: 4 };
 
-// ⭐ Config lương theo role
-const SALARY_CONFIG = {
-  admin:     { base: 4800000, hoursPerDay: 8 },
-  employee:  { base: 4800000, hoursPerDay: 8 },
-  temporary: { base: 4800000, hoursPerDay: 8 },
-  external:  { base: 7000000, hoursPerDay: 10 },  // Ngoại cảnh: 7tr, 10h/ngày
-};
-
 function pad(n) { return String(n).padStart(2, '0'); }
-function getSalaryConfig(role) {
-  return SALARY_CONFIG[role] || SALARY_CONFIG.employee;
+
+/* Tách tên gọi (chữ cuối): "Lê Văn Anh" → "Anh" */
+function getLastName(fullName) {
+  if (!fullName) return '';
+  const parts = String(fullName).trim().split(/\s+/);
+  return parts[parts.length - 1] || '';
 }
 
 export function initSalaryModule(ctx) {
-  const { state, formatHours, formatVND, roleLabelOf, toast } = ctx;
+  const { state, formatHours, roleLabelOf, toast } = ctx;
 
   const cache = { year: null, month: null, profiles: null, attendance: null };
 
@@ -48,7 +44,7 @@ export function initSalaryModule(ctx) {
       const [profRes, attRes] = await Promise.all([
         supabase.from('profiles').select('*').order('full_name'),
         supabase.from('attendance')
-          .select('employee_id, date, total_hours, ot_hours, is_off')
+          .select('employee_id, date, total_hours, ot_hours, is_off, areas, ot_areas')
           .gte('date', startDate).lte('date', endDate),
       ]);
 
@@ -76,7 +72,7 @@ export function initSalaryModule(ctx) {
     const { year, month, profiles, attendance } = cache;
     const daysInMonth = new Date(year, month, 0).getDate();
 
-    // Đếm ngày công chuẩn: T2-T7 (loại CN)
+    // Đếm ngày công chuẩn T2-T7
     let workingDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const dow = new Date(year, month - 1, d).getDay();
@@ -84,14 +80,18 @@ export function initSalaryModule(ctx) {
     }
     if (workingDays === 0) workingDays = 1;
 
-    // Filter theo role
+    // Map building_id -> name (dùng state.buildings đã load)
+    const buildingMap = {};
+    for (const b of (state.buildings || [])) buildingMap[b.id] = b.name;
+
+    // Filter role
     const filterVal = state.salaryRoleFilter || 'nv_tv';
     const includeRoles =
       filterVal === 'all' ? ['admin', 'employee', 'temporary', 'external'] :
       filterVal === 'employee' ? ['employee'] :
       filterVal === 'temporary' ? ['temporary'] :
       filterVal === 'external' ? ['external'] :
-      ['employee', 'temporary'];  // default nv_tv
+      ['employee', 'temporary'];
 
     const search = (state.salarySearch || '').toLowerCase().trim();
 
@@ -109,31 +109,64 @@ export function initSalaryModule(ctx) {
       return true;
     });
 
-    // Group attendance
+    // Group attendance + đếm building per employee
     const attByEmp = {};
+    const buildingCountByEmp = {};  // emp_id -> { building_id: count }
+
     for (const a of attendance) {
       if (!attByEmp[a.employee_id]) attByEmp[a.employee_id] = { work: 0, ot: 0, days: 0 };
-      if (a.is_off) continue;
-      const h = Number(a.total_hours || 0);
-      const ot = Number(a.ot_hours || 0);
-      if (h > 0 || ot > 0) {
-        attByEmp[a.employee_id].work += h;
-        attByEmp[a.employee_id].ot += ot;
-        attByEmp[a.employee_id].days += 1;
+
+      if (!a.is_off) {
+        const h = Number(a.total_hours || 0);
+        const ot = Number(a.ot_hours || 0);
+        if (h > 0 || ot > 0) {
+          attByEmp[a.employee_id].work += h;
+          attByEmp[a.employee_id].ot += ot;
+          attByEmp[a.employee_id].days += 1;
+        }
+      }
+
+      // Đếm building (1 ngày tính 1 lần cho mỗi toà)
+      if (!buildingCountByEmp[a.employee_id]) buildingCountByEmp[a.employee_id] = {};
+      const buildingsSeen = new Set();
+      if (Array.isArray(a.areas)) {
+        for (const area of a.areas) {
+          if (area.building_id) buildingsSeen.add(area.building_id);
+        }
+      }
+      if (Array.isArray(a.ot_areas)) {
+        for (const area of a.ot_areas) {
+          if (area.building_id) buildingsSeen.add(area.building_id);
+        }
+      }
+      for (const bid of buildingsSeen) {
+        buildingCountByEmp[a.employee_id][bid] =
+          (buildingCountByEmp[a.employee_id][bid] || 0) + 1;
       }
     }
 
-    // ⭐ Tính lương per-role
+    // Build result
     const result = selected.map(p => {
-      const cfg = getSalaryConfig(p.role);
-      const dailyRate = cfg.base / workingDays;
-      const hourlyRate = dailyRate / cfg.hoursPerDay;
-
       const att = attByEmp[p.id] || { work: 0, ot: 0, days: 0 };
       const totalHours = att.work + att.ot;
+
+      // Tìm building chính (nhiều ngày nhất)
+      let primaryBuildingName = '—';
+      let primaryBuildingId = null;
+      let maxCount = 0;
+      const bmap = buildingCountByEmp[p.id] || {};
+      for (const [bid, cnt] of Object.entries(bmap)) {
+        if (cnt > maxCount) {
+          maxCount = cnt;
+          primaryBuildingId = bid;
+          primaryBuildingName = buildingMap[bid] || '—';
+        }
+      }
+
       return {
         id: p.id,
         name: p.full_name || p.username || '',
+        lastName: getLastName(p.full_name || p.username || ''),
         role: p.role,
         roleLabel: roleLabelOf(p),
         phone: p.phone || '',
@@ -141,24 +174,37 @@ export function initSalaryModule(ctx) {
         workHours: att.work,
         otHours: att.ot,
         totalHours,
-        hourlyRate,
-        baseSalary: cfg.base,
-        hoursPerDay: cfg.hoursPerDay,
-        salary: totalHours * hourlyRate,
+        primaryBuildingId,
+        primaryBuildingName,
       };
     });
 
     // Sort
-    const sortVal = state.salarySort || 'salary_desc';
+    const sortVal = state.salarySort || 'hours_desc';
     result.sort((a, b) => {
-      if (sortVal === 'salary_desc') return b.salary - a.salary;
-      if (sortVal === 'salary_asc') return a.salary - b.salary;
-      if (sortVal === 'name') return a.name.localeCompare(b.name, 'vi');
-      if (sortVal === 'role') {
-        const oa = ROLE_ORDER[a.role] || 99;
-        const ob = ROLE_ORDER[b.role] || 99;
-        if (oa !== ob) return oa - ob;
+      if (sortVal === 'hours_desc') {
+        if (b.totalHours !== a.totalHours) return b.totalHours - a.totalHours;
         return a.name.localeCompare(b.name, 'vi');
+      }
+      if (sortVal === 'hours_asc') {
+        if (a.totalHours !== b.totalHours) return a.totalHours - b.totalHours;
+        return a.name.localeCompare(b.name, 'vi');
+      }
+      if (sortVal === 'name') {
+        // Theo tên gọi (chữ cuối)
+        if (a.lastName && b.lastName) {
+          const cmp = a.lastName.localeCompare(b.lastName, 'vi');
+          if (cmp !== 0) return cmp;
+        }
+        return a.name.localeCompare(b.name, 'vi');
+      }
+      if (sortVal === 'position') {
+        // Theo vị trí (toà) → cùng toà thì theo tên
+        const ba = a.primaryBuildingName || '';
+        const bb = b.primaryBuildingName || '';
+        const cmpb = ba.localeCompare(bb, 'vi');
+        if (cmpb !== 0) return cmpb;
+        return a.lastName.localeCompare(b.lastName, 'vi') || a.name.localeCompare(b.name, 'vi');
       }
       return 0;
     });
@@ -171,7 +217,15 @@ export function initSalaryModule(ctx) {
     const meta = state.salaryMeta || {};
     const data = state.salaryData || [];
 
-    // ⭐ Summary: hiển thị 2 mức lương
+    // Tổng
+    let totalWork = 0, totalOT = 0;
+    for (const e of data) {
+      totalWork += e.workHours;
+      totalOT += e.otHours;
+    }
+    const totalHoursAll = totalWork + totalOT;
+
+    // Summary: ngày công chuẩn + tổng giờ
     const $summary = document.getElementById('salarySummary');
     if ($summary) {
       $summary.innerHTML = `
@@ -181,12 +235,12 @@ export function initSalaryModule(ctx) {
             <span class="value">${meta.workingDays || 0} ngày</span>
           </div>
           <div class="salary-meta-item">
-            <span class="label">NV/TV/GS</span>
-            <span class="value">4.8tr · 8h</span>
+            <span class="label">Tổng công</span>
+            <span class="value">${formatHours(totalWork)}</span>
           </div>
           <div class="salary-meta-item">
-            <span class="label">Ngoại cảnh</span>
-            <span class="value">7tr · 10h</span>
+            <span class="label">Tổng OT</span>
+            <span class="value">${formatHours(totalOT)}</span>
           </div>
         </div>
       `;
@@ -205,13 +259,15 @@ export function initSalaryModule(ctx) {
               <div class="avatar">${(e.name || '?').charAt(0).toUpperCase()}</div>
               <div class="salary-card-info">
                 <div class="name">${e.name}</div>
-                <div class="role">${e.roleLabel}${e.phone ? ' · ' + e.phone : ''}</div>
+                <div class="role">${e.roleLabel}${e.primaryBuildingName && e.primaryBuildingName !== '—' ? ' · ' + e.primaryBuildingName : ''}${e.phone ? ' · ' + e.phone : ''}</div>
               </div>
-              <div class="salary-amount">${formatVND(e.salary)}</div>
+              <div class="salary-hours">
+                ${formatHours(e.totalHours)}
+                <small>${e.days} ngày</small>
+              </div>
             </div>
             <div class="salary-card-detail">
-              ${e.days} ngày · ${formatHours(e.workHours)} công + ${formatHours(e.otHours)} OT
-              = <strong>${formatHours(e.totalHours)}</strong> × ${formatVND(e.hourlyRate)}/h
+              ${formatHours(e.workHours)} công + ${formatHours(e.otHours)} OT
             </div>
           </div>
         `).join('');
@@ -219,13 +275,12 @@ export function initSalaryModule(ctx) {
     }
 
     // Total
-    const total = data.reduce((s, e) => s + e.salary, 0);
     const $total = document.getElementById('salaryTotal');
     if ($total) {
       $total.innerHTML = `
         <div class="salary-total-box">
           <span>TỔNG CỘNG (${data.length} người)</span>
-          <strong>${formatVND(total)}</strong>
+          <strong>${formatHours(totalHoursAll)}</strong>
         </div>
       `;
     }
