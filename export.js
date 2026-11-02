@@ -1,11 +1,12 @@
 // export.js
 import { supabase } from './supabase.js';
 
-const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3 };
+const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3, external: 4 };
 const ROLE_LABELS = {
   admin: 'Giám sát',
   temporary: 'Thời vụ',
   employee: 'Nhân viên',
+  external: 'Ngoại cảnh',
 };
 
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -114,6 +115,7 @@ export function initExportModule(ctx) {
     if (!p) return 'Nhân viên';
     if (p.role === 'admin') return ROLE_LABELS.admin;
     if (p.role === 'temporary') return ROLE_LABELS.temporary;
+    if (p.role === 'external') return ROLE_LABELS.external;
     return p.position || ROLE_LABELS.employee;
   }
 
@@ -336,7 +338,7 @@ export function initExportModule(ctx) {
     aoa.push(['TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN']);
     aoa.push([`BẢNG LƯƠNG THÁNG ${meta.month}/${meta.year}`]);
     aoa.push([`Ngày công chuẩn: ${meta.workingDays} ngày (T2 - T7, nghỉ Chủ nhật)`]);
-    aoa.push([`Lương cơ bản: 4,800,000 đ/ngày công chuẩn | Lương/ngày: ${formatVNDInner(meta.dailyRate)} | Lương/giờ: ${formatVNDInner(meta.hourlyRate)}`]);
+    aoa.push(['Lương: NV/TV/GS = 4.8tr (8h/ngày) · Ngoại cảnh = 7tr (10h/ngày)']);
 
     const now = new Date();
     aoa.push([
@@ -344,7 +346,7 @@ export function initExportModule(ctx) {
       `${pad(now.getHours())}:${pad(now.getMinutes())}`
     ]);
     aoa.push([]);
-    aoa.push(['STT', 'Họ tên', 'Chức vụ', 'SĐT', 'Ngày công', 'Giờ công', 'Giờ OT', 'Tổng giờ', 'Lương (VND)']);
+    aoa.push(['STT', 'Họ tên', 'Chức vụ', 'SĐT', 'Ngày công', 'Giờ công', 'Giờ OT', 'Tổng giờ', 'Đơn giá/giờ', 'Lương (VND)']);
 
     data.forEach((e, idx) => {
       aoa.push([
@@ -356,21 +358,22 @@ export function initExportModule(ctx) {
         Number(e.workHours.toFixed(2)),
         Number(e.otHours.toFixed(2)),
         Number(e.totalHours.toFixed(2)),
+        Math.round(e.hourlyRate || 0),
         Math.round(e.salary),
       ]);
     });
 
     const total = data.reduce((s, e) => s + e.salary, 0);
     aoa.push([]);
-    aoa.push(['', '', '', '', '', '', '', 'TỔNG CỘNG', Math.round(total)]);
+    aoa.push(['', '', '', '', '', '', '', '', 'TỔNG CỘNG', Math.round(total)]);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = [
       { wch: 5 }, { wch: 22 }, { wch: 12 }, { wch: 14 },
-      { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 },
+      { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 16 },
     ];
-    const lastCol = 8;
+    const lastCol = 9;
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol } },
