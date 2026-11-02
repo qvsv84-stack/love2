@@ -1,6 +1,7 @@
 // app.js
 import { supabase } from './supabase.js';
 import { initExportModule } from './export.js';
+import { initSalaryModule } from './salary.js';
 
 const DEFAULT_DOMAIN = 'skyone.vn';
 const LS_KEY = 'cc_saved_login';
@@ -35,9 +36,15 @@ const state = {
   phoneActionNumber: '',
   editingEmployeeId: null,
   floorAssignments: {},
+  // Salary
+  salaryMonth: new Date(),
+  salaryRoleFilter: 'nv_tv',
+  salaryData: [],
+  salaryMeta: null,
 };
 
 let exportModule = null;
+let salaryModule = null;
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -65,6 +72,11 @@ function formatHours(h) {
   const n = Number(h);
   if (Number.isInteger(n)) return n + 'h';
   return n.toFixed(2).replace(/\.?0+$/, '') + 'h';
+}
+
+function formatVND(n) {
+  if (!n || isNaN(n)) return '0 đ';
+  return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' đ';
 }
 
 function floorLabel(n) { return n === 0 ? 'Trệt' : `Tầng ${n}`; }
@@ -139,6 +151,7 @@ async function showGuestView() {
 
   $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = 'none');
   $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = 'none');
+  $$('.tab-btn[data-tab="salary"]').forEach(el => el.style.display = 'none');
 
   $('#empSelectorRow').style.display = 'flex';
   $('#summaryCard').style.display = 'block';
@@ -186,6 +199,7 @@ async function onLoggedIn(user) {
   $('#addEmployeeBtn').style.display = state.isAdmin ? 'block' : 'none';
   $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
   $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
+  $$('.tab-btn[data-tab="salary"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
   $('#empSelectorRow').style.display = state.isAdmin ? 'flex' : 'none';
   $('#summaryCard').style.display = 'block';
   $('#guestBanner').style.display = 'none';
@@ -569,7 +583,7 @@ async function loadTodayAssignments() {
     .from('attendance')
     .select('employee_id, areas, is_off')
     .eq('date', todayStr)
-    .eq('is_off', false);
+    .neq('is_off', true);
 
   if (error) {
     console.error(error);
@@ -1300,6 +1314,15 @@ function attachLongPress(el, cb) {
 function switchTab(name) {
   $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $$('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+
+  // Auto-load salary khi mở tab
+  if (name === 'salary' && state.isAdmin && salaryModule) {
+    const y = state.salaryMonth.getFullYear();
+    const m = state.salaryMonth.getMonth() + 1;
+    $('#salaryMonth').value = `${y}-${String(m).padStart(2, '0')}`;
+    $('#salaryRoleFilter').value = state.salaryRoleFilter;
+    salaryModule.loadSalaryForMonth();
+  }
 }
 
 async function changeMonth(delta) {
@@ -1441,7 +1464,7 @@ function bindEvents() {
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
 
-  // ============ EXPORT EXCEL ============
+  // EXPORT EXCEL
   $('#exportExcelBtn').addEventListener('click', () => {
     if (exportModule) exportModule.openExportModal();
   });
@@ -1456,12 +1479,22 @@ function bindEvents() {
       $('#exportOnePersonGroup').style.display = r.value === 'one' ? 'block' : 'none';
     });
   });
-  // ⭐ Đổi tháng → reload data cache trong export module
   $('#exportMonth').addEventListener('change', () => {
     if (exportModule) exportModule.onMonthChanged();
   });
 
-  // ============ ATTENDANCE MODAL ============
+  // SALARY
+  $('#salaryMonth').addEventListener('change', () => {
+    if (salaryModule) salaryModule.onMonthChanged();
+  });
+  $('#salaryRoleFilter').addEventListener('change', () => {
+    if (salaryModule) salaryModule.onRoleFilterChanged();
+  });
+  $('#salaryExportBtn').addEventListener('click', () => {
+    if (exportModule && exportModule.doExportSalary) exportModule.doExportSalary();
+  });
+
+  // ATTENDANCE MODAL
   $('#attendanceModal').addEventListener('click', (e) => {
     if (e.target.id === 'attendanceModal') closeModal('attendanceModal');
   });
@@ -1539,10 +1572,11 @@ function bindEvents() {
 
 document.addEventListener('DOMContentLoaded', () => {
   exportModule = initExportModule({
-    state,
-    toast,
-    openModal,
-    closeModal,
+    state, toast, openModal, closeModal,
+  });
+
+  salaryModule = initSalaryModule({
+    state, toast, formatHours, formatVND, roleLabelOf,
   });
 
   bindEvents();
