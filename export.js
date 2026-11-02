@@ -319,7 +319,7 @@ export function initExportModule(ctx) {
     }
   }
 
-  /* ---------- XUẤT LƯƠNG ---------- */
+  /* ---------- XUẤT BẢNG CÔNG (theo giờ) ---------- */
   function doExportSalary() {
     if (typeof XLSX === 'undefined') {
       toast('Chưa tải được thư viện Excel');
@@ -332,13 +332,19 @@ export function initExportModule(ctx) {
       return;
     }
 
-    const formatVNDInner = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + ' đ';
+    // Tổng
+    let totalWork = 0, totalOT = 0, totalDays = 0;
+    for (const e of data) {
+      totalWork += e.workHours;
+      totalOT += e.otHours;
+      totalDays += e.days;
+    }
+    const totalHours = totalWork + totalOT;
 
     const aoa = [];
     aoa.push(['TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN']);
-    aoa.push([`BẢNG LƯƠNG THÁNG ${meta.month}/${meta.year}`]);
+    aoa.push([`BẢNG TỔNG HỢP CÔNG THÁNG ${meta.month}/${meta.year}`]);
     aoa.push([`Ngày công chuẩn: ${meta.workingDays} ngày (T2 - T7, nghỉ Chủ nhật)`]);
-    aoa.push(['Lương: NV/TV/GS = 4.8tr (8h/ngày) · Ngoại cảnh = 7tr (10h/ngày)']);
 
     const now = new Date();
     aoa.push([
@@ -346,7 +352,7 @@ export function initExportModule(ctx) {
       `${pad(now.getHours())}:${pad(now.getMinutes())}`
     ]);
     aoa.push([]);
-    aoa.push(['STT', 'Họ tên', 'Chức vụ', 'SĐT', 'Ngày công', 'Giờ công', 'Giờ OT', 'Tổng giờ', 'Đơn giá/giờ', 'Lương (VND)']);
+    aoa.push(['STT', 'Họ tên', 'Chức vụ', 'SĐT', 'Vị trí (toà)', 'Ngày công', 'Giờ công', 'Giờ OT', 'Tổng giờ']);
 
     data.forEach((e, idx) => {
       aoa.push([
@@ -354,36 +360,39 @@ export function initExportModule(ctx) {
         e.name,
         e.roleLabel,
         e.phone || '',
+        (e.primaryBuildingName && e.primaryBuildingName !== '—') ? e.primaryBuildingName : '',
         e.days,
         Number(e.workHours.toFixed(2)),
         Number(e.otHours.toFixed(2)),
         Number(e.totalHours.toFixed(2)),
-        Math.round(e.hourlyRate || 0),
-        Math.round(e.salary),
       ]);
     });
 
-    const total = data.reduce((s, e) => s + e.salary, 0);
     aoa.push([]);
-    aoa.push(['', '', '', '', '', '', '', '', 'TỔNG CỘNG', Math.round(total)]);
+    aoa.push([
+      '', '', '', '', 'TỔNG CỘNG',
+      totalDays,
+      Number(totalWork.toFixed(2)),
+      Number(totalOT.toFixed(2)),
+      Number(totalHours.toFixed(2)),
+    ]);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = [
       { wch: 5 }, { wch: 22 }, { wch: 12 }, { wch: 14 },
-      { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 16 },
+      { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
     ];
-    const lastCol = 9;
+    const lastCol = 8;
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol } },
       { s: { r: 2, c: 0 }, e: { r: 2, c: lastCol } },
       { s: { r: 3, c: 0 }, e: { r: 3, c: lastCol } },
-      { s: { r: 4, c: 0 }, e: { r: 4, c: lastCol } },
     ];
-    XLSX.utils.book_append_sheet(wb, ws, 'Luong');
+    XLSX.utils.book_append_sheet(wb, ws, 'TongCong');
 
-    const fn = `BangLuong_${pad(meta.month)}_${meta.year}.xlsx`;
+    const fn = `BangTongCong_${pad(meta.month)}_${meta.year}.xlsx`;
 
     try {
       const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -396,7 +405,7 @@ export function initExportModule(ctx) {
       if (isIOS) {
         const file = new File([blob], fn, { type: mimeType });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file], title: 'Bảng lương', text: fn })
+          navigator.share({ files: [file], title: 'Bảng tổng công', text: fn })
             .then(() => toast('✅ Đã chia sẻ file'))
             .catch((err) => {
               if (err.name === 'AbortError') return;
