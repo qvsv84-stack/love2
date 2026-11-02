@@ -40,7 +40,7 @@ const state = {
   salaryMonth: new Date(),
   salaryRoleFilter: 'nv_tv',
   salarySearch: '',
-  salarySort: 'salary_desc',
+  salarySort: 'hours_desc',
   salaryData: [],
   salaryMeta: null,
 };
@@ -1351,8 +1351,15 @@ function renderCalendar() {
     const att = attMap[dateStr];
     let cls = 'cal-day'; let sub = '';
     if (att) {
-      if (att.is_off) { cls += ' off-day'; sub = 'OFF'; }
-      else { cls += ' has-data'; sub = formatHours(att.total_hours); }
+      if (att.is_off) {
+        cls += ' off-day';
+        sub = 'OFF';
+      } else {
+        cls += ' has-data';
+        // ⭐ Hiển thị TỔNG giờ công + giờ tăng ca
+        const totalH = Number(att.total_hours || 0) + Number(att.ot_hours || 0);
+        sub = formatHours(totalH);
+      }
     }
     if (dateStr === todayStr) cls += ' today';
     if (state.selectionMode && state.selectedDates.has(dateStr)) cls += ' selected';
@@ -1405,7 +1412,7 @@ function switchTab(name) {
     $('#salaryMonth').value = `${y}-${String(m).padStart(2, '0')}`;
     $('#salaryRoleFilter').value = state.salaryRoleFilter;
     $('#salarySearch').value = state.salarySearch || '';
-    $('#salarySort').value = state.salarySort || 'salary_desc';
+    $('#salarySort').value = state.salarySort || 'hours_desc';
     salaryModule.loadSalaryForMonth(true);
   }
 }
