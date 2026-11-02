@@ -157,12 +157,17 @@ body {
 .tabs {
   display: flex; gap: 6px; padding: 14px 16px 0;
   background: var(--bg); position: sticky; top: 76px; z-index: 40;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
+.tabs::-webkit-scrollbar { display: none; }
 .tab-btn {
   flex: 1; padding: 11px 6px; font-size: 13px; font-weight: 600;
   background: var(--card); color: var(--text-muted);
   border: 1.5px solid var(--border); border-radius: 11px;
   cursor: pointer; font-family: inherit; transition: 0.2s;
+  white-space: nowrap;
+  min-width: 90px;
 }
 .tab-btn.active {
   background: var(--ocean-500); color: white;
@@ -297,6 +302,7 @@ body {
 .section-header {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 14px;
+  gap: 8px;
 }
 .section-header h2 { font-size: 17px; color: var(--ocean-700); }
 .section-header .btn-primary { width: auto; padding: 10px 16px; font-size: 13px; }
@@ -318,7 +324,6 @@ body {
 }
 .building-floors { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
 
-/* ============ Floor row ============ */
 .floor-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 9px 12px; background: var(--ocean-50); border-radius: 9px;
@@ -327,7 +332,6 @@ body {
 .floor-row .floor-name { font-weight: 600; color: var(--text); }
 .floor-row .floor-hours { color: var(--ocean-600); font-weight: 700; }
 
-/* ⭐ Floor có assignees → layout dọc */
 .floor-row.has-assignees {
   flex-direction: column;
   align-items: stretch;
@@ -444,6 +448,101 @@ body {
 .phone-link-add:hover {
   color: #b45309;
   border-bottom-color: #b45309;
+}
+
+/* ============ Salary tab ============ */
+.salary-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+  background: var(--ocean-50);
+  padding: 12px 10px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+}
+.salary-meta-item {
+  text-align: center;
+}
+.salary-meta-item .label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.salary-meta-item .value {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ocean-700);
+}
+
+.salary-card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+}
+.salary-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.salary-card-head .avatar {
+  width: 38px; height: 38px; font-size: 14px;
+}
+.salary-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.salary-card-info .name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.salary-card-info .role {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.salary-amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--success);
+  white-space: nowrap;
+}
+.salary-card-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  line-height: 1.5;
+}
+.salary-card-detail strong {
+  color: var(--ocean-700);
+}
+
+.salary-total-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, var(--ocean-100), var(--primary-light));
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  margin-top: 12px;
+  font-weight: 700;
+  color: var(--ocean-700);
+  font-size: 13px;
+}
+.salary-total-box strong {
+  font-size: 18px;
+  color: var(--success);
 }
 
 /* ============ Modal ============ */
@@ -588,4 +687,9 @@ body {
   .btn-icon-sm { width: 28px; height: 28px; font-size: 13px; }
   .emp-actions { gap: 3px; margin-left: 4px; }
   .floor-assignee { font-size: 11px; }
+  .salary-meta-item .value { font-size: 12px; }
+  .salary-amount { font-size: 14px; }
+  .salary-total-box { font-size: 12px; }
+  .salary-total-box strong { font-size: 16px; }
+  .tab-btn { min-width: 75px; font-size: 12px; padding: 10px 4px; }
 }
