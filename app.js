@@ -11,9 +11,10 @@ const ROLE_LABELS = {
   admin: 'Giám sát',
   temporary: 'Thời vụ',
   employee: 'Nhân viên',
+  external: 'Ngoại cảnh',
 };
 
-const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3 };
+const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3, external: 4 };
 
 const state = {
   user: null,
@@ -86,6 +87,7 @@ function roleLabelOf(p) {
   if (!p) return 'Nhân viên';
   if (p.role === 'admin') return ROLE_LABELS.admin;
   if (p.role === 'temporary') return ROLE_LABELS.temporary;
+  if (p.role === 'external') return ROLE_LABELS.external;
   return p.position || ROLE_LABELS.employee;
 }
 
@@ -292,6 +294,7 @@ function renderEmployeeList() {
         <option value="admin" ${e.role === 'admin' ? 'selected' : ''}>${ROLE_LABELS.admin}</option>
         <option value="temporary" ${e.role === 'temporary' ? 'selected' : ''}>${ROLE_LABELS.temporary}</option>
         <option value="employee" ${e.role === 'employee' ? 'selected' : ''}>${ROLE_LABELS.employee}</option>
+        <option value="external" ${e.role === 'external' ? 'selected' : ''}>${ROLE_LABELS.external}</option>
       </select>` : '';
 
     let actionsHtml = '';
@@ -578,7 +581,7 @@ async function loadBuildings() {
   renderBuildings();
 }
 
-/* ⭐ Load assignments: tính giờ ĐÃ CHIA y hệt SQL recalc_day_attendance */
+/* Load assignments: tính giờ ĐÃ CHIA y hệt SQL recalc_day_attendance */
 async function loadTodayAssignments() {
   const todayStr = toDateStr(new Date());
   const { data, error } = await supabase
@@ -593,9 +596,8 @@ async function loadTodayAssignments() {
     return;
   }
 
-  // ⭐ Đếm DISTINCT số người theo từng floor
-  const mainUsersByFloor = {};    // floor_id -> Set(employee_id) — chỉ user mode=default
-  const otAutoUsersByFloor = {};  // floor_id -> Set(employee_id) — chỉ user OT auto (hours = null)
+  const mainUsersByFloor = {};
+  const otAutoUsersByFloor = {};
 
   for (const a of data) {
     if (a.mode === 'default' && Array.isArray(a.areas)) {
@@ -611,7 +613,6 @@ async function loadTodayAssignments() {
         const fid = area.floor_id;
         if (!fid) continue;
         const h = area.hours;
-        // Nhập tay (có giá trị) → không đếm vào nhóm auto
         if (h != null && h !== '' && !isNaN(Number(h))) continue;
         if (!otAutoUsersByFloor[fid]) otAutoUsersByFloor[fid] = new Set();
         otAutoUsersByFloor[fid].add(a.employee_id);
@@ -619,13 +620,11 @@ async function loadTodayAssignments() {
     }
   }
 
-  // ⭐ Tính giờ ĐÃ CHIA per-floor, giống hệt SQL recalc_day_attendance
   const map = {};
 
   for (const a of data) {
-    const perFloor = {};   // floor_id -> { main, ot }
+    const perFloor = {};
 
-    // --- MAIN ---
     if (a.mode === 'default' && Array.isArray(a.areas)) {
       for (const area of a.areas) {
         const fid = area.floor_id;
@@ -647,7 +646,6 @@ async function loadTodayAssignments() {
       }
     }
 
-    // --- OT ---
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
         const fid = area.floor_id;
@@ -658,10 +656,8 @@ async function loadTodayAssignments() {
         const isManual = h != null && h !== '' && !isNaN(Number(h));
 
         if (isManual) {
-          // Nhập tay → giữ nguyên, KHÔNG chia
           perFloor[fid].ot += Number(h);
         } else {
-          // Auto → floor.default_hours / số người auto cùng floor
           const floor = state.floors.find(x => x.id === fid);
           const floorDefault = floor ? Number(floor.default_hours || 0) : 0;
           const cnt = otAutoUsersByFloor[fid]?.size || 1;
@@ -694,7 +690,6 @@ async function loadTodayAssignments() {
   }
 }
 
-/* Render tab Khu vực — hiển thị giờ công + OT đã chia */
 function renderBuildings() {
   const wrap = $('#buildingsList');
   if (!state.buildings.length) {
