@@ -155,6 +155,22 @@
           </select>
         </div>
 
+        <div class="form-group">
+          <label>Tìm kiếm</label>
+          <input type="text" id="salarySearch" class="input"
+            placeholder="Tên hoặc số điện thoại..." autocomplete="off" />
+        </div>
+
+        <div class="form-group">
+          <label>Sắp xếp</label>
+          <select id="salarySort" class="input">
+            <option value="salary_desc">Lương cao → thấp</option>
+            <option value="salary_asc">Lương thấp → cao</option>
+            <option value="name">Tên A → Z</option>
+            <option value="role">Vai trò</option>
+          </select>
+        </div>
+
         <div id="salarySummary"></div>
         <div id="salaryList"></div>
         <div id="salaryTotal"></div>
