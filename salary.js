@@ -1,11 +1,20 @@
 // salary.js
 import { supabase } from './supabase.js';
 
-const BASE_SALARY = 4800000;
-const HOURS_PER_DAY = 8;
-const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3 };
+const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3, external: 4 };
+
+// ⭐ Config lương theo role
+const SALARY_CONFIG = {
+  admin:     { base: 4800000, hoursPerDay: 8 },
+  employee:  { base: 4800000, hoursPerDay: 8 },
+  temporary: { base: 4800000, hoursPerDay: 8 },
+  external:  { base: 7000000, hoursPerDay: 10 },  // Ngoại cảnh: 7tr, 10h/ngày
+};
 
 function pad(n) { return String(n).padStart(2, '0'); }
+function getSalaryConfig(role) {
+  return SALARY_CONFIG[role] || SALARY_CONFIG.employee;
+}
 
 export function initSalaryModule(ctx) {
   const { state, formatHours, formatVND, roleLabelOf, toast } = ctx;
@@ -67,6 +76,7 @@ export function initSalaryModule(ctx) {
     const { year, month, profiles, attendance } = cache;
     const daysInMonth = new Date(year, month, 0).getDate();
 
+    // Đếm ngày công chuẩn: T2-T7 (loại CN)
     let workingDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const dow = new Date(year, month - 1, d).getDay();
@@ -74,17 +84,15 @@ export function initSalaryModule(ctx) {
     }
     if (workingDays === 0) workingDays = 1;
 
-    const dailyRate = BASE_SALARY / workingDays;
-    const hourlyRate = dailyRate / HOURS_PER_DAY;
-
+    // Filter theo role
     const filterVal = state.salaryRoleFilter || 'nv_tv';
     const includeRoles =
-      filterVal === 'all' ? ['admin', 'employee', 'temporary'] :
+      filterVal === 'all' ? ['admin', 'employee', 'temporary', 'external'] :
       filterVal === 'employee' ? ['employee'] :
       filterVal === 'temporary' ? ['temporary'] :
-      ['employee', 'temporary'];
+      filterVal === 'external' ? ['external'] :
+      ['employee', 'temporary'];  // default nv_tv
 
-    // ⭐ Search filter
     const search = (state.salarySearch || '').toLowerCase().trim();
 
     const selected = profiles.filter(p => {
@@ -101,6 +109,7 @@ export function initSalaryModule(ctx) {
       return true;
     });
 
+    // Group attendance
     const attByEmp = {};
     for (const a of attendance) {
       if (!attByEmp[a.employee_id]) attByEmp[a.employee_id] = { work: 0, ot: 0, days: 0 };
@@ -114,7 +123,12 @@ export function initSalaryModule(ctx) {
       }
     }
 
+    // ⭐ Tính lương per-role
     const result = selected.map(p => {
+      const cfg = getSalaryConfig(p.role);
+      const dailyRate = cfg.base / workingDays;
+      const hourlyRate = dailyRate / cfg.hoursPerDay;
+
       const att = attByEmp[p.id] || { work: 0, ot: 0, days: 0 };
       const totalHours = att.work + att.ot;
       return {
@@ -127,11 +141,14 @@ export function initSalaryModule(ctx) {
         workHours: att.work,
         otHours: att.ot,
         totalHours,
+        hourlyRate,
+        baseSalary: cfg.base,
+        hoursPerDay: cfg.hoursPerDay,
         salary: totalHours * hourlyRate,
       };
     });
 
-    // ⭐ Sort theo state.salarySort
+    // Sort
     const sortVal = state.salarySort || 'salary_desc';
     result.sort((a, b) => {
       if (sortVal === 'salary_desc') return b.salary - a.salary;
@@ -147,13 +164,14 @@ export function initSalaryModule(ctx) {
     });
 
     state.salaryData = result;
-    state.salaryMeta = { year, month, workingDays, dailyRate, hourlyRate };
+    state.salaryMeta = { year, month, workingDays };
   }
 
   function renderSalary() {
     const meta = state.salaryMeta || {};
     const data = state.salaryData || [];
 
+    // ⭐ Summary: hiển thị 2 mức lương
     const $summary = document.getElementById('salarySummary');
     if ($summary) {
       $summary.innerHTML = `
@@ -163,17 +181,18 @@ export function initSalaryModule(ctx) {
             <span class="value">${meta.workingDays || 0} ngày</span>
           </div>
           <div class="salary-meta-item">
-            <span class="label">Lương/ngày</span>
-            <span class="value">${formatVND(meta.dailyRate || 0)}</span>
+            <span class="label">NV/TV/GS</span>
+            <span class="value">4.8tr · 8h</span>
           </div>
           <div class="salary-meta-item">
-            <span class="label">Lương/giờ</span>
-            <span class="value">${formatVND(meta.hourlyRate || 0)}</span>
+            <span class="label">Ngoại cảnh</span>
+            <span class="value">7tr · 10h</span>
           </div>
         </div>
       `;
     }
 
+    // List
     const $list = document.getElementById('salaryList');
     if ($list) {
       if (!data.length) {
@@ -191,13 +210,15 @@ export function initSalaryModule(ctx) {
               <div class="salary-amount">${formatVND(e.salary)}</div>
             </div>
             <div class="salary-card-detail">
-              ${e.days} ngày · ${formatHours(e.workHours)} công + ${formatHours(e.otHours)} OT = <strong>${formatHours(e.totalHours)}</strong>
+              ${e.days} ngày · ${formatHours(e.workHours)} công + ${formatHours(e.otHours)} OT
+              = <strong>${formatHours(e.totalHours)}</strong> × ${formatVND(e.hourlyRate)}/h
             </div>
           </div>
         `).join('');
       }
     }
 
+    // Total
     const total = data.reduce((s, e) => s + e.salary, 0);
     const $total = document.getElementById('salaryTotal');
     if ($total) {
@@ -222,38 +243,21 @@ export function initSalaryModule(ctx) {
 
   function onRoleFilterChanged() {
     state.salaryRoleFilter = document.getElementById('salaryRoleFilter').value;
-
-    if (!cache.profiles) {
-      loadSalaryForMonth(true);
-      return;
-    }
-
+    if (!cache.profiles) { loadSalaryForMonth(true); return; }
     computeSalary();
     renderSalary();
   }
 
-  // ⭐ Search changed
   function onSearchChanged() {
     state.salarySearch = document.getElementById('salarySearch').value;
-
-    if (!cache.profiles) {
-      loadSalaryForMonth(true);
-      return;
-    }
-
+    if (!cache.profiles) { loadSalaryForMonth(true); return; }
     computeSalary();
     renderSalary();
   }
 
-  // ⭐ Sort changed
   function onSortChanged() {
     state.salarySort = document.getElementById('salarySort').value;
-
-    if (!cache.profiles) {
-      loadSalaryForMonth(true);
-      return;
-    }
-
+    if (!cache.profiles) { loadSalaryForMonth(true); return; }
     computeSalary();
     renderSalary();
   }
