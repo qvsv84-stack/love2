@@ -60,16 +60,16 @@
         <button class="tab-btn active" data-tab="calendar">📅 Lịch công</button>
         <button class="tab-btn" data-tab="areas" style="display:none">🏢 Khu vực</button>
         <button class="tab-btn" data-tab="employees" style="display:none">👥 Nhân viên</button>
+        <button class="tab-btn" data-tab="salary" style="display:none">💰 Tính lương</button>
       </nav>
 
+      <!-- TAB: CALENDAR -->
       <section id="tab-calendar" class="tab-content active">
-        <!-- Guest banner -->
         <div id="guestBanner" class="guest-banner" style="display:none">
           <p>🔑 Đăng nhập để chấm công và quản lý</p>
           <button id="guestLoginBtn" class="btn-primary">Đăng nhập</button>
         </div>
 
-        <!-- Employee panel -->
         <div class="employee-panel">
           <div class="emp-selector-row" id="empSelectorRow" style="display:none">
             <label>Nhân viên:</label>
@@ -94,13 +94,11 @@
           <button id="nextMonth" class="btn-icon">▶</button>
         </div>
 
-        <!-- Admin actions (multi-select, bulk copy) -->
         <div id="calendarActions" style="display:none">
           <button id="selectionToggleBtn" class="btn-secondary">☑️ Chọn nhiều ngày</button>
           <button id="bulkCopyBtn" class="btn-secondary">📋 Copy ngày</button>
         </div>
 
-        <!-- Export action (mọi người) -->
         <div id="exportActionRow" style="display:none; margin-bottom:12px">
           <button id="exportExcelBtn" class="btn-secondary" style="width:100%">📥 Xuất Excel</button>
         </div>
@@ -115,6 +113,7 @@
         <p class="hint" id="calendarHint" style="display:none">💡 Nhấn giữ (long-press) vào một ngày để chấm công</p>
       </section>
 
+      <!-- TAB: AREAS -->
       <section id="tab-areas" class="tab-content">
         <div class="section-header">
           <h2>🏢 Khu vực phụ trách</h2>
@@ -124,6 +123,7 @@
         <p class="hint" id="areasHint">📅 Đang hiển thị nhân viên được phân công hôm nay</p>
       </section>
 
+      <!-- TAB: EMPLOYEES -->
       <section id="tab-employees" class="tab-content">
         <div class="section-header">
           <h2>👥 Danh sách nhân viên</h2>
@@ -131,6 +131,33 @@
         </div>
         <div id="employeesList" class="employees-list"></div>
         <p class="hint">Nhân viên được tạo bởi Giám sát. Tên đăng nhập tự động gắn @skyone.vn.</p>
+      </section>
+
+      <!-- TAB: SALARY -->
+      <section id="tab-salary" class="tab-content">
+        <div class="section-header">
+          <h2>💰 Tính lương</h2>
+          <button id="salaryExportBtn" class="btn-primary">📥 Xuất Excel</button>
+        </div>
+
+        <div class="form-group">
+          <label>Tháng</label>
+          <input type="month" id="salaryMonth" class="input" />
+        </div>
+
+        <div class="form-group">
+          <label>Đối tượng tính lương</label>
+          <select id="salaryRoleFilter" class="input">
+            <option value="nv_tv">Nhân viên + Thời vụ</option>
+            <option value="employee">Chỉ Nhân viên</option>
+            <option value="temporary">Chỉ Thời vụ</option>
+            <option value="all">Tất cả (gồm Giám sát)</option>
+          </select>
+        </div>
+
+        <div id="salarySummary"></div>
+        <div id="salaryList"></div>
+        <div id="salaryTotal"></div>
       </section>
     </main>
 
@@ -144,7 +171,6 @@
         <div class="modal-body">
           <p id="prefillNote" class="prefill-note" style="display:none"></p>
 
-          <!-- SUPERVISOR MODE -->
           <div id="supervisorModeSection" style="display:none">
             <div class="form-group">
               <label>Chế độ chấm công <span style="font-weight:400;color:var(--text-muted);font-size:11px">(Giám sát)</span></label>
@@ -175,7 +201,6 @@
             </div>
           </div>
 
-          <!-- EMPLOYEE MODE -->
           <div id="employeeModeSection">
             <div class="form-group">
               <label>1️⃣ Khu vực chính <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tính công thường)</span></label>
@@ -463,7 +488,6 @@
     <div id="toast" class="toast" style="display:none"></div>
   </div>
 
-  <!-- SheetJS CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script type="module" src="app.js"></script>
 </body>
