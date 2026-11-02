@@ -38,6 +38,8 @@ const state = {
   floorAssignments: {},
   salaryMonth: new Date(),
   salaryRoleFilter: 'nv_tv',
+  salarySearch: '',
+  salarySort: 'salary_desc',
   salaryData: [],
   salaryMeta: null,
 };
@@ -576,12 +578,12 @@ async function loadBuildings() {
   renderBuildings();
 }
 
-/* ⭐ Load assignments: cả khu vực chính + OT, gộp theo floor */
+/* ⭐ Load assignments: tính giờ ĐÃ CHIA y hệt SQL recalc_day_attendance */
 async function loadTodayAssignments() {
   const todayStr = toDateStr(new Date());
   const { data, error } = await supabase
     .from('attendance')
-    .select('employee_id, areas, ot_areas, is_off')
+    .select('employee_id, areas, ot_areas, is_off, mode')
     .eq('date', todayStr)
     .neq('is_off', true);
 
@@ -591,12 +593,52 @@ async function loadTodayAssignments() {
     return;
   }
 
+  // ⭐ Đếm DISTINCT số người theo từng floor
+  const mainUsersByFloor = {};    // floor_id -> Set(employee_id) — chỉ user mode=default
+  const otAutoUsersByFloor = {};  // floor_id -> Set(employee_id) — chỉ user OT auto (hours = null)
+
+  for (const a of data) {
+    if (a.mode === 'default' && Array.isArray(a.areas)) {
+      for (const area of a.areas) {
+        const fid = area.floor_id;
+        if (!fid) continue;
+        if (!mainUsersByFloor[fid]) mainUsersByFloor[fid] = new Set();
+        mainUsersByFloor[fid].add(a.employee_id);
+      }
+    }
+    if (Array.isArray(a.ot_areas)) {
+      for (const area of a.ot_areas) {
+        const fid = area.floor_id;
+        if (!fid) continue;
+        const h = area.hours;
+        // Nhập tay (có giá trị) → không đếm vào nhóm auto
+        if (h != null && h !== '' && !isNaN(Number(h))) continue;
+        if (!otAutoUsersByFloor[fid]) otAutoUsersByFloor[fid] = new Set();
+        otAutoUsersByFloor[fid].add(a.employee_id);
+      }
+    }
+  }
+
+  // ⭐ Tính giờ ĐÃ CHIA per-floor, giống hệt SQL recalc_day_attendance
   const map = {};
 
-  for (const a of data || []) {
-    const perFloor = {};
+  for (const a of data) {
+    const perFloor = {};   // floor_id -> { main, ot }
 
-    if (Array.isArray(a.areas)) {
+    // --- MAIN ---
+    if (a.mode === 'default' && Array.isArray(a.areas)) {
+      for (const area of a.areas) {
+        const fid = area.floor_id;
+        if (!fid) continue;
+        if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
+
+        const floor = state.floors.find(x => x.id === fid);
+        const floorDefault = floor ? Number(floor.default_hours || 0) : 0;
+        const cnt = mainUsersByFloor[fid]?.size || 1;
+
+        perFloor[fid].main += floorDefault / cnt;
+      }
+    } else if (a.mode === 'manual' && Array.isArray(a.areas)) {
       for (const area of a.areas) {
         const fid = area.floor_id;
         if (!fid) continue;
@@ -605,17 +647,26 @@ async function loadTodayAssignments() {
       }
     }
 
+    // --- OT ---
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
         const fid = area.floor_id;
         if (!fid) continue;
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
-        let h = area.hours != null ? Number(area.hours) : null;
-        if (h == null) {
+
+        const h = area.hours;
+        const isManual = h != null && h !== '' && !isNaN(Number(h));
+
+        if (isManual) {
+          // Nhập tay → giữ nguyên, KHÔNG chia
+          perFloor[fid].ot += Number(h);
+        } else {
+          // Auto → floor.default_hours / số người auto cùng floor
           const floor = state.floors.find(x => x.id === fid);
-          h = floor ? Number(floor.default_hours || 0) : 0;
+          const floorDefault = floor ? Number(floor.default_hours || 0) : 0;
+          const cnt = otAutoUsersByFloor[fid]?.size || 1;
+          perFloor[fid].ot += floorDefault / cnt;
         }
-        perFloor[fid].ot += h;
       }
     }
 
@@ -643,7 +694,7 @@ async function loadTodayAssignments() {
   }
 }
 
-/* ⭐ Render: hiển thị cả giờ công + OT mỗi người */
+/* Render tab Khu vực — hiển thị giờ công + OT đã chia */
 function renderBuildings() {
   const wrap = $('#buildingsList');
   if (!state.buildings.length) {
@@ -668,8 +719,8 @@ function renderBuildings() {
             : '';
 
           const parts = [];
-          if (item.main_hours > 0) parts.push(formatHours(item.main_hours));
-          if (item.ot_hours > 0) parts.push(formatHours(item.ot_hours) + ' OT');
+          if (item.main_hours > 0.01) parts.push(formatHours(item.main_hours));
+          if (item.ot_hours > 0.01) parts.push(formatHours(item.ot_hours) + ' OT');
           const hoursStr = parts.length ? ` · ${parts.join(' + ')}` : '';
 
           return `<div class="floor-assignee">${shortName}${phoneHtml}${hoursStr}</div>`;
@@ -1358,6 +1409,8 @@ function switchTab(name) {
     const m = state.salaryMonth.getMonth() + 1;
     $('#salaryMonth').value = `${y}-${String(m).padStart(2, '0')}`;
     $('#salaryRoleFilter').value = state.salaryRoleFilter;
+    $('#salarySearch').value = state.salarySearch || '';
+    $('#salarySort').value = state.salarySort || 'salary_desc';
     salaryModule.loadSalaryForMonth(true);
   }
 }
@@ -1501,6 +1554,7 @@ function bindEvents() {
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
 
+  // EXPORT
   $('#exportExcelBtn').addEventListener('click', () => {
     if (exportModule) exportModule.openExportModal();
   });
@@ -1519,16 +1573,24 @@ function bindEvents() {
     if (exportModule) exportModule.onMonthChanged();
   });
 
+  // SALARY
   $('#salaryMonth').addEventListener('change', () => {
     if (salaryModule) salaryModule.onMonthChanged();
   });
   $('#salaryRoleFilter').addEventListener('change', () => {
     if (salaryModule) salaryModule.onRoleFilterChanged();
   });
+  $('#salarySearch').addEventListener('input', () => {
+    if (salaryModule) salaryModule.onSearchChanged();
+  });
+  $('#salarySort').addEventListener('change', () => {
+    if (salaryModule) salaryModule.onSortChanged();
+  });
   $('#salaryExportBtn').addEventListener('click', () => {
     if (exportModule && exportModule.doExportSalary) exportModule.doExportSalary();
   });
 
+  // ATTENDANCE MODAL
   $('#attendanceModal').addEventListener('click', (e) => {
     if (e.target.id === 'attendanceModal') closeModal('attendanceModal');
   });
