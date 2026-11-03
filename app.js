@@ -46,10 +46,11 @@ const state = {
   salarySort: 'hours_desc',
   salaryData: [],
   salaryMeta: null,
-  // ⭐ Excel tab
+  // Excel tab
   excelMonth: new Date(),
   excelProfiles: [],
   excelAttendance: [],
+  excelActionEmpId: null,
 };
 
 let exportModule = null;
@@ -758,7 +759,6 @@ function renderBuildings() {
     return true;
   });
 
-  // Stats: chỉ đếm Nhân viên (role='employee'), không phụ thuộc filter
   const allActive = state.employees.filter(e => e.status !== 'inactive');
   const nvEmployees = allActive.filter(e => e.role === 'employee');
   const nvEmpIds = new Set(nvEmployees.map(e => e.id));
@@ -773,7 +773,6 @@ function renderBuildings() {
   const totalNV = nvEmployees.length;
   const workingNVCount = workingNVIds.size;
 
-  // Tầng có người: theo filter hiện tại
   const floorsWithPeople = new Set();
   for (const b of state.buildings) {
     const floors = state.floors.filter(f => f.building_id === b.id);
@@ -1364,13 +1363,8 @@ function buildSupervisorPayload() {
   if (isLeave) {
     return {
       employee_id: state.selectedEmployeeId,
-      total_hours: 0,
-      ot_hours: 0,
-      is_off: false,
-      mode: 'leave',
-      manual_hours: null,
-      areas: [],
-      ot_areas: [],
+      total_hours: 0, ot_hours: 0, is_off: false,
+      mode: 'leave', manual_hours: null, areas: [], ot_areas: [],
     };
   }
 
@@ -1381,8 +1375,7 @@ function buildSupervisorPayload() {
     is_off: isOff,
     mode: isOff ? 'off' : 'manual',
     manual_hours: isOff ? null : SUPERVISOR_HOURS,
-    areas: [],
-    ot_areas: [],
+    areas: [], ot_areas: [],
   };
 }
 
@@ -1396,13 +1389,8 @@ function buildEmployeePayload() {
   if (mode === 'leave') {
     return {
       employee_id: state.selectedEmployeeId,
-      total_hours: 0,
-      ot_hours: 0,
-      is_off: false,
-      mode: 'leave',
-      manual_hours: null,
-      areas: [],
-      ot_areas: [],
+      total_hours: 0, ot_hours: 0, is_off: false,
+      mode: 'leave', manual_hours: null, areas: [], ot_areas: [],
     };
   }
 
@@ -1611,12 +1599,10 @@ function switchTab(name) {
     salaryModule.loadSalaryForMonth(true);
   }
 
-  // Auto-refresh Areas
   if (name === 'areas' && state.isAdmin) {
     loadTodayAssignments().then(renderBuildings);
   }
 
-  // ⭐ Auto-load Excel
   if (name === 'excel' && state.isAdmin) {
     const y = state.excelMonth.getFullYear();
     const m = state.excelMonth.getMonth() + 1;
@@ -1633,7 +1619,7 @@ async function changeMonth(delta) {
   renderCalendar();
 }
 
-/* ============ EXCEL MATRIX TAB ============ */
+/* ============ EXCEL TAB — MATRIX 2 BLOCK ============ */
 async function loadExcelData() {
   const y = state.excelMonth.getFullYear();
   const m = state.excelMonth.getMonth() + 1;
@@ -1642,9 +1628,9 @@ async function loadExcelData() {
   const endDate = `${y}-${pad(m)}-${pad(daysInMonth)}`;
 
   const $loading = $('#excelLoading');
-  const $wrap = $('#excelTableWrap');
+  const $content = $('#excelContent');
   if ($loading) { $loading.style.display = 'block'; $loading.textContent = 'Đang tải...'; }
-  if ($wrap) $wrap.style.display = 'none';
+  if ($content) $content.style.display = 'none';
 
   const [profRes, attRes] = await Promise.all([
     supabase.from('profiles').select('*').order('full_name'),
@@ -1662,41 +1648,58 @@ async function loadExcelData() {
   state.excelAttendance = attRes.data || [];
 
   if ($loading) $loading.style.display = 'none';
-  if ($wrap) $wrap.style.display = 'block';
+  if ($content) $content.style.display = 'block';
 
-  renderExcelTable(y, m, daysInMonth);
+  renderExcelBlocks(y, m, daysInMonth);
 }
 
-function renderExcelTable(y, m, daysInMonth) {
-  const table = $('#excelTable');
-  if (!table) return;
+/* Xây dựng map emp_id -> { day: att } */
+function buildAttMap() {
+  const map = {};
+  for (const a of state.excelAttendance) {
+    if (!map[a.employee_id]) map[a.employee_id] = {};
+    const day = Number(a.date.split('-')[2]);
+    map[a.employee_id][day] = a;
+  }
+  return map;
+}
 
+/* Tính giá trị 1 ô */
+function getCellData(att) {
+  if (!att) return { nc: '', ot: '', ncCls: 'val-empty', otCls: 'val-empty' };
+  if (att.mode === 'leave') return { nc: 'P', ot: '', ncCls: 'val-leave', otCls: 'val-empty' };
+  if (att.is_off) return { nc: 'O', ot: '', ncCls: 'val-off', otCls: 'val-empty' };
+
+  const th = Number(att.total_hours || 0);
+  const oh = Number(att.ot_hours || 0);
+  let ncVal = '', otVal = '';
+  if (th > 0) {
+    const days = th / 8;
+    ncVal = Number.isInteger(days) ? String(days) : days.toFixed(2).replace(/\.?0+$/, '');
+  }
+  if (oh > 0) {
+    otVal = Number.isInteger(oh) ? String(oh) : oh.toFixed(2).replace(/\.?0+$/, '');
+  }
+  return { nc: ncVal, ot: otVal, ncCls: ncVal ? '' : 'val-empty', otCls: otVal ? '' : 'val-empty' };
+}
+
+/* Render 1 block matrix (portrait) */
+function renderMatrixBlock(y, m, fromDay, toDay, attMap) {
   const todayStr = toDateStr(new Date());
   const todayPrefix = `${y}-${pad(m)}`;
   const todayDay = todayStr.startsWith(todayPrefix) ? Number(todayStr.split('-')[2]) : -1;
 
-  const attMap = {};
-  for (const a of state.excelAttendance) {
-    if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
-    const day = Number(a.date.split('-')[2]);
-    attMap[a.employee_id][day] = a;
-  }
-
-  // THEAD
-  let thead = '<thead><tr>';
-  thead += '<th class="sticky-name">Nhân viên</th>';
-  thead += '<th class="sticky-label"></th>';
-  for (let d = 1; d <= daysInMonth; d++) {
+  let html = '<table class="excel-matrix"><thead><tr>';
+  html += '<th class="th-name">Nhân viên</th>';
+  for (let d = fromDay; d <= toDay; d++) {
     const dow = new Date(y, m - 1, d).getDay();
-    const cls = dow === 0 ? 'col-sunday' : '';
-    const clsToday = d === todayDay ? ' col-today' : '';
-    thead += `<th class="${cls}${clsToday}">${d}</th>`;
+    const clsArr = [];
+    if (dow === 0) clsArr.push('th-sunday');
+    if (d === todayDay) clsArr.push('th-today');
+    html += `<th class="${clsArr.join(' ')}">${d}</th>`;
   }
-  thead += '<th class="col-total">Tổng</th>';
-  thead += '</tr></thead>';
+  html += '</tr></thead><tbody>';
 
-  // TBODY
-  let tbody = '<tbody>';
   for (const emp of state.excelProfiles) {
     const empAtt = attMap[emp.id] || {};
     const name = emp.full_name || emp.username || '';
@@ -1705,71 +1708,61 @@ function renderExcelTable(y, m, daysInMonth) {
     let rowNC = '<tr class="row-nc">';
     let rowOT = '<tr class="row-ot">';
 
-    rowNC += `<td rowspan="2" class="sticky-name" title="${safeName}">${name}</td>`;
-    rowNC += '<td class="sticky-label">NC</td>';
-    rowOT += '<td class="sticky-label">OT</td>';
+    rowNC += `<td rowspan="2" class="td-name" data-emp="${emp.id}" title="${safeName} — Tap để lưu/chia sẻ">${name}</td>`;
 
-    let totalDays = 0;
-    let totalOT = 0;
-
-    for (let d = 1; d <= daysInMonth; d++) {
+    for (let d = fromDay; d <= toDay; d++) {
       const att = empAtt[d];
       const dow = new Date(y, m - 1, d).getDay();
-      const cls = dow === 0 ? 'col-sunday' : '';
+      const cls = dow === 0 ? 'td-sunday' : '';
+      const cell = getCellData(att);
 
-      let ncVal = '';
-      let otVal = '';
-      let ncCls = '';
-      let otCls = '';
-
-      if (att) {
-        if (att.mode === 'leave') {
-          ncVal = 'P';
-          ncCls = 'val-leave';
-        } else if (att.is_off) {
-          ncVal = 'O';
-          ncCls = 'val-off';
-        } else {
-          const th = Number(att.total_hours || 0);
-          const oh = Number(att.ot_hours || 0);
-          if (th > 0) {
-            const days = th / 8;
-            ncVal = Number.isInteger(days)
-              ? String(days)
-              : days.toFixed(2).replace(/\.?0+$/, '');
-            totalDays += days;
-          }
-          if (oh > 0) {
-            otVal = Number.isInteger(oh)
-              ? String(oh)
-              : oh.toFixed(2).replace(/\.?0+$/, '');
-            totalOT += oh;
-          }
-        }
-      } else {
-        ncCls = 'val-empty';
-        otCls = 'val-empty';
-      }
-
-      rowNC += `<td class="${cls} ${ncCls}">${ncVal}</td>`;
-      rowOT += `<td class="${cls} ${otCls}">${otVal}</td>`;
+      rowNC += `<td class="${cls} ${cell.ncCls}">${cell.nc}</td>`;
+      rowOT += `<td class="${cls} ${cell.otCls}">${cell.ot}</td>`;
     }
 
-    const totalDaysStr = Number.isInteger(totalDays)
-      ? String(totalDays)
-      : totalDays.toFixed(2).replace(/\.?0+$/, '');
-    const totalOTStr = Number.isInteger(totalOT)
-      ? String(totalOT)
-      : totalOT.toFixed(2).replace(/\.?0+$/, '');
-
-    rowNC += `<td class="col-total">${totalDaysStr || '0'}</td></tr>`;
-    rowOT += `<td class="col-total">${totalOTStr || '0'}</td></tr>`;
-
-    tbody += rowNC + rowOT;
+    rowNC += '</tr>';
+    rowOT += '</tr>';
+    html += rowNC + rowOT;
   }
-  tbody += '</tbody>';
+  html += '</tbody></table>';
+  return html;
+}
 
-  table.innerHTML = thead + tbody;
+function renderExcelBlocks(y, m, daysInMonth) {
+  const attMap = buildAttMap();
+
+  const block1 = $('#excelBlock1');
+  const block2 = $('#excelBlock2');
+
+  const mid = 15;
+  if (block1) {
+    block1.innerHTML = renderMatrixBlock(y, m, 1, Math.min(mid, daysInMonth), attMap);
+  }
+  if (block2) {
+    if (daysInMonth > mid) {
+      block2.innerHTML = renderMatrixBlock(y, m, mid + 1, daysInMonth, attMap);
+      block2.style.display = 'block';
+      // Show/hide part 2 label
+      const part2Label = block2.previousElementSibling;
+      if (part2Label && part2Label.classList.contains('excel-part-label')) {
+        part2Label.style.display = 'inline-block';
+      }
+    } else {
+      block2.innerHTML = '';
+      block2.style.display = 'none';
+      const part2Label = block2.previousElementSibling;
+      if (part2Label && part2Label.classList.contains('excel-part-label')) {
+        part2Label.style.display = 'none';
+      }
+    }
+  }
+
+  // Bind tap tên → mở modal action
+  $$('[data-emp]').forEach(el => {
+    el.addEventListener('click', () => {
+      openExcelActionModal(el.dataset.emp);
+    });
+  });
 }
 
 function onExcelMonthChanged() {
@@ -1778,6 +1771,267 @@ function onExcelMonthChanged() {
   const [y, m] = val.split('-').map(Number);
   state.excelMonth = new Date(y, m - 1, 1);
   loadExcelData();
+}
+
+/* Modal action cho từng user */
+function openExcelActionModal(empId) {
+  const emp = state.excelProfiles.find(e => e.id === empId);
+  if (!emp) return;
+  state.excelActionEmpId = empId;
+  $('#excelActionName').textContent = emp.full_name || emp.username || '—';
+  openModal('excelActionModal');
+}
+
+/* ⭐ Render PNG capture table (full 31 ngày) — dùng cho html2canvas */
+function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title) {
+  const todayStr = toDateStr(new Date());
+  const todayPrefix = `${year}-${pad(month)}`;
+  const todayDay = todayStr.startsWith(todayPrefix) ? Number(todayStr.split('-')[2]) : -1;
+
+  let html = '';
+
+  if (title) {
+    html += `<div class="excel-capture-title">${title}</div>`;
+    html += `<div class="excel-capture-subtitle">BẢNG CÔNG THÁNG ${month}/${year}</div>`;
+  }
+
+  html += '<table class="excel-capture-table"><thead><tr>';
+  html += '<th class="th-name">Nhân viên</th>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dow = new Date(year, month - 1, d).getDay();
+    const cls = dow === 0 ? 'th-sunday' : '';
+    html += `<th class="${cls}">${d}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  for (const emp of profiles) {
+    const empAtt = attMap[emp.id] || {};
+    const name = emp.full_name || emp.username || '';
+
+    let rowNC = '<tr class="row-nc">';
+    let rowOT = '<tr class="row-ot">';
+
+    rowNC += `<td rowspan="2" class="td-name">${name}</td>`;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const att = empAtt[d];
+      const dow = new Date(year, month - 1, d).getDay();
+      const cls = dow === 0 ? 'td-sunday' : '';
+      const cell = getCellData(att);
+
+      rowNC += `<td class="${cls} ${cell.ncCls}">${cell.nc}</td>`;
+      rowOT += `<td class="${cls} ${cell.otCls}">${cell.ot}</td>`;
+    }
+
+    rowNC += '</tr>';
+    rowOT += '</tr>';
+    html += rowNC + rowOT;
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
+/* ⭐ Chụp 1 user (hoặc nhiều user) → PNG */
+async function captureExcelPNG(profilesToCapture, title, filename) {
+  if (typeof html2canvas === 'undefined') {
+    toast('Chưa tải được thư viện xuất ảnh');
+    return null;
+  }
+
+  const y = state.excelMonth.getFullYear();
+  const m = state.excelMonth.getMonth() + 1;
+  const daysInMonth = new Date(y, m, 0).getDate();
+
+  const attMap = buildAttMap();
+
+  const captureArea = $('#excelCaptureArea');
+  if (!captureArea) return null;
+
+  const tableHTML = buildCaptureTableHTML(profilesToCapture, attMap, y, m, daysInMonth, title);
+  captureArea.innerHTML = `
+    <div style="display:inline-block;background:white;padding:0;">
+      ${tableHTML}
+      <div style="text-align:center;padding:10px;font-size:11px;color:#5c7c82;font-family:'Be Vietnam Pro',sans-serif;border-top:1px solid #d4eef2;">
+        Xuất lúc ${pad(new Date().getDate())}/${pad(new Date().getMonth() + 1)}/${new Date().getFullYear()} ${pad(new Date().getHours())}:${pad(new Date().getMinutes())}
+        · NC = Ngày công (8h) · OT = Tăng ca
+      </div>
+    </div>
+  `;
+
+  // Đợi 1 tick để DOM render
+  await new Promise(r => setTimeout(r, 100));
+
+  try {
+    const target = captureArea.firstElementChild;
+    const canvas = await html2canvas(target, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) { resolve(null); return; }
+        resolve({ blob, filename });
+      }, 'image/png', 0.95);
+    });
+  } catch (err) {
+    console.error(err);
+    toast('Lỗi render ảnh: ' + err.message);
+    return null;
+  }
+}
+
+/* ⭐ Lưu 1 user */
+async function saveExcelOne() {
+  const empId = state.excelActionEmpId;
+  if (!empId) return;
+  const emp = state.excelProfiles.find(e => e.id === empId);
+  if (!emp) return;
+
+  closeModal('excelActionModal');
+  toast('⏳ Đang tạo ảnh...');
+
+  const name = emp.full_name || emp.username || 'NhanVien';
+  const safeName = name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯẠ-ỹ]/g, '');
+
+  const result = await captureExcelPNG(
+    [emp],
+    name,
+    `BangCong_${safeName}.png`
+  );
+
+  if (!result) return;
+
+  const url = URL.createObjectURL(result.blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = result.filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+  toast('📷 Đã lưu ảnh: ' + result.filename);
+}
+
+/* ⭐ Chia sẻ 1 user */
+async function shareExcelOne() {
+  const empId = state.excelActionEmpId;
+  if (!empId) return;
+  const emp = state.excelProfiles.find(e => e.id === empId);
+  if (!emp) return;
+
+  closeModal('excelActionModal');
+  toast('⏳ Đang tạo ảnh...');
+
+  const name = emp.full_name || emp.username || 'NhanVien';
+  const safeName = name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯẠ-ỹ]/g, '');
+
+  const result = await captureExcelPNG(
+    [emp],
+    name,
+    `BangCong_${safeName}.png`
+  );
+
+  if (!result) return;
+
+  await sharePNG(result.blob, result.filename, `Bảng công ${name}`);
+}
+
+/* ⭐ Lưu tất cả */
+async function saveExcelAll() {
+  if (!state.excelProfiles.length) { toast('Chưa có dữ liệu'); return; }
+
+  toast('⏳ Đang tạo ảnh toàn bộ...');
+
+  const y = state.excelMonth.getFullYear();
+  const m = state.excelMonth.getMonth() + 1;
+
+  const result = await captureExcelPNG(
+    state.excelProfiles,
+    'BẢNG CÔNG TOÀN CÔNG TY',
+    `BangCong_All_${pad(m)}_${y}.png`
+  );
+
+  if (!result) return;
+
+  const url = URL.createObjectURL(result.blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = result.filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+  toast('📷 Đã lưu ảnh: ' + result.filename);
+}
+
+/* ⭐ Chia sẻ tất cả */
+async function shareExcelAll() {
+  if (!state.excelProfiles.length) { toast('Chưa có dữ liệu'); return; }
+
+  toast('⏳ Đang tạo ảnh toàn bộ...');
+
+  const y = state.excelMonth.getFullYear();
+  const m = state.excelMonth.getMonth() + 1;
+
+  const result = await captureExcelPNG(
+    state.excelProfiles,
+    'BẢNG CÔNG TOÀN CÔNG TY',
+    `BangCong_All_${pad(m)}_${y}.png`
+  );
+
+  if (!result) return;
+
+  await sharePNG(result.blob, result.filename, 'Bảng công toàn công ty');
+}
+
+/* ⭐ Share PNG — hỗ trợ iOS + desktop */
+async function sharePNG(blob, filename, title) {
+  const file = new File([blob], filename, { type: 'image/png' });
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title, text: filename });
+      toast('✅ Đã chia sẻ ảnh');
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      // Fallback download
+      downloadBlob(blob, filename);
+    }
+  } else if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title, text: filename });
+      toast('✅ Đã chia sẻ ảnh');
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      downloadBlob(blob, filename);
+    }
+  } else {
+    // Fallback download
+    downloadBlob(blob, filename);
+    toast('✅ Đã tải ảnh: ' + filename);
+  }
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 /* ============ BULK COPY ============ */
@@ -1970,16 +2224,26 @@ function bindEvents() {
     if (exportModule && exportModule.doExportSalary) exportModule.doExportSalary();
   });
 
-  // ⭐ EXCEL TAB
+  // EXCEL TAB
   const excelMonthEl = $('#excelMonth');
   if (excelMonthEl) excelMonthEl.addEventListener('change', onExcelMonthChanged);
 
-  const excelExportBtnEl = $('#excelExportBtn');
-  if (excelExportBtnEl) {
-    excelExportBtnEl.addEventListener('click', () => {
-      if (exportModule && exportModule.doExportMatrix) {
-        exportModule.doExportMatrix(state.excelProfiles, state.excelAttendance, state.excelMonth);
-      }
+  const excelSaveAllBtn = $('#excelSaveAllBtn');
+  if (excelSaveAllBtn) excelSaveAllBtn.addEventListener('click', saveExcelAll);
+
+  const excelShareAllBtn = $('#excelShareAllBtn');
+  if (excelShareAllBtn) excelShareAllBtn.addEventListener('click', shareExcelAll);
+
+  const excelSaveOneBtn = $('#excelSaveOneBtn');
+  if (excelSaveOneBtn) excelSaveOneBtn.addEventListener('click', saveExcelOne);
+
+  const excelShareOneBtn = $('#excelShareOneBtn');
+  if (excelShareOneBtn) excelShareOneBtn.addEventListener('click', shareExcelOne);
+
+  const excelActionModal = $('#excelActionModal');
+  if (excelActionModal) {
+    excelActionModal.addEventListener('click', (e) => {
+      if (e.target.id === 'excelActionModal') closeModal('excelActionModal');
     });
   }
 
