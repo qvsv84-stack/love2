@@ -168,7 +168,7 @@ export function initExportModule(ctx) {
       attByEmpDay[a.employee_id][day] = a;
     }
 
-    // SHEET 1
+    // SHEET 1 — Bảng công
     const aoa1 = [];
     aoa1.push(['TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN']);
     aoa1.push([`BẢNG CHẤM CÔNG THÁNG ${month}/${year}`]);
@@ -178,10 +178,11 @@ export function initExportModule(ctx) {
       `Xuất lúc: ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ` +
       `${pad(now.getHours())}:${pad(now.getMinutes())}`
     ]);
+    aoa1.push(['Ghi chú: số = giờ công | O = nghỉ (OFF) | P = phép (không tính công)']);
 
     const header1 = ['STT', 'Họ tên', 'Chức vụ', 'SĐT'];
     for (let d = 1; d <= daysInMonth; d++) header1.push(d);
-    header1.push('Tổng công', 'Tăng ca');
+    header1.push('Ngày công', 'Phép', 'Tổng công', 'Tăng ca');
     aoa1.push(header1);
 
     let stt = 1;
@@ -189,23 +190,39 @@ export function initExportModule(ctx) {
       const row = [stt++, emp.full_name || '', roleLabelOf(emp), emp.phone || ''];
       let totalWork = 0;
       let totalOT = 0;
+      let workDays = 0;
+      let leaveDays = 0;
 
       for (let d = 1; d <= daysInMonth; d++) {
         const att = attByEmpDay[emp.id]?.[d];
         if (!att) { row.push(''); continue; }
-        if (att.is_off) { row.push('O'); continue; }
+
+        if (att.mode === 'leave') {
+          row.push('P');
+          leaveDays += 1;
+          continue;
+        }
+        if (att.is_off) {
+          row.push('O');
+          continue;
+        }
+
         const h = Number(att.total_hours || 0);
+        const ot = Number(att.ot_hours || 0);
         row.push(h > 0 ? Number(h.toFixed(2)) : '');
+        if (h > 0 || ot > 0) workDays += 1;
         totalWork += h;
-        totalOT += Number(att.ot_hours || 0);
+        totalOT += ot;
       }
 
+      row.push(workDays);
+      row.push(leaveDays);
       row.push(Number(totalWork.toFixed(2)));
       row.push(Number(totalOT.toFixed(2)));
       aoa1.push(row);
     }
 
-    // SHEET 2
+    // SHEET 2 — Chi tiết khu vực
     const aoa2 = [['Ngày', 'Họ tên', 'Tòa nhà', 'Tầng', 'Giờ công', 'Tăng ca']];
 
     const empMap = {};
@@ -223,6 +240,10 @@ export function initExportModule(ctx) {
       const emp = empMap[a.employee_id];
       if (!emp) continue;
       const dateStr = formatDateVN(a.date);
+
+      // Bỏ qua ngày Phép + OFF trong sheet 2
+      if (a.mode === 'leave') continue;
+      if (a.is_off) continue;
 
       for (const area of (a.areas || [])) {
         if (!area.floor_id) continue;
@@ -254,13 +275,14 @@ export function initExportModule(ctx) {
     ws1['!cols'] = [
       { wch: 5 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
       ...Array(daysInMonth).fill({ wch: 4 }),
-      { wch: 10 }, { wch: 10 },
+      { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 10 },
     ];
-    const lastCol1 = 4 + daysInMonth + 2 - 1;
+    const lastCol1 = 4 + daysInMonth + 4 - 1;
     ws1['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol1 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol1 } },
       { s: { r: 2, c: 0 }, e: { r: 2, c: lastCol1 } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: lastCol1 } },
     ];
     XLSX.utils.book_append_sheet(wb, ws1, 'BangCong');
 
@@ -333,11 +355,12 @@ export function initExportModule(ctx) {
     }
 
     // Tổng
-    let totalWork = 0, totalOT = 0, totalDays = 0;
+    let totalWork = 0, totalOT = 0, totalWorkDays = 0, totalLeaveDays = 0;
     for (const e of data) {
       totalWork += e.workHours;
       totalOT += e.otHours;
-      totalDays += e.days;
+      totalWorkDays += e.workDays;
+      totalLeaveDays += e.leaveDays || 0;
     }
     const totalHours = totalWork + totalOT;
 
@@ -351,8 +374,9 @@ export function initExportModule(ctx) {
       `Xuất lúc: ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ` +
       `${pad(now.getHours())}:${pad(now.getMinutes())}`
     ]);
+    aoa.push(['Ghi chú: Ngày phép không tính vào giờ công, chỉ ghi nhận để theo dõi.']);
     aoa.push([]);
-    aoa.push(['STT', 'Họ tên', 'Chức vụ', 'SĐT', 'Vị trí (toà)', 'Ngày công', 'Giờ công', 'Giờ OT', 'Tổng giờ']);
+    aoa.push(['STT', 'Họ tên', 'Chức vụ', 'SĐT', 'Vị trí (toà)', 'Ngày công', 'Ngày phép', 'Giờ công', 'Giờ OT', 'Tổng giờ']);
 
     data.forEach((e, idx) => {
       aoa.push([
@@ -361,7 +385,8 @@ export function initExportModule(ctx) {
         e.roleLabel,
         e.phone || '',
         (e.primaryBuildingName && e.primaryBuildingName !== '—') ? e.primaryBuildingName : '',
-        e.days,
+        e.workDays,
+        e.leaveDays || 0,
         Number(e.workHours.toFixed(2)),
         Number(e.otHours.toFixed(2)),
         Number(e.totalHours.toFixed(2)),
@@ -371,7 +396,8 @@ export function initExportModule(ctx) {
     aoa.push([]);
     aoa.push([
       '', '', '', '', 'TỔNG CỘNG',
-      totalDays,
+      totalWorkDays,
+      totalLeaveDays,
       Number(totalWork.toFixed(2)),
       Number(totalOT.toFixed(2)),
       Number(totalHours.toFixed(2)),
@@ -381,14 +407,15 @@ export function initExportModule(ctx) {
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = [
       { wch: 5 }, { wch: 22 }, { wch: 12 }, { wch: 14 },
-      { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
+      { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
     ];
-    const lastCol = 8;
+    const lastCol = 9;
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol } },
       { s: { r: 2, c: 0 }, e: { r: 2, c: lastCol } },
       { s: { r: 3, c: 0 }, e: { r: 3, c: lastCol } },
+      { s: { r: 4, c: 0 }, e: { r: 4, c: lastCol } },
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'TongCong');
 
