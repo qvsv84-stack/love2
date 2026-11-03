@@ -6,6 +6,7 @@ import { initSalaryModule } from './salary.js';
 const DEFAULT_DOMAIN = 'skyone.vn';
 const LS_KEY = 'cc_saved_login';
 const SUPERVISOR_HOURS = 8;
+const DAILY_MAIN_CAP = 8;   // ⭐ Giờ công tối đa/ngày
 
 const ROLE_LABELS = {
   admin: 'Giám sát',
@@ -581,12 +582,12 @@ async function loadBuildings() {
   renderBuildings();
 }
 
-/* Load assignments: tính giờ ĐÃ CHIA y hệt SQL recalc_day_attendance */
+/* ⭐ Load assignments — đọc giờ từ DB (đã cap 8h + overflow) và phân bổ theo floor */
 async function loadTodayAssignments() {
   const todayStr = toDateStr(new Date());
   const { data, error } = await supabase
     .from('attendance')
-    .select('employee_id, areas, ot_areas, is_off, mode')
+    .select('employee_id, areas, ot_areas, is_off, mode, total_hours, ot_hours')
     .eq('date', todayStr)
     .neq('is_off', true);
 
@@ -624,7 +625,10 @@ async function loadTodayAssignments() {
 
   for (const a of data) {
     const perFloor = {};
+    let mainRawTotal = 0;
+    let otRawTotal = 0;
 
+    // MAIN RAW per floor
     if (a.mode === 'default' && Array.isArray(a.areas)) {
       for (const area of a.areas) {
         const fid = area.floor_id;
@@ -634,18 +638,23 @@ async function loadTodayAssignments() {
         const floor = state.floors.find(x => x.id === fid);
         const floorDefault = floor ? Number(floor.default_hours || 0) : 0;
         const cnt = mainUsersByFloor[fid]?.size || 1;
+        const raw = floorDefault / cnt;
 
-        perFloor[fid].main += floorDefault / cnt;
+        perFloor[fid].main += raw;
+        mainRawTotal += raw;
       }
     } else if (a.mode === 'manual' && Array.isArray(a.areas)) {
       for (const area of a.areas) {
         const fid = area.floor_id;
         if (!fid) continue;
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
-        perFloor[fid].main += Number(area.hours || 0);
+        const raw = Number(area.hours || 0);
+        perFloor[fid].main += raw;
+        mainRawTotal += raw;
       }
     }
 
+    // OT RAW per floor
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
         const fid = area.floor_id;
@@ -654,18 +663,49 @@ async function loadTodayAssignments() {
 
         const h = area.hours;
         const isManual = h != null && h !== '' && !isNaN(Number(h));
-
+        let raw;
         if (isManual) {
-          perFloor[fid].ot += Number(h);
+          raw = Number(h);
         } else {
           const floor = state.floors.find(x => x.id === fid);
           const floorDefault = floor ? Number(floor.default_hours || 0) : 0;
           const cnt = otAutoUsersByFloor[fid]?.size || 1;
-          perFloor[fid].ot += floorDefault / cnt;
+          raw = floorDefault / cnt;
         }
+        perFloor[fid].ot += raw;
+        otRawTotal += raw;
       }
     }
 
+    // ⭐ Giờ THỰC từ DB (đã cap 8h + overflow)
+    const mainFromDB = Number(a.total_hours || 0);
+    const otFromDB = Number(a.ot_hours || 0);
+
+    // Phân bổ main cap cho các floor theo tỷ lệ raw
+    if (mainRawTotal > 0) {
+      for (const fid in perFloor) {
+        perFloor[fid].main = perFloor[fid].main * (mainFromDB / mainRawTotal);
+      }
+    }
+
+    // Phân bổ ot cho các floor theo tỷ lệ raw
+    if (otRawTotal > 0) {
+      for (const fid in perFloor) {
+        perFloor[fid].ot = perFloor[fid].ot * (otFromDB / otRawTotal);
+      }
+    } else if (otFromDB > 0 && mainRawTotal > 0) {
+      // Chỉ có overflow (không có ot_areas), gán vào floor có main cao nhất
+      let maxFid = null, maxMain = 0;
+      for (const fid in perFloor) {
+        if (perFloor[fid].main > maxMain) {
+          maxMain = perFloor[fid].main;
+          maxFid = fid;
+        }
+      }
+      if (maxFid) perFloor[maxFid].ot = otFromDB;
+    }
+
+    // Update map
     for (const [fid, h] of Object.entries(perFloor)) {
       if (!map[fid]) map[fid] = [];
       const existing = map[fid].find(x => x.employee_id === a.employee_id);
@@ -1018,6 +1058,7 @@ function openEmployeeModeContent(template) {
   }
   $$('input[name="attMode"]').forEach(r => r.checked = r.value === mode);
   toggleModeSections(mode);
+  // ⭐ manual_hours lưu giá trị GỐC (chưa cap) — để user thấy lại đúng số đã nhập
   $('#manualHours').value = template?.manual_hours ?? '';
 }
 
@@ -1135,7 +1176,8 @@ function getSelectedSupMode() {
 }
 
 /* ============ HOURS CALC ============ */
-function computeMainHours() {
+/* ⭐ Raw main (chưa cap) */
+function computeMainHoursRaw() {
   const mode = getSelectedMode();
   if (mode === 'off') return 0;
   if (mode === 'manual') return Number($('#manualHours').value || 0);
@@ -1149,7 +1191,18 @@ function computeMainHours() {
   return h;
 }
 
-function computeOtHours() {
+/* ⭐ Main đã cap 8h */
+function computeMainHours() {
+  return Math.min(computeMainHoursRaw(), DAILY_MAIN_CAP);
+}
+
+/* ⭐ Overflow = phần vượt 8h */
+function computeOverflow() {
+  return Math.max(0, computeMainHoursRaw() - DAILY_MAIN_CAP);
+}
+
+/* Raw OT (chưa cộng overflow) */
+function computeOtHoursRaw() {
   let h = 0;
   for (const entry of state.modalOtAreas) {
     if (!entry.floor_id) continue;
@@ -1161,6 +1214,11 @@ function computeOtHours() {
     }
   }
   return h;
+}
+
+/* ⭐ Total OT = raw OT + overflow */
+function computeOtHours() {
+  return computeOtHoursRaw() + computeOverflow();
 }
 
 /* ============ PREVIEW ============ */
@@ -1210,8 +1268,9 @@ function buildSupervisorPayload() {
 
 function buildEmployeePayload() {
   const mode = getSelectedMode();
-  const mainH = computeMainHours();
-  const otH = mode === 'off' ? 0 : computeOtHours();
+  const mainH = computeMainHours();      // đã cap 8h
+  const otH = mode === 'off' ? 0 : computeOtHours();  // đã gồm overflow
+  const rawMain = computeMainHoursRaw();
 
   if (mode !== 'off' && mainH <= 0) {
     toast('Vui lòng chọn khu vực chính hoặc nhập giờ');
@@ -1224,7 +1283,8 @@ function buildEmployeePayload() {
     ot_hours: otH,
     is_off: mode === 'off',
     mode,
-    manual_hours: mode === 'manual' ? mainH : null,
+    // ⭐ Lưu manual_hours GỐC để lần sau mở modal thấy đúng số đã nhập
+    manual_hours: mode === 'manual' ? rawMain : null,
     areas: mode === 'off' ? [] : state.modalAreas
       .filter(a => a.building_id && a.floor_id)
       .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: a.hours })),
