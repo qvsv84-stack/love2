@@ -310,7 +310,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .cal-day.has-data { background: var(--ocean-100); color: var(--ocean-700); border-color: var(--ocean-200); }
 .cal-day.off-day { background: #fef3f2; color: var(--danger); border-color: #fecaca; }
 
-/* ⭐ Ngày Phép — nền vàng */
 .cal-day.leave-day {
   background: #fef3c7;
   color: #b45309;
@@ -428,6 +427,58 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .section-header h2 { font-size: 17px; color: var(--ocean-700); }
 .section-header .btn-primary { width: auto; padding: 10px 16px; font-size: 13px; }
 
+/* ============ ⭐ AREAS TAB — NÂNG CẤP ============ */
+
+/* Summary thống kê đầu tab */
+.areas-summary {
+  background: linear-gradient(135deg, var(--ocean-50), white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.areas-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text);
+  padding: 4px 0;
+}
+.areas-summary-row + .areas-summary-row {
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+.areas-summary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.areas-summary-value {
+  font-weight: 700;
+  color: var(--ocean-700);
+  white-space: nowrap;
+}
+.areas-summary-value .ok { color: var(--success); }
+.areas-summary-value .empty { color: var(--warning); }
+
+/* Filters */
+.areas-filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.areas-filters .input {
+  font-size: 14px;
+  padding: 10px 12px;
+}
+
 /* ============ Buildings ============ */
 .buildings-list { display: flex; flex-direction: column; gap: 12px; }
 .building-card {
@@ -442,13 +493,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   display: flex; justify-content: space-between; align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 .building-card h3 span.floor-count {
   font-size: 11px; background: var(--ocean-100); padding: 3px 10px;
   border-radius: 20px; color: var(--ocean-700); font-weight: 600;
 }
-.building-floors { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.building-floors { display: flex; flex-direction: column; gap: 6px; }
 
+/* ⭐ Floor row — nâng cấp header có "· N người" */
 .floor-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 9px 12px; background: var(--ocean-50); border-radius: 9px;
@@ -463,36 +516,111 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .floor-row.has-assignees {
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: 8px;
+  padding: 10px 12px;
 }
 .floor-row-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  gap: 8px;
 }
+.floor-row-head .floor-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+/* ⭐ Badge "N người" trên đầu tầng */
+.floor-people-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ocean-700);
+  background: var(--ocean-100);
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.floor-people-count.is-empty {
+  color: var(--text-muted);
+  background: #f1f5f9;
+}
+
 .floor-assignees-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding-left: 8px;
+  gap: 6px;
+  padding-left: 6px;
   border-left: 2px solid var(--ocean-200);
   margin-left: 2px;
   max-width: 100%;
 }
+
+/* ⭐ Assignee card — avatar + tên click + SĐT */
 .floor-assignee {
-  font-size: 12px;
-  color: var(--text);
-  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
   word-break: break-word;
   overflow-wrap: break-word;
+  padding: 4px 0;
 }
-.floor-assignee::before {
-  content: '• ';
-  color: var(--ocean-500);
+.assignee-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ocean-500), var(--ocean-700));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
 }
-.floor-assignee .phone-link { font-size: 12px; }
+.assignee-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+/* ⭐ Tên click được */
+.assignee-name {
+  color: var(--ocean-700);
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  transition: 0.15s;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assignee-name:hover {
+  color: var(--ocean-500);
+  border-bottom-color: var(--ocean-500);
+}
+.assignee-name:active {
+  opacity: 0.7;
+}
+.assignee-phone {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.assignee-phone .phone-link {
+  font-size: 11px;
+  color: var(--text-muted);
+  border-bottom-color: transparent;
+}
+.assignee-phone .phone-link:hover {
+  color: var(--ocean-600);
+  border-bottom-color: var(--ocean-200);
+}
 
 .building-actions { margin-top: 10px; display: flex; gap: 8px; }
 
@@ -891,14 +1019,20 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .phone-link { font-size: 12px; }
   .btn-icon-sm { width: 28px; height: 28px; font-size: 13px; }
   .emp-actions { gap: 3px; margin-left: 4px; }
-  .floor-assignee { font-size: 11px; }
   .salary-meta-item .value { font-size: 10px; }
   .salary-hours { font-size: 12px; }
   .salary-total-box { font-size: 11px; }
   .salary-total-box strong { font-size: 15px; }
+  /* Areas responsive */
+  .areas-summary-row { font-size: 12px; }
+  .assignee-avatar { width: 22px; height: 22px; font-size: 10px; }
+  .floor-assignee { font-size: 12px; gap: 6px; }
 }
 
 @media (max-width: 360px) {
   .tab-btn { font-size: 10px; padding: 9px 2px; }
   .legend-item { font-size: 9px; }
+  .assignee-avatar { width: 20px; height: 20px; font-size: 9px; }
+  .floor-assignee { font-size: 11px; }
+  .assignee-phone { font-size: 10px; }
 }
