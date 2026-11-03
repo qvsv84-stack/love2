@@ -44,7 +44,7 @@ export function initSalaryModule(ctx) {
       const [profRes, attRes] = await Promise.all([
         supabase.from('profiles').select('*').order('full_name'),
         supabase.from('attendance')
-          .select('employee_id, date, total_hours, ot_hours, is_off, areas, ot_areas')
+          .select('employee_id, date, total_hours, ot_hours, is_off, mode, areas, ot_areas')
           .gte('date', startDate).lte('date', endDate),
       ]);
 
@@ -80,7 +80,7 @@ export function initSalaryModule(ctx) {
     }
     if (workingDays === 0) workingDays = 1;
 
-    // Map building_id -> name (dùng state.buildings đã load)
+    // Map building_id -> name
     const buildingMap = {};
     for (const b of (state.buildings || [])) buildingMap[b.id] = b.name;
 
@@ -109,24 +109,40 @@ export function initSalaryModule(ctx) {
       return true;
     });
 
-    // Group attendance + đếm building per employee
+    // Group attendance + đếm building
     const attByEmp = {};
-    const buildingCountByEmp = {};  // emp_id -> { building_id: count }
+    const buildingCountByEmp = {};
 
     for (const a of attendance) {
-      if (!attByEmp[a.employee_id]) attByEmp[a.employee_id] = { work: 0, ot: 0, days: 0 };
-
-      if (!a.is_off) {
-        const h = Number(a.total_hours || 0);
-        const ot = Number(a.ot_hours || 0);
-        if (h > 0 || ot > 0) {
-          attByEmp[a.employee_id].work += h;
-          attByEmp[a.employee_id].ot += ot;
-          attByEmp[a.employee_id].days += 1;
-        }
+      if (!attByEmp[a.employee_id]) {
+        attByEmp[a.employee_id] = {
+          work: 0, ot: 0,
+          workDays: 0,   // Ngày làm việc (không OFF, không Phép)
+          leaveDays: 0,  // Ngày Phép
+          offDays: 0,    // Ngày OFF
+        };
       }
 
-      // Đếm building (1 ngày tính 1 lần cho mỗi toà)
+      // ⭐ Đếm theo mode
+      if (a.mode === 'leave') {
+        attByEmp[a.employee_id].leaveDays += 1;
+        // Không cộng giờ
+        continue;
+      }
+      if (a.is_off) {
+        attByEmp[a.employee_id].offDays += 1;
+        continue;
+      }
+
+      const h = Number(a.total_hours || 0);
+      const ot = Number(a.ot_hours || 0);
+      if (h > 0 || ot > 0) {
+        attByEmp[a.employee_id].work += h;
+        attByEmp[a.employee_id].ot += ot;
+        attByEmp[a.employee_id].workDays += 1;
+      }
+
+      // Đếm building
       if (!buildingCountByEmp[a.employee_id]) buildingCountByEmp[a.employee_id] = {};
       const buildingsSeen = new Set();
       if (Array.isArray(a.areas)) {
@@ -147,10 +163,10 @@ export function initSalaryModule(ctx) {
 
     // Build result
     const result = selected.map(p => {
-      const att = attByEmp[p.id] || { work: 0, ot: 0, days: 0 };
+      const att = attByEmp[p.id] || { work: 0, ot: 0, workDays: 0, leaveDays: 0, offDays: 0 };
       const totalHours = att.work + att.ot;
 
-      // Tìm building chính (nhiều ngày nhất)
+      // Tìm building chính
       let primaryBuildingName = '—';
       let primaryBuildingId = null;
       let maxCount = 0;
@@ -170,7 +186,9 @@ export function initSalaryModule(ctx) {
         role: p.role,
         roleLabel: roleLabelOf(p),
         phone: p.phone || '',
-        days: att.days,
+        workDays: att.workDays,      // ⭐ Ngày công
+        leaveDays: att.leaveDays,    // ⭐ Ngày phép
+        offDays: att.offDays,
         workHours: att.work,
         otHours: att.ot,
         totalHours,
@@ -191,7 +209,6 @@ export function initSalaryModule(ctx) {
         return a.name.localeCompare(b.name, 'vi');
       }
       if (sortVal === 'name') {
-        // Theo tên gọi (chữ cuối)
         if (a.lastName && b.lastName) {
           const cmp = a.lastName.localeCompare(b.lastName, 'vi');
           if (cmp !== 0) return cmp;
@@ -199,7 +216,6 @@ export function initSalaryModule(ctx) {
         return a.name.localeCompare(b.name, 'vi');
       }
       if (sortVal === 'position') {
-        // Theo vị trí (toà) → cùng toà thì theo tên
         const ba = a.primaryBuildingName || '';
         const bb = b.primaryBuildingName || '';
         const cmpb = ba.localeCompare(bb, 'vi');
@@ -218,14 +234,16 @@ export function initSalaryModule(ctx) {
     const data = state.salaryData || [];
 
     // Tổng
-    let totalWork = 0, totalOT = 0;
+    let totalWork = 0, totalOT = 0, totalWorkDays = 0, totalLeaveDays = 0;
     for (const e of data) {
       totalWork += e.workHours;
       totalOT += e.otHours;
+      totalWorkDays += e.workDays;
+      totalLeaveDays += e.leaveDays;
     }
     const totalHoursAll = totalWork + totalOT;
 
-    // Summary: ngày công chuẩn + tổng giờ
+    // Summary: 3 ô — Ngày công chuẩn / Tổng công / Tổng OT (giữ nguyên)
     const $summary = document.getElementById('salarySummary');
     if ($summary) {
       $summary.innerHTML = `
@@ -253,24 +271,33 @@ export function initSalaryModule(ctx) {
         const search = state.salarySearch || '';
         $list.innerHTML = `<p class="hint">Không có nhân viên nào${search ? ' khớp "' + search + '"' : ' trong nhóm đã chọn'}</p>`;
       } else {
-        $list.innerHTML = data.map(e => `
-          <div class="salary-card">
-            <div class="salary-card-head">
-              <div class="avatar">${(e.name || '?').charAt(0).toUpperCase()}</div>
-              <div class="salary-card-info">
-                <div class="name">${e.name}</div>
-                <div class="role">${e.roleLabel}${e.primaryBuildingName && e.primaryBuildingName !== '—' ? ' · ' + e.primaryBuildingName : ''}${e.phone ? ' · ' + e.phone : ''}</div>
+        $list.innerHTML = data.map(e => {
+          // ⭐ Detail hiển thị ngày công + ngày phép nếu có
+          const detailParts = [];
+          detailParts.push(`<strong>${e.workDays}</strong> ngày công`);
+          detailParts.push(`${formatHours(e.workHours)} công`);
+          if (e.otHours > 0) detailParts.push(`${formatHours(e.otHours)} OT`);
+          if (e.leaveDays > 0) detailParts.push(`<span style="color:#b45309">${e.leaveDays} phép</span>`);
+
+          return `
+            <div class="salary-card">
+              <div class="salary-card-head">
+                <div class="avatar">${(e.name || '?').charAt(0).toUpperCase()}</div>
+                <div class="salary-card-info">
+                  <div class="name">${e.name}</div>
+                  <div class="role">${e.roleLabel}${e.primaryBuildingName && e.primaryBuildingName !== '—' ? ' · ' + e.primaryBuildingName : ''}${e.phone ? ' · ' + e.phone : ''}</div>
+                </div>
+                <div class="salary-hours">
+                  ${formatHours(e.totalHours)}
+                  <small>${e.workDays} ngày</small>
+                </div>
               </div>
-              <div class="salary-hours">
-                ${formatHours(e.totalHours)}
-                <small>${e.days} ngày</small>
+              <div class="salary-card-detail">
+                ${detailParts.join(' · ')}
               </div>
             </div>
-            <div class="salary-card-detail">
-              ${formatHours(e.workHours)} công + ${formatHours(e.otHours)} OT
-            </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }
     }
 
@@ -282,6 +309,7 @@ export function initSalaryModule(ctx) {
           <span>TỔNG CỘNG (${data.length} người)</span>
           <strong>${formatHours(totalHoursAll)}</strong>
         </div>
+        ${totalLeaveDays > 0 ? `<p class="hint" style="margin-top:8px;background:#fef3c7;border-color:#fcd34d;color:#b45309">📝 Tổng ngày phép: <strong>${totalLeaveDays}</strong> ngày (không tính công)</p>` : ''}
       `;
     }
   }
