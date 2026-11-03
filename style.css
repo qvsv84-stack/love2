@@ -427,7 +427,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .section-header h2 { font-size: 17px; color: var(--ocean-700); }
 .section-header .btn-primary { width: auto; padding: 10px 16px; font-size: 13px; }
 
-/* ============ ⭐ AREAS TAB — NÂNG CẤP ============ */
+/* ============ AREAS TAB ============ */
 
 /* Summary thống kê đầu tab */
 .areas-summary {
@@ -501,7 +501,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .building-floors { display: flex; flex-direction: column; gap: 6px; }
 
-/* ⭐ Floor row — nâng cấp header có "· N người" */
+/* Floor row — nâng cấp header có "· N người" */
 .floor-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 9px 12px; background: var(--ocean-50); border-radius: 9px;
@@ -532,7 +532,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   gap: 6px;
   flex-wrap: wrap;
 }
-/* ⭐ Badge "N người" trên đầu tầng */
 .floor-people-count {
   font-size: 11px;
   font-weight: 600;
@@ -557,7 +556,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   max-width: 100%;
 }
 
-/* ⭐ Assignee card — avatar + tên click + SĐT */
 .floor-assignee {
   display: flex;
   align-items: center;
@@ -588,7 +586,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   min-width: 0;
   flex: 1;
 }
-/* ⭐ Tên click được */
 .assignee-name {
   color: var(--ocean-700);
   font-weight: 600;
@@ -867,6 +864,192 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 #salarySearch { background: var(--ocean-50); }
 #salarySearch:focus { background: white; }
 
+/* ============ EXCEL MATRIX TAB ============ */
+.excel-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--ocean-50);
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px dashed var(--ocean-200);
+  text-align: center;
+}
+
+.excel-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: white;
+  max-width: 100%;
+  max-height: 70vh;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+
+.excel-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  min-width: max-content;
+  width: max-content;
+}
+
+.excel-table th,
+.excel-table td {
+  padding: 6px 8px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  white-space: nowrap;
+  min-width: 34px;
+  height: 30px;
+  vertical-align: middle;
+}
+
+.excel-table th:last-child,
+.excel-table td:last-child {
+  border-right: none;
+}
+
+.excel-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Header */
+.excel-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: linear-gradient(135deg, var(--ocean-500), var(--ocean-600));
+  color: white;
+  font-weight: 700;
+  font-size: 11px;
+  height: 34px;
+}
+
+/* Sticky name column (left) */
+.excel-table .sticky-name {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: white;
+  text-align: left;
+  min-width: 120px;
+  max-width: 140px;
+  padding-left: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: var(--text);
+  border-right: 2px solid var(--ocean-200);
+}
+
+.excel-table thead .sticky-name {
+  z-index: 7;
+  background: linear-gradient(135deg, var(--ocean-700), var(--ocean-600));
+  color: white;
+}
+
+/* Sticky NC/OT label column */
+.excel-table .sticky-label {
+  position: sticky;
+  left: 120px;
+  z-index: 3;
+  min-width: 34px;
+  max-width: 34px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 6px 4px;
+  border-right: 2px solid var(--border);
+  text-align: center;
+}
+
+.excel-table thead .sticky-label {
+  z-index: 7;
+  background: linear-gradient(135deg, var(--ocean-700), var(--ocean-600));
+  color: white;
+}
+
+/* Row NC (top) */
+.excel-table .row-nc td {
+  background: white;
+}
+.excel-table .row-nc td.sticky-label {
+  background: var(--ocean-50);
+  color: var(--ocean-700);
+}
+
+/* Row OT (bottom) */
+.excel-table .row-ot td {
+  background: #fffaf0;
+}
+.excel-table .row-ot td.sticky-label {
+  background: #fff5e6;
+  color: #b45309;
+}
+
+/* Separator between employees */
+.excel-table tr.row-nc {
+  border-top: 2px solid var(--ocean-200);
+}
+.excel-table tbody tr.row-nc:first-child {
+  border-top: none;
+}
+
+/* Total column at right */
+.excel-table .col-total {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  background: #fef9ec;
+  font-weight: 700;
+  color: #b45309;
+  min-width: 55px;
+  border-left: 2px solid #fcd34d;
+}
+
+.excel-table thead .col-total {
+  z-index: 7;
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: white;
+}
+
+/* Sunday column */
+.excel-table td.col-sunday {
+  background: #fef2f2;
+}
+.excel-table .row-ot td.col-sunday {
+  background: #fee2e2;
+}
+.excel-table thead th.col-sunday {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+}
+
+/* Cell states */
+.excel-table td.val-leave {
+  background: #fef3c7 !important;
+  color: #b45309;
+  font-weight: 700;
+}
+.excel-table td.val-off {
+  background: #fef3f2;
+  color: var(--danger);
+  font-weight: 700;
+}
+.excel-table td.val-empty {
+  color: #cbd5e1;
+}
+
+/* Today column highlight */
+.excel-table th.col-today {
+  background: linear-gradient(135deg, #16a34a, #059669) !important;
+  box-shadow: inset 0 -3px 0 #dcfce7;
+}
+
 /* ============ Modal ============ */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(15, 46, 51, 0.55);
@@ -1003,6 +1186,30 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .stat-value { font-size: 13px; }
   .legend-item { font-size: 10px; gap: 4px; }
   .legend-dot { width: 10px; height: 10px; }
+
+  /* Excel responsive */
+  .excel-table { font-size: 11px; }
+  .excel-table th,
+  .excel-table td {
+    padding: 5px 6px;
+    min-width: 30px;
+    height: 28px;
+  }
+  .excel-table .sticky-name {
+    min-width: 100px;
+    max-width: 110px;
+    font-size: 11px;
+  }
+  .excel-table .sticky-label {
+    left: 100px;
+    min-width: 28px;
+    max-width: 28px;
+    font-size: 9px;
+  }
+  .excel-table .col-total {
+    min-width: 45px;
+    font-size: 11px;
+  }
 }
 
 @media (max-width: 380px) {
@@ -1023,7 +1230,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .salary-hours { font-size: 12px; }
   .salary-total-box { font-size: 11px; }
   .salary-total-box strong { font-size: 15px; }
-  /* Areas responsive */
   .areas-summary-row { font-size: 12px; }
   .assignee-avatar { width: 22px; height: 22px; font-size: 10px; }
   .floor-assignee { font-size: 12px; gap: 6px; }
