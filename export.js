@@ -119,7 +119,7 @@ export function initExportModule(ctx) {
     return p.position || ROLE_LABELS.employee;
   }
 
-  /* ---------- XUẤT CHẤM CÔNG ---------- */
+  /* ---------- XUẤT CHẤM CÔNG (Bảng công chi tiết) ---------- */
   function doExport() {
     if (typeof XLSX === 'undefined') {
       toast('Chưa tải được thư viện Excel, vui lòng refresh trang');
@@ -241,7 +241,6 @@ export function initExportModule(ctx) {
       if (!emp) continue;
       const dateStr = formatDateVN(a.date);
 
-      // Bỏ qua ngày Phép + OFF trong sheet 2
       if (a.mode === 'leave') continue;
       if (a.is_off) continue;
 
@@ -341,7 +340,7 @@ export function initExportModule(ctx) {
     }
   }
 
-  /* ---------- XUẤT BẢNG CÔNG (theo giờ) ---------- */
+  /* ---------- XUẤT BẢNG CÔNG TỔNG HỢP ---------- */
   function doExportSalary() {
     if (typeof XLSX === 'undefined') {
       toast('Chưa tải được thư viện Excel');
@@ -354,7 +353,6 @@ export function initExportModule(ctx) {
       return;
     }
 
-    // Tổng
     let totalWork = 0, totalOT = 0, totalWorkDays = 0, totalLeaveDays = 0;
     for (const e of data) {
       totalWork += e.workHours;
@@ -453,6 +451,147 @@ export function initExportModule(ctx) {
     }
   }
 
+  /* ---------- XUẤT BẢNG CÔNG MATRIX (2 dòng/NV) ---------- */
+  function doExportMatrix(profiles, attendance, monthDate) {
+    if (typeof XLSX === 'undefined') {
+      toast('Chưa tải được thư viện Excel');
+      return;
+    }
+    if (!profiles || !profiles.length) {
+      toast('Chưa có dữ liệu, vui lòng chờ tải xong');
+      return;
+    }
+
+    const y = monthDate.getFullYear();
+    const m = monthDate.getMonth() + 1;
+    const daysInMonth = new Date(y, m, 0).getDate();
+
+    const attMap = {};
+    for (const a of attendance) {
+      if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+      const day = Number(a.date.split('-')[2]);
+      attMap[a.employee_id][day] = a;
+    }
+
+    const aoa = [];
+    aoa.push(['TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN']);
+    aoa.push([`BẢNG CÔNG THÁNG ${m}/${y}`]);
+    aoa.push(['Ghi chú: Mỗi NV có 2 dòng — Dòng trên: Ngày công (NC) | Dòng dưới: Tăng ca (OT)']);
+    aoa.push(['1 ngày công = 8h. P = Phép. O = OFF. Trống = không chấm công.']);
+
+    const now = new Date();
+    aoa.push([`Xuất lúc: ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ` +
+      `${pad(now.getHours())}:${pad(now.getMinutes())}`]);
+    aoa.push([]);
+
+    const header = ['Nhân viên', ''];
+    for (let d = 1; d <= daysInMonth; d++) header.push(d);
+    header.push('Tổng NC', 'Tổng OT');
+    aoa.push(header);
+
+    for (const emp of profiles) {
+      const empAtt = attMap[emp.id] || {};
+      const name = emp.full_name || emp.username || '';
+
+      const rowNC = [name, 'NC'];
+      const rowOT = ['', 'OT'];
+      let totalDays = 0;
+      let totalOT = 0;
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const att = empAtt[d];
+        let ncVal = '';
+        let otVal = '';
+
+        if (att) {
+          if (att.mode === 'leave') {
+            ncVal = 'P';
+          } else if (att.is_off) {
+            ncVal = 'O';
+          } else {
+            const th = Number(att.total_hours || 0);
+            const oh = Number(att.ot_hours || 0);
+            if (th > 0) {
+              const days = th / 8;
+              ncVal = Number.isInteger(days) ? days : Number(days.toFixed(2));
+              totalDays += days;
+            }
+            if (oh > 0) {
+              otVal = Number.isInteger(oh) ? oh : Number(oh.toFixed(2));
+              totalOT += oh;
+            }
+          }
+        }
+
+        rowNC.push(ncVal);
+        rowOT.push(otVal);
+      }
+
+      rowNC.push(Number(totalDays.toFixed(2)));
+      rowNC.push('');
+      rowOT.push('');
+      rowOT.push(Number(totalOT.toFixed(2)));
+
+      aoa.push(rowNC);
+      aoa.push(rowOT);
+    }
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    ws['!cols'] = [
+      { wch: 25 },
+      { wch: 5 },
+      ...Array(daysInMonth).fill({ wch: 5 }),
+      { wch: 10 },
+      { wch: 10 },
+    ];
+
+    const lastCol = daysInMonth + 3;
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: lastCol } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: lastCol } },
+      { s: { r: 4, c: 0 }, e: { r: 4, c: lastCol } },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'BangCong');
+
+    const fn = `BangCongMatrix_${pad(m)}_${y}.xlsx`;
+
+    try {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const blob = new Blob([wbout], { type: mimeType });
+
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+      if (isIOS) {
+        const file = new File([blob], fn, { type: mimeType });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: 'Bảng công', text: fn })
+            .then(() => toast('✅ Đã chia sẻ file'))
+            .catch((err) => {
+              if (err.name === 'AbortError') return;
+              downloadBlob(blob, fn);
+              toast('✅ Đã tải file: ' + fn);
+            });
+          return;
+        }
+        downloadBlob(blob, fn);
+        toast('✅ Đã tải file: ' + fn);
+        return;
+      }
+
+      downloadBlob(blob, fn);
+      toast('✅ Đã tải file: ' + fn);
+    } catch (err) {
+      toast('Lỗi tạo file: ' + err.message);
+    }
+  }
+
   function closeAfterSuccess() {
     setTimeout(() => ctx.closeModal('exportModal'), 300);
   }
@@ -474,6 +613,7 @@ export function initExportModule(ctx) {
     openExportModal,
     doExport,
     doExportSalary,
+    doExportMatrix,
     onMonthChanged,
     fillEmployeeSelectForExport,
   };
