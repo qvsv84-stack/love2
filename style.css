@@ -131,7 +131,6 @@ body {
   color: var(--text-muted);
 }
 
-/* Fix input month/date không tràn */
 input[type="month"],
 input[type="date"] {
   width: 100% !important;
@@ -248,10 +247,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .summary-line { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .emp-name { font-size: 17px; font-weight: 700; color: var(--ocean-700); }
 .emp-role { font-size: 12px; color: var(--text-muted); background: var(--ocean-100); padding: 3px 9px; border-radius: 20px; }
-.summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.stat { text-align: center; background: white; border-radius: 10px; padding: 9px 4px; border: 1px solid var(--border); min-width: 0; }
-.stat-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
-.stat-value { display: block; font-size: 15px; font-weight: 700; color: var(--ocean-600); }
+.summary-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.stat { text-align: center; background: white; border-radius: 10px; padding: 9px 3px; border: 1px solid var(--border); min-width: 0; overflow: hidden; }
+.stat-label { display: block; font-size: 10px; color: var(--text-muted); margin-bottom: 3px; white-space: nowrap; }
+.stat-value { display: block; font-size: 14px; font-weight: 700; color: var(--ocean-600); white-space: nowrap; }
 
 /* ============ Month nav ============ */
 .month-nav {
@@ -260,6 +259,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .month-nav h2 { font-size: 16px; color: var(--ocean-700); font-weight: 700; }
 .month-nav .btn-icon { background: var(--ocean-100); color: var(--ocean-700); }
+
+/* ============ Nút chấm công hôm nay ============ */
+#todayAttendanceBtn {
+  background: linear-gradient(135deg, var(--success), #059669);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+#todayAttendanceBtn:hover {
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+}
 
 /* ============ Calendar Actions ============ */
 #calendarActions {
@@ -300,6 +309,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .cal-day.empty { background: transparent; cursor: default; pointer-events: none; }
 .cal-day.has-data { background: var(--ocean-100); color: var(--ocean-700); border-color: var(--ocean-200); }
 .cal-day.off-day { background: #fef3f2; color: var(--danger); border-color: #fecaca; }
+
+/* ⭐ Ngày Phép — nền vàng */
+.cal-day.leave-day {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+.cal-day.leave-day .day-hours { color: #b45309; font-size: 8px; }
+
 .cal-day.today { border-color: var(--ocean-500); box-shadow: 0 0 0 2px var(--ocean-100); }
 
 .cal-day.selected {
@@ -315,6 +333,51 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin-top: 1px; line-height: 1;
 }
 .cal-day.off-day .day-hours { color: var(--danger); }
+
+/* ============ Calendar Legend ============ */
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 8px;
+  background: var(--ocean-50);
+  border-radius: 10px;
+  border: 1px dashed var(--ocean-200);
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1.5px solid transparent;
+  flex-shrink: 0;
+}
+.dot-work {
+  background: var(--ocean-100);
+  border-color: var(--ocean-200);
+}
+.dot-off {
+  background: #fef3f2;
+  border-color: #fecaca;
+}
+.dot-leave {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+.dot-today {
+  background: var(--ocean-50);
+  border-color: var(--ocean-500);
+  box-shadow: 0 0 0 1px var(--ocean-100);
+}
 
 /* ============ Selection bar ============ */
 .selection-bar {
@@ -512,9 +575,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--ocean-700);
   border-bottom-color: var(--ocean-500);
 }
-.phone-link:active {
-  opacity: 0.7;
-}
+.phone-link:active { opacity: 0.7; }
 
 .phone-link-add {
   color: var(--warning);
@@ -526,18 +587,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border-bottom-color: #b45309;
 }
 
-/* ============ Salary tab — FIX SCROLL ============ */
+/* ============ Salary tab ============ */
 #tab-salary {
   overflow-x: hidden !important;
   max-width: 100%;
   box-sizing: border-box;
 }
-
 #tab-salary * {
   box-sizing: border-box;
   max-width: 100%;
 }
-
 #tab-salary input,
 #tab-salary select,
 #tab-salary button {
@@ -625,8 +684,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-/* Chỗ này đổi từ tiền → giờ */
 .salary-hours {
   font-size: 15px;
   font-weight: 700;
@@ -641,7 +698,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-weight: 500;
   color: var(--text-muted);
 }
-
 .salary-card-detail {
   font-size: 12px;
   color: var(--text-muted);
@@ -652,9 +708,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   word-break: break-word;
   overflow-wrap: break-word;
 }
-.salary-card-detail strong {
-  color: var(--ocean-700);
-}
+.salary-card-detail strong { color: var(--ocean-700); }
 
 .salary-total-box {
   display: flex;
@@ -682,12 +736,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   flex-shrink: 0;
 }
 
-#salarySearch {
-  background: var(--ocean-50);
-}
-#salarySearch:focus {
-  background: white;
-}
+#salarySearch { background: var(--ocean-50); }
+#salarySearch:focus { background: white; }
 
 /* ============ Modal ============ */
 .modal-overlay {
@@ -817,19 +867,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* ============ Responsive ============ */
 @media (max-width: 400px) {
-  .tab-btn {
-    font-size: 11px;
-    padding: 10px 3px;
-  }
+  .tab-btn { font-size: 11px; padding: 10px 3px; }
   .salary-hours { font-size: 13px; }
   .salary-card-info .name { font-size: 13px; }
   .salary-meta-item .value { font-size: 11px; }
+  .stat-label { font-size: 9px; }
+  .stat-value { font-size: 13px; }
+  .legend-item { font-size: 10px; gap: 4px; }
+  .legend-dot { width: 10px; height: 10px; }
 }
 
 @media (max-width: 380px) {
-  .summary-stats { grid-template-columns: repeat(3, 1fr); }
-  .stat-label { font-size: 10px; }
-  .stat-value { font-size: 13px; }
+  .stat-label { font-size: 9px; }
+  .stat-value { font-size: 12px; }
   .area-entry select { font-size: 13px; padding: 9px 8px; }
   .area-entry .area-hours-input { flex: 0 0 56px; font-size: 13px; padding: 9px 4px; }
   .selection-bar-inner #selectionCount { font-size: 13px; }
@@ -849,8 +899,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 @media (max-width: 360px) {
-  .tab-btn {
-    font-size: 10px;
-    padding: 9px 2px;
-  }
+  .tab-btn { font-size: 10px; padding: 9px 2px; }
+  .legend-item { font-size: 9px; }
 }
