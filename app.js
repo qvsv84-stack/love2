@@ -46,6 +46,10 @@ const state = {
   salarySort: 'hours_desc',
   salaryData: [],
   salaryMeta: null,
+  // ⭐ Excel tab
+  excelMonth: new Date(),
+  excelProfiles: [],
+  excelAttendance: [],
 };
 
 let exportModule = null;
@@ -158,6 +162,7 @@ async function showGuestView() {
   $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = 'none');
   $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = 'none');
   $$('.tab-btn[data-tab="salary"]').forEach(el => el.style.display = 'none');
+  $$('.tab-btn[data-tab="excel"]').forEach(el => el.style.display = 'none');
 
   $('#empSelectorRow').style.display = 'flex';
   $('#summaryCard').style.display = 'block';
@@ -207,6 +212,7 @@ async function onLoggedIn(user) {
   $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
   $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
   $$('.tab-btn[data-tab="salary"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
+  $$('.tab-btn[data-tab="excel"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
   $('#empSelectorRow').style.display = state.isAdmin ? 'flex' : 'none';
   $('#summaryCard').style.display = 'block';
   $('#guestBanner').style.display = 'none';
@@ -725,7 +731,6 @@ async function loadTodayAssignments() {
   }
 }
 
-/* ⭐ RENDER BUILDINGS — nâng cấp chuẩn doanh nghiệp */
 function renderBuildings() {
   const wrap = $('#buildingsList');
   const $sum = $('#areasSummary');
@@ -736,7 +741,6 @@ function renderBuildings() {
     return;
   }
 
-  /* ===== FILTER EMPLOYEES ===== */
   const search = (state.areasSearch || '').toLowerCase().trim();
   const roleFilter = state.areasRoleFilter || 'all';
 
@@ -754,8 +758,7 @@ function renderBuildings() {
     return true;
   });
 
-  /* ===== STATS ===== */
-  // ⭐ Số người đi làm: CHỈ đếm Nhân viên (role='employee'), không phụ thuộc filter
+  // Stats: chỉ đếm Nhân viên (role='employee'), không phụ thuộc filter
   const allActive = state.employees.filter(e => e.status !== 'inactive');
   const nvEmployees = allActive.filter(e => e.role === 'employee');
   const nvEmpIds = new Set(nvEmployees.map(e => e.id));
@@ -770,7 +773,7 @@ function renderBuildings() {
   const totalNV = nvEmployees.length;
   const workingNVCount = workingNVIds.size;
 
-  // Tầng có người: theo filter hiện tại (không đổi)
+  // Tầng có người: theo filter hiện tại
   const floorsWithPeople = new Set();
   for (const b of state.buildings) {
     const floors = state.floors.filter(f => f.building_id === b.id);
@@ -785,7 +788,6 @@ function renderBuildings() {
   const floorsWithPeopleCount = floorsWithPeople.size;
   const isFiltered = search !== '' || roleFilter !== 'all';
 
-  /* ===== SUMMARY ===== */
   if ($sum) {
     $sum.style.display = 'block';
     $sum.innerHTML = `
@@ -805,7 +807,6 @@ function renderBuildings() {
     `;
   }
 
-  /* ===== RENDER LIST ===== */
   wrap.innerHTML = state.buildings.map(b => {
     const floors = state.floors.filter(f => f.building_id === b.id)
       .sort((a, c) => a.floor_number - c.floor_number);
@@ -859,7 +860,6 @@ function renderBuildings() {
       </div>`;
   }).join('');
 
-  /* ===== BIND EVENTS ===== */
   wrap.querySelectorAll('[data-setup]').forEach(btn =>
     btn.addEventListener('click', () => openFloorSetup(btn.dataset.setup)));
   wrap.querySelectorAll('[data-delete]').forEach(btn =>
@@ -873,7 +873,6 @@ function renderBuildings() {
     });
   });
 
-  /* ⭐ Click tên → nhảy sang Lịch công */
   wrap.querySelectorAll('[data-jump-emp]').forEach(el => {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -883,7 +882,6 @@ function renderBuildings() {
   });
 }
 
-/* ⭐ Click tên ở tab Khu vực → chuyển sang tab Lịch công của người đó */
 async function jumpToEmployeeCalendar(empId) {
   const emp = state.employees.find(e => e.id === empId);
   if (!emp) { toast('Không tìm thấy nhân viên'); return; }
@@ -1613,9 +1611,17 @@ function switchTab(name) {
     salaryModule.loadSalaryForMonth(true);
   }
 
-  // Auto-refresh Areas khi mở tab
+  // Auto-refresh Areas
   if (name === 'areas' && state.isAdmin) {
     loadTodayAssignments().then(renderBuildings);
+  }
+
+  // ⭐ Auto-load Excel
+  if (name === 'excel' && state.isAdmin) {
+    const y = state.excelMonth.getFullYear();
+    const m = state.excelMonth.getMonth() + 1;
+    $('#excelMonth').value = `${y}-${String(m).padStart(2, '0')}`;
+    loadExcelData();
   }
 }
 
@@ -1625,6 +1631,153 @@ async function changeMonth(delta) {
   state.currentMonth = d;
   await loadAttendanceForMonth();
   renderCalendar();
+}
+
+/* ============ EXCEL MATRIX TAB ============ */
+async function loadExcelData() {
+  const y = state.excelMonth.getFullYear();
+  const m = state.excelMonth.getMonth() + 1;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const startDate = `${y}-${pad(m)}-01`;
+  const endDate = `${y}-${pad(m)}-${pad(daysInMonth)}`;
+
+  const $loading = $('#excelLoading');
+  const $wrap = $('#excelTableWrap');
+  if ($loading) { $loading.style.display = 'block'; $loading.textContent = 'Đang tải...'; }
+  if ($wrap) $wrap.style.display = 'none';
+
+  const [profRes, attRes] = await Promise.all([
+    supabase.from('profiles').select('*').order('full_name'),
+    supabase.from('attendance').select('*')
+      .gte('date', startDate).lte('date', endDate),
+  ]);
+
+  if (profRes.error || attRes.error) {
+    if ($loading) $loading.textContent = 'Lỗi tải dữ liệu: ' +
+      (profRes.error?.message || attRes.error?.message);
+    return;
+  }
+
+  state.excelProfiles = sortEmployees((profRes.data || []).filter(p => p.status !== 'inactive'));
+  state.excelAttendance = attRes.data || [];
+
+  if ($loading) $loading.style.display = 'none';
+  if ($wrap) $wrap.style.display = 'block';
+
+  renderExcelTable(y, m, daysInMonth);
+}
+
+function renderExcelTable(y, m, daysInMonth) {
+  const table = $('#excelTable');
+  if (!table) return;
+
+  const todayStr = toDateStr(new Date());
+  const todayPrefix = `${y}-${pad(m)}`;
+  const todayDay = todayStr.startsWith(todayPrefix) ? Number(todayStr.split('-')[2]) : -1;
+
+  const attMap = {};
+  for (const a of state.excelAttendance) {
+    if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+    const day = Number(a.date.split('-')[2]);
+    attMap[a.employee_id][day] = a;
+  }
+
+  // THEAD
+  let thead = '<thead><tr>';
+  thead += '<th class="sticky-name">Nhân viên</th>';
+  thead += '<th class="sticky-label"></th>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dow = new Date(y, m - 1, d).getDay();
+    const cls = dow === 0 ? 'col-sunday' : '';
+    const clsToday = d === todayDay ? ' col-today' : '';
+    thead += `<th class="${cls}${clsToday}">${d}</th>`;
+  }
+  thead += '<th class="col-total">Tổng</th>';
+  thead += '</tr></thead>';
+
+  // TBODY
+  let tbody = '<tbody>';
+  for (const emp of state.excelProfiles) {
+    const empAtt = attMap[emp.id] || {};
+    const name = emp.full_name || emp.username || '';
+    const safeName = name.replace(/"/g, '&quot;');
+
+    let rowNC = '<tr class="row-nc">';
+    let rowOT = '<tr class="row-ot">';
+
+    rowNC += `<td rowspan="2" class="sticky-name" title="${safeName}">${name}</td>`;
+    rowNC += '<td class="sticky-label">NC</td>';
+    rowOT += '<td class="sticky-label">OT</td>';
+
+    let totalDays = 0;
+    let totalOT = 0;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const att = empAtt[d];
+      const dow = new Date(y, m - 1, d).getDay();
+      const cls = dow === 0 ? 'col-sunday' : '';
+
+      let ncVal = '';
+      let otVal = '';
+      let ncCls = '';
+      let otCls = '';
+
+      if (att) {
+        if (att.mode === 'leave') {
+          ncVal = 'P';
+          ncCls = 'val-leave';
+        } else if (att.is_off) {
+          ncVal = 'O';
+          ncCls = 'val-off';
+        } else {
+          const th = Number(att.total_hours || 0);
+          const oh = Number(att.ot_hours || 0);
+          if (th > 0) {
+            const days = th / 8;
+            ncVal = Number.isInteger(days)
+              ? String(days)
+              : days.toFixed(2).replace(/\.?0+$/, '');
+            totalDays += days;
+          }
+          if (oh > 0) {
+            otVal = Number.isInteger(oh)
+              ? String(oh)
+              : oh.toFixed(2).replace(/\.?0+$/, '');
+            totalOT += oh;
+          }
+        }
+      } else {
+        ncCls = 'val-empty';
+        otCls = 'val-empty';
+      }
+
+      rowNC += `<td class="${cls} ${ncCls}">${ncVal}</td>`;
+      rowOT += `<td class="${cls} ${otCls}">${otVal}</td>`;
+    }
+
+    const totalDaysStr = Number.isInteger(totalDays)
+      ? String(totalDays)
+      : totalDays.toFixed(2).replace(/\.?0+$/, '');
+    const totalOTStr = Number.isInteger(totalOT)
+      ? String(totalOT)
+      : totalOT.toFixed(2).replace(/\.?0+$/, '');
+
+    rowNC += `<td class="col-total">${totalDaysStr || '0'}</td></tr>`;
+    rowOT += `<td class="col-total">${totalOTStr || '0'}</td></tr>`;
+
+    tbody += rowNC + rowOT;
+  }
+  tbody += '</tbody>';
+
+  table.innerHTML = thead + tbody;
+}
+
+function onExcelMonthChanged() {
+  const val = $('#excelMonth').value;
+  if (!val) return;
+  const [y, m] = val.split('-').map(Number);
+  state.excelMonth = new Date(y, m - 1, 1);
+  loadExcelData();
 }
 
 /* ============ BULK COPY ============ */
@@ -1816,6 +1969,19 @@ function bindEvents() {
   $('#salaryExportBtn').addEventListener('click', () => {
     if (exportModule && exportModule.doExportSalary) exportModule.doExportSalary();
   });
+
+  // ⭐ EXCEL TAB
+  const excelMonthEl = $('#excelMonth');
+  if (excelMonthEl) excelMonthEl.addEventListener('change', onExcelMonthChanged);
+
+  const excelExportBtnEl = $('#excelExportBtn');
+  if (excelExportBtnEl) {
+    excelExportBtnEl.addEventListener('click', () => {
+      if (exportModule && exportModule.doExportMatrix) {
+        exportModule.doExportMatrix(state.excelProfiles, state.excelAttendance, state.excelMonth);
+      }
+    });
+  }
 
   // ATTENDANCE MODAL
   $('#attendanceModal').addEventListener('click', (e) => {
