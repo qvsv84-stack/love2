@@ -61,6 +61,7 @@
         <button class="tab-btn" data-tab="areas" style="display:none">🏢 Khu vực</button>
         <button class="tab-btn" data-tab="employees" style="display:none">👥 Nhân viên</button>
         <button class="tab-btn" data-tab="salary" style="display:none">💰 Tính công</button>
+        <button class="tab-btn" data-tab="excel" style="display:none">📊 Bảng công</button>
       </nav>
 
       <!-- TAB: CALENDAR -->
@@ -202,6 +203,28 @@
         <div id="salarySummary"></div>
         <div id="salaryList"></div>
         <div id="salaryTotal"></div>
+      </section>
+
+      <!-- TAB: EXCEL MATRIX (Bảng công 2 dòng/NV) -->
+      <section id="tab-excel" class="tab-content">
+        <div class="section-header">
+          <h2>📊 Bảng công</h2>
+          <button id="excelExportBtn" class="btn-primary">📥 Xuất Excel</button>
+        </div>
+
+        <div class="form-group">
+          <label>Tháng</label>
+          <input type="month" id="excelMonth" class="input" />
+        </div>
+
+        <div class="excel-note">
+          💡 NC = Ngày công · OT = Tăng ca · 1 ngày công = 8h
+        </div>
+
+        <div id="excelLoading" class="hint" style="display:none">Đang tải...</div>
+        <div id="excelTableWrap" class="excel-table-wrap" style="display:none">
+          <table id="excelTable" class="excel-table"></table>
+        </div>
       </section>
     </main>
 
