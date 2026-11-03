@@ -38,6 +38,8 @@ const state = {
   phoneActionNumber: '',
   editingEmployeeId: null,
   floorAssignments: {},
+  areasSearch: '',
+  areasRoleFilter: 'all',
   salaryMonth: new Date(),
   salaryRoleFilter: 'nv_tv',
   salarySearch: '',
@@ -723,44 +725,114 @@ async function loadTodayAssignments() {
   }
 }
 
+/* ⭐ RENDER BUILDINGS — nâng cấp chuẩn doanh nghiệp */
 function renderBuildings() {
   const wrap = $('#buildingsList');
+  const $sum = $('#areasSummary');
+
   if (!state.buildings.length) {
     wrap.innerHTML = '<p class="hint">Chưa có toà nhà nào. Nhấn "+ Thêm tòa nhà".</p>';
+    if ($sum) $sum.style.display = 'none';
     return;
   }
+
+  /* ===== FILTER EMPLOYEES ===== */
+  const search = (state.areasSearch || '').toLowerCase().trim();
+  const roleFilter = state.areasRoleFilter || 'all';
+
+  const filteredEmpIds = new Set();
+  const filteredEmployees = state.employees.filter(e => {
+    if (e.status === 'inactive') return false;
+    if (roleFilter !== 'all' && e.role !== roleFilter) return false;
+    if (search) {
+      const name = (e.full_name || '').toLowerCase();
+      const phone = (e.phone || '').toLowerCase();
+      const username = (e.username || '').toLowerCase();
+      if (!name.includes(search) && !phone.includes(search) && !username.includes(search)) return false;
+    }
+    filteredEmpIds.add(e.id);
+    return true;
+  });
+
+  /* ===== STATS ===== */
+  const totalEmployees = filteredEmployees.length;
+  const workingEmpIds = new Set();
+  const floorsWithPeople = new Set();
+
+  for (const b of state.buildings) {
+    const floors = state.floors.filter(f => f.building_id === b.id);
+    for (const f of floors) {
+      const assigns = state.floorAssignments[f.id] || [];
+      const visible = assigns.filter(a => filteredEmpIds.has(a.employee_id));
+      if (visible.length > 0) {
+        floorsWithPeople.add(f.id);
+        for (const a of visible) workingEmpIds.add(a.employee_id);
+      }
+    }
+  }
+
+  const totalFloors = state.floors.length;
+  const floorsWithPeopleCount = floorsWithPeople.size;
+  const workingCount = workingEmpIds.size;
+  const isFiltered = search !== '' || roleFilter !== 'all';
+
+  /* ===== SUMMARY ===== */
+  if ($sum) {
+    $sum.style.display = 'block';
+    $sum.innerHTML = `
+      <div class="areas-summary-row">
+        <span class="areas-summary-label">👥 Người đi làm hôm nay</span>
+        <span class="areas-summary-value">
+          <span class="${workingCount === totalEmployees && totalEmployees > 0 ? 'ok' : ''}">${workingCount}</span>/${totalEmployees}
+        </span>
+      </div>
+      <div class="areas-summary-row">
+        <span class="areas-summary-label">🏢 Tầng có người</span>
+        <span class="areas-summary-value">
+          <span class="${floorsWithPeopleCount === totalFloors && totalFloors > 0 ? 'ok' : ''}">${floorsWithPeopleCount}</span>/${totalFloors}
+        </span>
+      </div>
+      ${isFiltered ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed var(--border)">🔍 Đang lọc — số liệu chỉ tính người khớp bộ lọc</div>` : ''}
+    `;
+  }
+
+  /* ===== RENDER LIST ===== */
   wrap.innerHTML = state.buildings.map(b => {
     const floors = state.floors.filter(f => f.building_id === b.id)
       .sort((a, c) => a.floor_number - c.floor_number);
 
     const floorRows = floors.map(f => {
-      const assignments = state.floorAssignments[f.id] || [];
+      const assigns = state.floorAssignments[f.id] || [];
+      const visible = assigns.filter(a => filteredEmpIds.has(a.employee_id));
 
       let assigneesHtml = '';
-      if (assignments.length) {
-        const items = assignments.map(item => {
+      if (visible.length > 0) {
+        const items = visible.map(item => {
           const emp = state.employees.find(e => e.id === item.employee_id);
           if (!emp) return '';
-          const shortName = getShortName(emp.full_name || emp.username || '');
-          const phoneHtml = emp.phone
-            ? ` - <a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a>`
-            : '';
+          const name = emp.full_name || emp.username || '';
+          const initial = name.charAt(0).toUpperCase();
 
-          const parts = [];
-          if (item.main_hours > 0.01) parts.push(formatHours(item.main_hours));
-          if (item.ot_hours > 0.01) parts.push(formatHours(item.ot_hours) + ' OT');
-          const hoursStr = parts.length ? ` · ${parts.join(' + ')}` : '';
-
-          return `<div class="floor-assignee">${shortName}${phoneHtml}${hoursStr}</div>`;
+          return `
+            <div class="floor-assignee">
+              <div class="assignee-avatar">${initial}</div>
+              <div class="assignee-info">
+                <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
+                ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
+              </div>
+            </div>`;
         }).filter(Boolean).join('');
         assigneesHtml = `<div class="floor-assignees-list">${items}</div>`;
       }
 
-      const hasAssignees = assignments.length > 0;
+      const peopleBadge = visible.length > 0
+        ? `<span class="floor-people-count">${visible.length} người</span>`
+        : `<span class="floor-people-count is-empty">Trống</span>`;
+
       return `
-        <div class="floor-row${hasAssignees ? ' has-assignees' : ''}">
+        <div class="floor-row${visible.length > 0 ? ' has-assignees' : ''}">
           <div class="floor-row-head">
-            <span class="floor-name">${floorLabel(f.floor_number)}</span>
+            <span class="floor-name">${floorLabel(f.floor_number)} ${peopleBadge}</span>
             <span class="floor-hours">${formatHours(f.default_hours)}</span>
           </div>
           ${assigneesHtml}
@@ -778,6 +850,7 @@ function renderBuildings() {
       </div>`;
   }).join('');
 
+  /* ===== BIND EVENTS ===== */
   wrap.querySelectorAll('[data-setup]').forEach(btn =>
     btn.addEventListener('click', () => openFloorSetup(btn.dataset.setup)));
   wrap.querySelectorAll('[data-delete]').forEach(btn =>
@@ -790,6 +863,31 @@ function renderBuildings() {
       showPhoneAction(el.dataset.phone);
     });
   });
+
+  /* ⭐ Click tên → nhảy sang Lịch công */
+  wrap.querySelectorAll('[data-jump-emp]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      jumpToEmployeeCalendar(el.dataset.jumpEmp);
+    });
+  });
+}
+
+/* ⭐ Click tên ở tab Khu vực → chuyển sang tab Lịch công của người đó */
+async function jumpToEmployeeCalendar(empId) {
+  const emp = state.employees.find(e => e.id === empId);
+  if (!emp) { toast('Không tìm thấy nhân viên'); return; }
+
+  state.selectedEmployeeId = empId;
+  const sel = $('#employeeSelect');
+  if (sel) sel.value = empId;
+
+  switchTab('calendar');
+  await loadAttendanceForMonth();
+  renderCalendar();
+
+  toast(`📅 Đang xem lịch của ${emp.full_name || emp.username || ''}`);
 }
 
 async function deleteBuilding(id) {
@@ -888,7 +986,6 @@ async function loadAttendanceForMonth() {
   updateSummary();
 }
 
-/* ⭐ Summary: 4 ô — Ngày công / Giờ công / Tăng ca / Phép */
 function updateSummary() {
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   if (!emp) {
@@ -900,8 +997,8 @@ function updateSummary() {
   $('#sumRole').textContent = roleLabelOf(emp);
 
   let work = 0, ot = 0;
-  let workDays = 0;   // Số ngày có chấm công (không OFF, không Phép)
-  let leaveDays = 0;  // Số ngày Phép
+  let workDays = 0;
+  let leaveDays = 0;
 
   for (const a of state.attendance) {
     if (a.mode === 'leave') { leaveDays++; continue; }
@@ -1011,7 +1108,6 @@ function showBatchNote(batchDates) {
   }
 }
 
-/* ⭐ Set radio đúng mode (bao gồm leave) */
 function openSupervisorModeContent(template) {
   let mode = 'default';
   let otH = 0;
@@ -1163,7 +1259,6 @@ function renderOtAreaPicker() {
 }
 
 /* ============ MODE TOGGLES ============ */
-/* ⭐ OFF hoặc LEAVE đều ẩn OT section */
 function toggleModeSections(mode) {
   $('#manualHoursGroup').style.display = mode === 'manual' ? 'block' : 'none';
   $('#mainAreaSection').style.display = mode === 'default' ? 'block' : 'none';
@@ -1248,7 +1343,6 @@ function updatePreview() {
 }
 
 /* ============ PAYLOAD BUILDERS ============ */
-/* ⭐ Xử lý mode 'leave' — total_hours=0, ot_hours=0, is_off=false */
 function buildSupervisorPayload() {
   const mode = getSelectedSupMode();
   const isOff = mode === 'off';
@@ -1422,7 +1516,6 @@ function updateSelectionCount() {
 }
 
 /* ============ CALENDAR ============ */
-/* ⭐ mode='leave' → nền vàng, chữ "P" */
 function renderCalendar() {
   const y = state.currentMonth.getFullYear();
   const m = state.currentMonth.getMonth();
@@ -1509,6 +1602,11 @@ function switchTab(name) {
     $('#salarySearch').value = state.salarySearch || '';
     $('#salarySort').value = state.salarySort || 'hours_desc';
     salaryModule.loadSalaryForMonth(true);
+  }
+
+  // ⭐ Auto-refresh Areas khi mở tab
+  if (name === 'areas' && state.isAdmin) {
+    loadTodayAssignments().then(renderBuildings);
   }
 }
 
@@ -1619,7 +1717,6 @@ function bindEvents() {
   $('#logoutBtn').addEventListener('click', handleLogout);
   $$('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
-  /* ⭐ Nút chấm công hôm nay */
   $('#todayAttendanceBtn').addEventListener('click', () => {
     if (!state.isAdmin) return;
     if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
@@ -1658,6 +1755,22 @@ function bindEvents() {
     if (e.target.id === 'bulkCopyModal') closeModal('bulkCopyModal');
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
+
+  // ⭐ Areas filters
+  const areasSearchEl = $('#areasSearch');
+  if (areasSearchEl) {
+    areasSearchEl.addEventListener('input', (e) => {
+      state.areasSearch = e.target.value;
+      renderBuildings();
+    });
+  }
+  const areasRoleFilterEl = $('#areasRoleFilter');
+  if (areasRoleFilterEl) {
+    areasRoleFilterEl.addEventListener('change', (e) => {
+      state.areasRoleFilter = e.target.value;
+      renderBuildings();
+    });
+  }
 
   // EXPORT
   $('#exportExcelBtn').addEventListener('click', () => {
