@@ -60,7 +60,7 @@
         <button class="tab-btn active" data-tab="calendar">📅 Lịch công</button>
         <button class="tab-btn" data-tab="areas" style="display:none">🏢 Khu vực</button>
         <button class="tab-btn" data-tab="employees" style="display:none">👥 Nhân viên</button>
-        <button class="tab-btn" data-tab="salary" style="display:none">💰 Tính lương</button>
+        <button class="tab-btn" data-tab="salary" style="display:none">💰 Tính công</button>
       </nav>
 
       <!-- TAB: CALENDAR -->
@@ -80,10 +80,11 @@
               <span class="emp-name" id="sumName">—</span>
               <span class="emp-role" id="sumRole">—</span>
             </div>
-            <div class="summary-stats">
-              <div class="stat"><span class="stat-label">Tình trạng</span><span class="stat-value" id="sumStatus">—</span></div>
+            <div class="summary-stats" style="grid-template-columns: repeat(4, 1fr)">
+              <div class="stat"><span class="stat-label">Ngày công</span><span class="stat-value" id="sumDays">0</span></div>
               <div class="stat"><span class="stat-label">Giờ công</span><span class="stat-value" id="sumWork">0h</span></div>
               <div class="stat"><span class="stat-label">Tăng ca</span><span class="stat-value" id="sumOT">0h</span></div>
+              <div class="stat"><span class="stat-label">Phép</span><span class="stat-value" id="sumLeave">0</span></div>
             </div>
           </div>
         </div>
@@ -92,6 +93,11 @@
           <button id="prevMonth" class="btn-icon">◀</button>
           <h2 id="monthLabel">Tháng —</h2>
           <button id="nextMonth" class="btn-icon">▶</button>
+        </div>
+
+        <!-- Nút chấm công hôm nay (chỉ admin) -->
+        <div id="quickAttendanceRow" style="display:none; margin-bottom:12px">
+          <button id="todayAttendanceBtn" class="btn-primary" style="width:100%">📝 Chấm công hôm nay</button>
         </div>
 
         <div id="calendarActions" style="display:none">
@@ -108,6 +114,14 @@
             <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
           </div>
           <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="calendar-legend">
+          <span class="legend-item"><span class="legend-dot dot-work"></span>Đi làm</span>
+          <span class="legend-item"><span class="legend-dot dot-off"></span>OFF</span>
+          <span class="legend-item"><span class="legend-dot dot-leave"></span>Phép</span>
+          <span class="legend-item"><span class="legend-dot dot-today"></span>Hôm nay</span>
         </div>
 
         <p class="hint" id="calendarHint" style="display:none">💡 Nhấn giữ (long-press) vào một ngày để chấm công</p>
@@ -195,6 +209,7 @@
                 <label class="radio"><input type="radio" name="supMode" value="default" checked /> <span>Mặc định (8 giờ)</span></label>
                 <label class="radio"><input type="radio" name="supMode" value="ot" /> <span>Tăng ca</span></label>
                 <label class="radio"><input type="radio" name="supMode" value="off" /> <span>OFF (nghỉ)</span></label>
+                <label class="radio"><input type="radio" name="supMode" value="leave" /> <span>Phép (không tính lương)</span></label>
               </div>
             </div>
             <div class="form-group" id="supOtGroup" style="display:none">
@@ -225,6 +240,7 @@
                 <label class="radio"><input type="radio" name="attMode" value="default" checked /> Mặc định (theo khu vực)</label>
                 <label class="radio"><input type="radio" name="attMode" value="manual" /> Thủ công</label>
                 <label class="radio"><input type="radio" name="attMode" value="off" /> OFF (nghỉ)</label>
+                <label class="radio"><input type="radio" name="attMode" value="leave" /> Phép (không tính lương)</label>
               </div>
               <div id="mainAreaSection">
                 <div id="mainAreaPicker" class="area-picker"></div>
@@ -257,8 +273,8 @@
               </div>
             </div>
             <p id="shareNote" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px;display:none">
-  ⚠️ Nếu có người khác cùng tầng, giờ công chính được chia đều. Tối đa 8h công/ngày — phần vượt tự chuyển sang tăng ca.
-</p>
+              ⚠️ Chia sẻ giờ nếu nhiều người cùng tầng. Tối đa 8h công/ngày — phần vượt tự chuyển sang tăng ca.
+            </p>
           </div>
 
           <p id="batchNote" class="prefill-note" style="display:none;margin-top:12px;margin-bottom:0"></p>
