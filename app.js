@@ -6,7 +6,7 @@ import { initSalaryModule } from './salary.js';
 const DEFAULT_DOMAIN = 'skyone.vn';
 const LS_KEY = 'cc_saved_login';
 const SUPERVISOR_HOURS = 8;
-const DAILY_MAIN_CAP = 8;   // ⭐ Giờ công tối đa/ngày
+const DAILY_MAIN_CAP = 8;
 
 const ROLE_LABELS = {
   admin: 'Giám sát',
@@ -160,6 +160,7 @@ async function showGuestView() {
   $('#empSelectorRow').style.display = 'flex';
   $('#summaryCard').style.display = 'block';
   $('#guestBanner').style.display = 'block';
+  $('#quickAttendanceRow').style.display = 'none';
   $('#calendarActions').style.display = 'none';
   $('#exportActionRow').style.display = 'block';
   $('#calendarHint').style.display = 'none';
@@ -207,6 +208,7 @@ async function onLoggedIn(user) {
   $('#empSelectorRow').style.display = state.isAdmin ? 'flex' : 'none';
   $('#summaryCard').style.display = 'block';
   $('#guestBanner').style.display = 'none';
+  $('#quickAttendanceRow').style.display = state.isAdmin ? 'block' : 'none';
   $('#calendarActions').style.display = state.isAdmin ? 'flex' : 'none';
   $('#exportActionRow').style.display = 'block';
   $('#calendarHint').style.display = state.isAdmin ? '' : 'none';
@@ -582,7 +584,6 @@ async function loadBuildings() {
   renderBuildings();
 }
 
-/* ⭐ Load assignments — đọc giờ từ DB (đã cap 8h + overflow) và phân bổ theo floor */
 async function loadTodayAssignments() {
   const todayStr = toDateStr(new Date());
   const { data, error } = await supabase
@@ -628,7 +629,6 @@ async function loadTodayAssignments() {
     let mainRawTotal = 0;
     let otRawTotal = 0;
 
-    // MAIN RAW per floor
     if (a.mode === 'default' && Array.isArray(a.areas)) {
       for (const area of a.areas) {
         const fid = area.floor_id;
@@ -654,7 +654,6 @@ async function loadTodayAssignments() {
       }
     }
 
-    // OT RAW per floor
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
         const fid = area.floor_id;
@@ -677,24 +676,19 @@ async function loadTodayAssignments() {
       }
     }
 
-    // ⭐ Giờ THỰC từ DB (đã cap 8h + overflow)
     const mainFromDB = Number(a.total_hours || 0);
     const otFromDB = Number(a.ot_hours || 0);
 
-    // Phân bổ main cap cho các floor theo tỷ lệ raw
     if (mainRawTotal > 0) {
       for (const fid in perFloor) {
         perFloor[fid].main = perFloor[fid].main * (mainFromDB / mainRawTotal);
       }
     }
-
-    // Phân bổ ot cho các floor theo tỷ lệ raw
     if (otRawTotal > 0) {
       for (const fid in perFloor) {
         perFloor[fid].ot = perFloor[fid].ot * (otFromDB / otRawTotal);
       }
     } else if (otFromDB > 0 && mainRawTotal > 0) {
-      // Chỉ có overflow (không có ot_areas), gán vào floor có main cao nhất
       let maxFid = null, maxMain = 0;
       for (const fid in perFloor) {
         if (perFloor[fid].main > maxMain) {
@@ -705,7 +699,6 @@ async function loadTodayAssignments() {
       if (maxFid) perFloor[maxFid].ot = otFromDB;
     }
 
-    // Update map
     for (const [fid, h] of Object.entries(perFloor)) {
       if (!map[fid]) map[fid] = [];
       const existing = map[fid].find(x => x.employee_id === a.employee_id);
@@ -895,25 +888,36 @@ async function loadAttendanceForMonth() {
   updateSummary();
 }
 
+/* ⭐ Summary: 4 ô — Ngày công / Giờ công / Tăng ca / Phép */
 function updateSummary() {
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   if (!emp) {
-    ['sumName', 'sumRole', 'sumStatus'].forEach(id => $('#' + id).textContent = '—');
-    ['sumWork', 'sumOT'].forEach(id => $('#' + id).textContent = '0h');
+    ['sumName', 'sumRole'].forEach(id => $('#' + id).textContent = '—');
+    ['sumDays', 'sumWork', 'sumOT', 'sumLeave'].forEach(id => $('#' + id).textContent = '0');
     return;
   }
   $('#sumName').textContent = emp.full_name || emp.username || emp.email || '—';
   $('#sumRole').textContent = roleLabelOf(emp);
-  $('#sumStatus').textContent = emp.status === 'inactive' ? 'Nghỉ' : 'Đang làm';
 
   let work = 0, ot = 0;
+  let workDays = 0;   // Số ngày có chấm công (không OFF, không Phép)
+  let leaveDays = 0;  // Số ngày Phép
+
   for (const a of state.attendance) {
+    if (a.mode === 'leave') { leaveDays++; continue; }
     if (a.is_off) continue;
-    work += Number(a.total_hours || 0);
-    ot += Number(a.ot_hours || 0);
+
+    const h = Number(a.total_hours || 0);
+    const o = Number(a.ot_hours || 0);
+    if (h > 0 || o > 0) workDays++;
+    work += h;
+    ot += o;
   }
+
+  $('#sumDays').textContent = workDays;
   $('#sumWork').textContent = formatHours(work);
   $('#sumOT').textContent = formatHours(ot);
+  $('#sumLeave').textContent = leaveDays;
 }
 
 /* ============ PREFILL ============ */
@@ -1007,11 +1011,13 @@ function showBatchNote(batchDates) {
   }
 }
 
+/* ⭐ Set radio đúng mode (bao gồm leave) */
 function openSupervisorModeContent(template) {
   let mode = 'default';
   let otH = 0;
   if (template) {
-    if (template.is_off) mode = 'off';
+    if (template.mode === 'leave') mode = 'leave';
+    else if (template.is_off || template.mode === 'off') mode = 'off';
     else if (Number(template.ot_hours) > 0) mode = 'ot';
     otH = Number(template.ot_hours || 0);
   }
@@ -1030,7 +1036,7 @@ function openEmployeeModeContent(template) {
       .filter(a => validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id))
       .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: Number(a.hours || 0) }));
     if (!state.modalAreas.length) state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
-  } else if (template && template.is_off) {
+  } else if (template && (template.is_off || template.mode === 'off' || template.mode === 'leave')) {
     state.modalAreas = [];
   } else {
     state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
@@ -1053,12 +1059,12 @@ function openEmployeeModeContent(template) {
 
   let mode = 'default';
   if (template) {
-    if (template.is_off) mode = 'off';
+    if (template.mode === 'leave') mode = 'leave';
+    else if (template.is_off || template.mode === 'off') mode = 'off';
     else if (template.mode === 'manual') mode = 'manual';
   }
   $$('input[name="attMode"]').forEach(r => r.checked = r.value === mode);
   toggleModeSections(mode);
-  // ⭐ manual_hours lưu giá trị GỐC (chưa cap) — để user thấy lại đúng số đã nhập
   $('#manualHours').value = template?.manual_hours ?? '';
 }
 
@@ -1157,10 +1163,11 @@ function renderOtAreaPicker() {
 }
 
 /* ============ MODE TOGGLES ============ */
+/* ⭐ OFF hoặc LEAVE đều ẩn OT section */
 function toggleModeSections(mode) {
   $('#manualHoursGroup').style.display = mode === 'manual' ? 'block' : 'none';
   $('#mainAreaSection').style.display = mode === 'default' ? 'block' : 'none';
-  $('#otSection').style.display = mode === 'off' ? 'none' : 'block';
+  $('#otSection').style.display = (mode === 'off' || mode === 'leave') ? 'none' : 'block';
 }
 
 function toggleSupOtGroup(mode) {
@@ -1176,10 +1183,9 @@ function getSelectedSupMode() {
 }
 
 /* ============ HOURS CALC ============ */
-/* ⭐ Raw main (chưa cap) */
 function computeMainHoursRaw() {
   const mode = getSelectedMode();
-  if (mode === 'off') return 0;
+  if (mode === 'off' || mode === 'leave') return 0;
   if (mode === 'manual') return Number($('#manualHours').value || 0);
   let h = 0;
   for (const entry of state.modalAreas) {
@@ -1191,17 +1197,14 @@ function computeMainHoursRaw() {
   return h;
 }
 
-/* ⭐ Main đã cap 8h */
 function computeMainHours() {
   return Math.min(computeMainHoursRaw(), DAILY_MAIN_CAP);
 }
 
-/* ⭐ Overflow = phần vượt 8h */
 function computeOverflow() {
   return Math.max(0, computeMainHoursRaw() - DAILY_MAIN_CAP);
 }
 
-/* Raw OT (chưa cộng overflow) */
 function computeOtHoursRaw() {
   let h = 0;
   for (const entry of state.modalOtAreas) {
@@ -1216,7 +1219,6 @@ function computeOtHoursRaw() {
   return h;
 }
 
-/* ⭐ Total OT = raw OT + overflow */
 function computeOtHours() {
   return computeOtHoursRaw() + computeOverflow();
 }
@@ -1226,32 +1228,49 @@ function updatePreview() {
   if (state.isSupervisorMode) {
     const mode = getSelectedSupMode();
     const isOff = mode === 'off';
-    const mainH = isOff ? 0 : SUPERVISOR_HOURS;
+    const isLeave = mode === 'leave';
+    const mainH = (isOff || isLeave) ? 0 : SUPERVISOR_HOURS;
     const otH = mode === 'ot' ? Number($('#supOtHours').value || 0) : 0;
-    $('#supMainPreview').textContent = isOff ? 'OFF' : formatHours(SUPERVISOR_HOURS);
+    $('#supMainPreview').textContent = isLeave ? 'PHÉP' : (isOff ? 'OFF' : formatHours(SUPERVISOR_HOURS));
     $('#supOtPreview').textContent = formatHours(otH);
-    $('#supTotalPreview').textContent = formatHours(mainH + otH);
+    $('#supTotalPreview').textContent = isLeave ? 'PHÉP' : formatHours(mainH + otH);
     return;
   }
 
   const mode = getSelectedMode();
+  const isInactive = mode === 'off' || mode === 'leave';
   const mainH = computeMainHours();
-  const otH = mode === 'off' ? 0 : computeOtHours();
-  $('#mainHoursPreview').textContent = mode === 'off' ? 'OFF' : formatHours(mainH);
+  const otH = isInactive ? 0 : computeOtHours();
+  $('#mainHoursPreview').textContent = mode === 'leave' ? 'PHÉP' : (mode === 'off' ? 'OFF' : formatHours(mainH));
   $('#otHoursPreview').textContent = formatHours(otH);
-  $('#totalHoursPreview').textContent = formatHours(mainH + otH);
+  $('#totalHoursPreview').textContent = mode === 'leave' ? 'PHÉP' : formatHours(mainH + otH);
   $('#shareNote').style.display = (mode === 'default' && mainH > 0) ? 'block' : 'none';
 }
 
 /* ============ PAYLOAD BUILDERS ============ */
+/* ⭐ Xử lý mode 'leave' — total_hours=0, ot_hours=0, is_off=false */
 function buildSupervisorPayload() {
   const mode = getSelectedSupMode();
   const isOff = mode === 'off';
+  const isLeave = mode === 'leave';
   const otH = mode === 'ot' ? Number($('#supOtHours').value || 0) : 0;
 
   if (mode === 'ot' && otH <= 0) {
     toast('Nhập số giờ tăng ca (> 0)');
     return null;
+  }
+
+  if (isLeave) {
+    return {
+      employee_id: state.selectedEmployeeId,
+      total_hours: 0,
+      ot_hours: 0,
+      is_off: false,
+      mode: 'leave',
+      manual_hours: null,
+      areas: [],
+      ot_areas: [],
+    };
   }
 
   return {
@@ -1268,9 +1287,23 @@ function buildSupervisorPayload() {
 
 function buildEmployeePayload() {
   const mode = getSelectedMode();
-  const mainH = computeMainHours();      // đã cap 8h
-  const otH = mode === 'off' ? 0 : computeOtHours();  // đã gồm overflow
+  const isInactive = mode === 'off' || mode === 'leave';
+  const mainH = computeMainHours();
+  const otH = isInactive ? 0 : computeOtHours();
   const rawMain = computeMainHoursRaw();
+
+  if (mode === 'leave') {
+    return {
+      employee_id: state.selectedEmployeeId,
+      total_hours: 0,
+      ot_hours: 0,
+      is_off: false,
+      mode: 'leave',
+      manual_hours: null,
+      areas: [],
+      ot_areas: [],
+    };
+  }
 
   if (mode !== 'off' && mainH <= 0) {
     toast('Vui lòng chọn khu vực chính hoặc nhập giờ');
@@ -1283,7 +1316,6 @@ function buildEmployeePayload() {
     ot_hours: otH,
     is_off: mode === 'off',
     mode,
-    // ⭐ Lưu manual_hours GỐC để lần sau mở modal thấy đúng số đã nhập
     manual_hours: mode === 'manual' ? rawMain : null,
     areas: mode === 'off' ? [] : state.modalAreas
       .filter(a => a.building_id && a.floor_id)
@@ -1390,6 +1422,7 @@ function updateSelectionCount() {
 }
 
 /* ============ CALENDAR ============ */
+/* ⭐ mode='leave' → nền vàng, chữ "P" */
 function renderCalendar() {
   const y = state.currentMonth.getFullYear();
   const m = state.currentMonth.getMonth();
@@ -1411,14 +1444,16 @@ function renderCalendar() {
     const att = attMap[dateStr];
     let cls = 'cal-day'; let sub = '';
     if (att) {
-      if (att.is_off) {
+      if (att.mode === 'leave') {
+        cls += ' leave-day';
+        sub = 'P';
+      } else if (att.is_off) {
         cls += ' off-day';
         sub = 'OFF';
       } else {
         cls += ' has-data';
-        // ⭐ Hiển thị TỔNG giờ công + giờ tăng ca
         const totalH = Number(att.total_hours || 0) + Number(att.ot_hours || 0);
-        sub = formatHours(totalH);
+        sub = totalH > 0 ? formatHours(totalH) : '';
       }
     }
     if (dateStr === todayStr) cls += ' today';
@@ -1583,6 +1618,14 @@ function bindEvents() {
 
   $('#logoutBtn').addEventListener('click', handleLogout);
   $$('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+  /* ⭐ Nút chấm công hôm nay */
+  $('#todayAttendanceBtn').addEventListener('click', () => {
+    if (!state.isAdmin) return;
+    if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
+    const todayStr = toDateStr(new Date());
+    openAttendanceModal(todayStr);
+  });
 
   $('#employeeSelect').addEventListener('change', async (e) => {
     state.selectedEmployeeId = e.target.value;
