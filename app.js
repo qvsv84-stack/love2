@@ -755,25 +755,34 @@ function renderBuildings() {
   });
 
   /* ===== STATS ===== */
-  const totalEmployees = filteredEmployees.length;
-  const workingEmpIds = new Set();
-  const floorsWithPeople = new Set();
+  // ⭐ Số người đi làm: CHỈ đếm Nhân viên (role='employee'), không phụ thuộc filter
+  const allActive = state.employees.filter(e => e.status !== 'inactive');
+  const nvEmployees = allActive.filter(e => e.role === 'employee');
+  const nvEmpIds = new Set(nvEmployees.map(e => e.id));
 
+  const workingNVIds = new Set();
+  for (const fid in state.floorAssignments) {
+    const assigns = state.floorAssignments[fid] || [];
+    for (const a of assigns) {
+      if (nvEmpIds.has(a.employee_id)) workingNVIds.add(a.employee_id);
+    }
+  }
+  const totalNV = nvEmployees.length;
+  const workingNVCount = workingNVIds.size;
+
+  // Tầng có người: theo filter hiện tại (không đổi)
+  const floorsWithPeople = new Set();
   for (const b of state.buildings) {
     const floors = state.floors.filter(f => f.building_id === b.id);
     for (const f of floors) {
       const assigns = state.floorAssignments[f.id] || [];
       const visible = assigns.filter(a => filteredEmpIds.has(a.employee_id));
-      if (visible.length > 0) {
-        floorsWithPeople.add(f.id);
-        for (const a of visible) workingEmpIds.add(a.employee_id);
-      }
+      if (visible.length > 0) floorsWithPeople.add(f.id);
     }
   }
 
   const totalFloors = state.floors.length;
   const floorsWithPeopleCount = floorsWithPeople.size;
-  const workingCount = workingEmpIds.size;
   const isFiltered = search !== '' || roleFilter !== 'all';
 
   /* ===== SUMMARY ===== */
@@ -781,9 +790,9 @@ function renderBuildings() {
     $sum.style.display = 'block';
     $sum.innerHTML = `
       <div class="areas-summary-row">
-        <span class="areas-summary-label">👥 Người đi làm hôm nay</span>
+        <span class="areas-summary-label">👥 Nhân viên đi làm hôm nay</span>
         <span class="areas-summary-value">
-          <span class="${workingCount === totalEmployees && totalEmployees > 0 ? 'ok' : ''}">${workingCount}</span>/${totalEmployees}
+          <span class="${workingNVCount === totalNV && totalNV > 0 ? 'ok' : ''}">${workingNVCount}</span>/${totalNV}
         </span>
       </div>
       <div class="areas-summary-row">
@@ -792,7 +801,7 @@ function renderBuildings() {
           <span class="${floorsWithPeopleCount === totalFloors && totalFloors > 0 ? 'ok' : ''}">${floorsWithPeopleCount}</span>/${totalFloors}
         </span>
       </div>
-      ${isFiltered ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed var(--border)">🔍 Đang lọc — số liệu chỉ tính người khớp bộ lọc</div>` : ''}
+      ${isFiltered ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed var(--border)">🔍 Đang lọc — số liệu tầng chỉ tính người khớp bộ lọc</div>` : ''}
     `;
   }
 
@@ -1604,7 +1613,7 @@ function switchTab(name) {
     salaryModule.loadSalaryForMonth(true);
   }
 
-  // ⭐ Auto-refresh Areas khi mở tab
+  // Auto-refresh Areas khi mở tab
   if (name === 'areas' && state.isAdmin) {
     loadTodayAssignments().then(renderBuildings);
   }
@@ -1756,7 +1765,7 @@ function bindEvents() {
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
 
-  // ⭐ Areas filters
+  // Areas filters
   const areasSearchEl = $('#areasSearch');
   if (areasSearchEl) {
     areasSearchEl.addEventListener('input', (e) => {
