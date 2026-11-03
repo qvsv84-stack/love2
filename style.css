@@ -360,18 +360,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border: 1.5px solid transparent;
   flex-shrink: 0;
 }
-.dot-work {
-  background: var(--ocean-100);
-  border-color: var(--ocean-200);
-}
-.dot-off {
-  background: #fef3f2;
-  border-color: #fecaca;
-}
-.dot-leave {
-  background: #fef3c7;
-  border-color: #fcd34d;
-}
+.dot-work { background: var(--ocean-100); border-color: var(--ocean-200); }
+.dot-off { background: #fef3f2; border-color: #fecaca; }
+.dot-leave { background: #fef3c7; border-color: #fcd34d; }
 .dot-today {
   background: var(--ocean-50);
   border-color: var(--ocean-500);
@@ -428,8 +419,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .section-header .btn-primary { width: auto; padding: 10px 16px; font-size: 13px; }
 
 /* ============ AREAS TAB ============ */
-
-/* Summary thống kê đầu tab */
 .areas-summary {
   background: linear-gradient(135deg, var(--ocean-50), white);
   border: 1.5px solid var(--border);
@@ -467,7 +456,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .areas-summary-value .ok { color: var(--success); }
 .areas-summary-value .empty { color: var(--warning); }
 
-/* Filters */
 .areas-filters {
   display: grid;
   grid-template-columns: 1fr;
@@ -501,7 +489,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .building-floors { display: flex; flex-direction: column; gap: 6px; }
 
-/* Floor row — nâng cấp header có "· N người" */
 .floor-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 9px 12px; background: var(--ocean-50); border-radius: 9px;
@@ -602,9 +589,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--ocean-500);
   border-bottom-color: var(--ocean-500);
 }
-.assignee-name:active {
-  opacity: 0.7;
-}
 .assignee-phone {
   font-size: 11px;
   color: var(--text-muted);
@@ -613,10 +597,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-size: 11px;
   color: var(--text-muted);
   border-bottom-color: transparent;
-}
-.assignee-phone .phone-link:hover {
-  color: var(--ocean-600);
-  border-bottom-color: var(--ocean-200);
 }
 
 .building-actions { margin-top: 10px; display: flex; gap: 8px; }
@@ -659,15 +639,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer; transition: 0.15s;
   max-width: 140px;
 }
-.emp-info .role-select:focus {
-  outline: none; border-color: var(--ocean-500);
-  background: white; box-shadow: 0 0 0 3px var(--ocean-100);
-}
-.emp-info .role-select:hover {
-  background: var(--ocean-100);
-}
 
-/* ============ Action buttons ============ */
 .emp-actions {
   display: flex;
   gap: 4px;
@@ -700,16 +672,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--ocean-700);
   border-bottom-color: var(--ocean-500);
 }
-.phone-link:active { opacity: 0.7; }
-
 .phone-link-add {
   color: var(--warning);
   border-bottom-color: var(--warning);
   font-weight: 500;
-}
-.phone-link-add:hover {
-  color: #b45309;
-  border-bottom-color: #b45309;
 }
 
 /* ============ Salary tab ============ */
@@ -718,16 +684,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   max-width: 100%;
   box-sizing: border-box;
 }
-#tab-salary * {
-  box-sizing: border-box;
-  max-width: 100%;
-}
+#tab-salary * { box-sizing: border-box; max-width: 100%; }
 #tab-salary input,
 #tab-salary select,
-#tab-salary button {
-  min-width: 0;
-  max-width: 100%;
-}
+#tab-salary button { min-width: 0; max-width: 100%; }
 
 .salary-meta {
   display: grid;
@@ -740,11 +700,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border: 1.5px solid var(--border);
   overflow: hidden;
 }
-.salary-meta-item {
-  text-align: center;
-  min-width: 0;
-  overflow: hidden;
-}
+.salary-meta-item { text-align: center; min-width: 0; overflow: hidden; }
 .salary-meta-item .label {
   display: block;
   font-size: 11px;
@@ -829,7 +785,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   padding-top: 8px;
   border-top: 1px dashed var(--border);
   line-height: 1.5;
-  white-space: normal;
   word-break: break-word;
   overflow-wrap: break-word;
 }
@@ -850,10 +805,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   flex-wrap: wrap;
   overflow: hidden;
 }
-.salary-total-box span {
-  min-width: 0;
-  word-break: break-word;
-}
 .salary-total-box strong {
   font-size: 18px;
   color: var(--ocean-700);
@@ -861,193 +812,255 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   flex-shrink: 0;
 }
 
-#salarySearch { background: var(--ocean-50); }
-#salarySearch:focus { background: white; }
-
-/* ============ EXCEL MATRIX TAB ============ */
-.excel-note {
+/* ============ EXCEL TAB — MATRIX 2 BLOCK ============ */
+.excel-help {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--ocean-700);
   background: var(--ocean-50);
   padding: 8px 12px;
   border-radius: 8px;
   margin-bottom: 12px;
   border: 1px dashed var(--ocean-200);
   text-align: center;
+  line-height: 1.5;
+}
+.excel-help small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
 }
 
-.excel-table-wrap {
-  overflow-x: auto;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+.excel-actions-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.excel-actions-bar button {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.excel-part-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ocean-700);
+  background: var(--ocean-100);
+  padding: 6px 12px;
+  border-radius: 20px;
+  display: inline-block;
+  margin: 6px 0 8px;
+}
+
+.excel-block {
+  background: white;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  background: white;
-  max-width: 100%;
-  max-height: 70vh;
+  overflow: hidden;
+  margin-bottom: 14px;
   box-shadow: var(--shadow);
-  position: relative;
 }
 
-.excel-table {
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 12px;
-  min-width: max-content;
-  width: max-content;
+/* Matrix table — compact, fit 15 ngày portrait */
+.excel-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  table-layout: fixed;
 }
 
-.excel-table th,
-.excel-table td {
-  padding: 6px 8px;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  text-align: center;
-  white-space: nowrap;
-  min-width: 34px;
-  height: 30px;
-  vertical-align: middle;
-}
-
-.excel-table th:last-child,
-.excel-table td:last-child {
-  border-right: none;
-}
-
-.excel-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* Header */
-.excel-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+.excel-matrix thead th {
   background: linear-gradient(135deg, var(--ocean-500), var(--ocean-600));
   color: white;
   font-weight: 700;
-  font-size: 11px;
-  height: 34px;
+  font-size: 10px;
+  padding: 5px 2px;
+  text-align: center;
+  border-right: 1px solid rgba(255,255,255,0.2);
+  height: 26px;
 }
 
-/* Sticky name column (left) */
-.excel-table .sticky-name {
-  position: sticky;
-  left: 0;
-  z-index: 3;
-  background: white;
+.excel-matrix thead th.th-name {
+  width: 90px;
   text-align: left;
-  min-width: 120px;
-  max-width: 140px;
-  padding-left: 10px;
+  padding-left: 8px;
+  font-size: 10px;
+}
+
+.excel-matrix thead th.th-sunday {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.excel-matrix thead th.th-today {
+  background: linear-gradient(135deg, #16a34a, #059669);
+}
+
+.excel-matrix tbody td {
+  padding: 4px 2px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 11px;
+  height: 22px;
+}
+
+.excel-matrix tbody td.td-name {
+  text-align: left;
+  padding-left: 8px;
+  font-weight: 700;
+  color: var(--ocean-700);
+  background: var(--ocean-50);
+  cursor: pointer;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 600;
-  color: var(--text);
+  white-space: nowrap;
   border-right: 2px solid var(--ocean-200);
 }
-
-.excel-table thead .sticky-name {
-  z-index: 7;
-  background: linear-gradient(135deg, var(--ocean-700), var(--ocean-600));
-  color: white;
+.excel-matrix tbody td.td-name:hover {
+  background: var(--ocean-100);
+}
+.excel-matrix tbody td.td-name:active {
+  background: var(--ocean-200);
 }
 
-/* Sticky NC/OT label column */
-.excel-table .sticky-label {
-  position: sticky;
-  left: 120px;
-  z-index: 3;
-  min-width: 34px;
-  max-width: 34px;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 6px 4px;
-  border-right: 2px solid var(--border);
-  text-align: center;
-}
-
-.excel-table thead .sticky-label {
-  z-index: 7;
-  background: linear-gradient(135deg, var(--ocean-700), var(--ocean-600));
-  color: white;
-}
-
-/* Row NC (top) */
-.excel-table .row-nc td {
+/* Row NC — trắng */
+.excel-matrix tr.row-nc td {
   background: white;
+  color: var(--text);
 }
-.excel-table .row-nc td.sticky-label {
-  background: var(--ocean-50);
-  color: var(--ocean-700);
-}
-
-/* Row OT (bottom) */
-.excel-table .row-ot td {
-  background: #fffaf0;
-}
-.excel-table .row-ot td.sticky-label {
-  background: #fff5e6;
-  color: #b45309;
-}
-
-/* Separator between employees */
-.excel-table tr.row-nc {
-  border-top: 2px solid var(--ocean-200);
-}
-.excel-table tbody tr.row-nc:first-child {
-  border-top: none;
-}
-
-/* Total column at right */
-.excel-table .col-total {
-  position: sticky;
-  right: 0;
-  z-index: 3;
-  background: #fef9ec;
-  font-weight: 700;
-  color: #b45309;
-  min-width: 55px;
-  border-left: 2px solid #fcd34d;
-}
-
-.excel-table thead .col-total {
-  z-index: 7;
-  background: linear-gradient(135deg, #d97706, #b45309);
-  color: white;
-}
-
-/* Sunday column */
-.excel-table td.col-sunday {
+.excel-matrix tr.row-nc td.td-sunday {
   background: #fef2f2;
 }
-.excel-table .row-ot td.col-sunday {
-  background: #fee2e2;
-}
-.excel-table thead th.col-sunday {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  color: white;
-}
-
-/* Cell states */
-.excel-table td.val-leave {
+.excel-matrix tr.row-nc td.val-leave {
   background: #fef3c7 !important;
   color: #b45309;
-  font-weight: 700;
 }
-.excel-table td.val-off {
-  background: #fef3f2;
+.excel-matrix tr.row-nc td.val-off {
   color: var(--danger);
   font-weight: 700;
 }
-.excel-table td.val-empty {
+.excel-matrix tr.row-nc td.val-empty {
   color: #cbd5e1;
+  font-weight: 400;
 }
 
-/* Today column highlight */
-.excel-table th.col-today {
-  background: linear-gradient(135deg, #16a34a, #059669) !important;
-  box-shadow: inset 0 -3px 0 #dcfce7;
+/* Row OT — vàng nhạt */
+.excel-matrix tr.row-ot td {
+  background: #fffaf0;
+  color: #b45309;
+  font-size: 10px;
+  border-bottom: 2px solid var(--ocean-200);
+}
+.excel-matrix tr.row-ot td.td-sunday {
+  background: #fee2e2;
+}
+.excel-matrix tr.row-ot td.val-empty {
+  background: #fffaf0;
+  color: transparent;
+}
+
+.excel-matrix tbody tr.row-ot:last-child td {
+  border-bottom: none;
+}
+
+/* Container ẩn render PNG — full 31 ngày */
+#excelCaptureArea .excel-capture-title {
+  font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0a6b7a;
+  text-align: center;
+  padding: 16px 24px 8px;
+  background: linear-gradient(135deg, #e0f7fa, #f0fdfe);
+}
+#excelCaptureArea .excel-capture-subtitle {
+  font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
+  font-size: 13px;
+  color: #5c7c82;
+  text-align: center;
+  padding: 0 24px 16px;
+  background: linear-gradient(135deg, #e0f7fa, #f0fdfe);
+  border-bottom: 2px solid #ccf5fa;
+}
+
+.excel-capture-table {
+  border-collapse: collapse;
+  font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
+  font-size: 13px;
+  table-layout: fixed;
+  background: white;
+}
+
+.excel-capture-table thead th {
+  background: linear-gradient(135deg, #0ea5b7, #0c8899);
+  color: white;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 8px 4px;
+  text-align: center;
+  border-right: 1px solid rgba(255,255,255,0.2);
+  height: 34px;
+}
+.excel-capture-table thead th.th-name {
+  width: 160px;
+  text-align: left;
+  padding-left: 12px;
+  font-size: 12px;
+}
+.excel-capture-table thead th.th-sunday {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+.excel-capture-table tbody td {
+  padding: 7px 4px;
+  text-align: center;
+  border-right: 1px solid #d4eef2;
+  border-bottom: 1px solid #d4eef2;
+  font-weight: 600;
+  font-size: 13px;
+  height: 30px;
+  color: #0f2e33;
+}
+.excel-capture-table tbody td.td-name {
+  text-align: left;
+  padding-left: 12px;
+  font-weight: 700;
+  color: #0a6b7a;
+  background: #f0fdfe;
+  font-size: 13px;
+  border-right: 2px solid #99eaf5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.excel-capture-table tr.row-nc td { background: white; }
+.excel-capture-table tr.row-nc td.td-sunday { background: #fef2f2; }
+.excel-capture-table tr.row-nc td.val-leave {
+  background: #fef3c7 !important;
+  color: #b45309;
+}
+.excel-capture-table tr.row-nc td.val-off {
+  color: #e74c3c;
+  font-weight: 700;
+}
+.excel-capture-table tr.row-nc td.val-empty { color: #cbd5e1; }
+
+.excel-capture-table tr.row-ot td {
+  background: #fffaf0;
+  color: #b45309;
+  font-size: 12px;
+  border-bottom: 2px solid #99eaf5;
+}
+.excel-capture-table tr.row-ot td.td-sunday { background: #fee2e2; }
+.excel-capture-table tr.row-ot td.val-empty {
+  background: #fffaf0;
+  color: transparent;
+}
+.excel-capture-table tbody tr.row-ot:last-child td {
+  border-bottom: none;
 }
 
 /* ============ Modal ============ */
@@ -1108,18 +1121,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* ============ Area picker ============ */
 .area-picker { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
-.area-entry {
-  display: flex; gap: 8px; align-items: center;
-}
+.area-entry { display: flex; gap: 8px; align-items: center; }
 .area-entry select {
   flex: 1; padding: 10px 12px; font-size: 14px;
   border: 1.5px solid var(--border); border-radius: 9px;
   background: var(--ocean-50); font-family: inherit;
   min-width: 0;
-}
-.area-entry select:focus {
-  outline: none; border-color: var(--ocean-500);
-  background: white; box-shadow: 0 0 0 3px var(--ocean-100);
 }
 .area-entry .remove-area {
   background: #fef2f2; color: var(--danger); border: none;
@@ -1131,10 +1138,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border: 1.5px solid var(--border); border-radius: 9px;
   background: var(--ocean-50); font-family: inherit;
   text-align: center; min-width: 0;
-}
-.area-entry .area-hours-input:focus {
-  outline: none; border-color: var(--ocean-500);
-  background: white; box-shadow: 0 0 0 3px var(--ocean-100);
 }
 
 /* ============ Preview ============ */
@@ -1148,9 +1151,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* ============ Floors form ============ */
 .floors-form { display: flex; flex-direction: column; gap: 12px; }
-.floor-form-row {
-  display: flex; gap: 8px; align-items: center;
-}
+.floor-form-row { display: flex; gap: 8px; align-items: center; }
 .floor-form-row span {
   font-size: 12px; font-weight: 700; color: var(--ocean-700);
   background: var(--ocean-100); padding: 8px 10px; border-radius: 8px;
@@ -1186,30 +1187,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .stat-value { font-size: 13px; }
   .legend-item { font-size: 10px; gap: 4px; }
   .legend-dot { width: 10px; height: 10px; }
-
-  /* Excel responsive */
-  .excel-table { font-size: 11px; }
-  .excel-table th,
-  .excel-table td {
-    padding: 5px 6px;
-    min-width: 30px;
-    height: 28px;
-  }
-  .excel-table .sticky-name {
-    min-width: 100px;
-    max-width: 110px;
-    font-size: 11px;
-  }
-  .excel-table .sticky-label {
-    left: 100px;
-    min-width: 28px;
-    max-width: 28px;
-    font-size: 9px;
-  }
-  .excel-table .col-total {
-    min-width: 45px;
-    font-size: 11px;
-  }
 }
 
 @media (max-width: 380px) {
@@ -1233,6 +1210,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .areas-summary-row { font-size: 12px; }
   .assignee-avatar { width: 22px; height: 22px; font-size: 10px; }
   .floor-assignee { font-size: 12px; gap: 6px; }
+
+  /* Excel matrix nhỏ hơn */
+  .excel-matrix { font-size: 10px; }
+  .excel-matrix thead th { font-size: 9px; padding: 4px 1px; height: 24px; }
+  .excel-matrix thead th.th-name { width: 80px; font-size: 9px; }
+  .excel-matrix tbody td { font-size: 10px; padding: 3px 1px; height: 20px; }
+  .excel-matrix tbody td.td-name { font-size: 10px; padding-left: 6px; }
+  .excel-matrix tr.row-ot td { font-size: 9px; }
 }
 
 @media (max-width: 360px) {
@@ -1240,5 +1225,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .legend-item { font-size: 9px; }
   .assignee-avatar { width: 20px; height: 20px; font-size: 9px; }
   .floor-assignee { font-size: 11px; }
-  .assignee-phone { font-size: 10px; }
+  .excel-matrix { font-size: 9px; }
+  .excel-matrix tbody td { font-size: 9px; height: 18px; }
+  .excel-matrix tbody td.td-name { font-size: 9px; }
 }
