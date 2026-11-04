@@ -89,7 +89,6 @@
     #chatSendBtn:active:not(:disabled) { transform: scale(0.94); }
     #chatSendBtn:disabled { opacity: 0.55 !important; }
 
-    /* ===== DEBUG PANEL ===== */
     #debugPanel {
       display: none; flex-direction: column;
       background: #1c1c1e; color: #e5e5ea;
@@ -537,7 +536,6 @@
       </div>
     </div>
 
-    <!-- ===== MODAL CHAT ===== -->
     <div id="chatModal" class="modal-overlay" style="display:none">
       <div class="modal" style="max-width:600px">
         <div class="modal-header">
@@ -550,7 +548,6 @@
         </div>
         <div id="chatMessages"></div>
 
-        <!-- ===== DEBUG PANEL ===== -->
         <div id="debugPanel">
           <div class="dbg-header">
             <span>🔍 Debug Panel</span>
@@ -595,9 +592,9 @@
     'use strict';
 
     // ============================================
-    // ⚙️ CẤU HÌNH
+    // ⚙️ CẤU HÌNH — KEY ĐÃ ĐIỀN
     // ============================================
-    const OLLAMA_API_KEY = 'DÁN_KEY_OLLAMA_VÀO_ĐÂY';
+    const OLLAMA_API_KEY = '34f4d1f7ec504d038ca611218e9aaa64.XdbQM9vQjaAyUTQWIpEPBapp';
     const OLLAMA_URL     = 'https://ollama.com/api/chat';
     const OLLAMA_MODEL   = 'gpt-oss:20b';
     const MAX_CONTEXT    = 20;
@@ -605,7 +602,7 @@
     const SUPABASE_KEY   = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
 
     // ============================================
-    // DEBUG LOGGER — ghi cả Console lẫn UI
+    // DEBUG LOGGER
     // ============================================
     const debugPanel  = document.getElementById('debugPanel');
     const debugLog    = document.getElementById('debugLog');
@@ -624,7 +621,6 @@
       debugLog.appendChild(div);
       debugLog.scrollTop = debugLog.scrollHeight;
 
-      // Đồng thời log ra Console Safari
       const fn = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
       console[fn]('[Chat]', msg);
     }
@@ -633,7 +629,6 @@
       return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
-    // Bắt lỗi global — hiển thị lên Debug Panel
     window.addEventListener('error', (e) => {
       dbg('error', '💥 window.error: ' + (e.message || 'unknown') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '?'));
     });
@@ -642,9 +637,6 @@
       dbg('error', '💥 unhandledrejection: ' + (r?.message || r || 'unknown'));
     });
 
-    // ============================================
-    // DOM refs
-    // ============================================
     const chatModal    = document.getElementById('chatModal');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput    = document.getElementById('chatInput');
@@ -658,9 +650,6 @@
       return;
     }
 
-    // ============================================
-    // KHỞI TẠO SUPABASE CLIENT
-    // ============================================
     let chatSupabase = null;
 
     function initSupabase() {
@@ -685,17 +674,11 @@
       }
     }
 
-    // ============================================
-    // STATE
-    // ============================================
     let chatUserId    = null;
     let chatHistory   = [];
     let isInitialized = false;
     let isSending     = false;
 
-    // ============================================
-    // HELPERS
-    // ============================================
     function showEmptyState(msg) {
       chatMessages.innerHTML = '<div class="chat-empty">' +
         (msg || 'Xin chào! Tôi là trợ lý AI.<br>Hỏi tôi bất cứ điều gì về công việc, chấm công, lịch...') +
@@ -734,18 +717,13 @@
       }
     }
 
-    // ============================================
-    // INIT CHAT
-    // ============================================
     async function initChat() {
       if (isInitialized) return;
       isInitialized = true;
 
       dbg('step', '=== INIT CHAT ===');
 
-      if (!chatSupabase) {
-        initSupabase();
-      }
+      if (!chatSupabase) initSupabase();
 
       if (!chatSupabase) {
         showEmptyState('⚠️ Supabase không khởi tạo được.<br>Bấm 🔍 Debug để xem chi tiết.');
@@ -806,17 +784,9 @@
       }
     }
 
-    // ============================================
-    // SEND MESSAGE
-    // ============================================
     async function sendMessage() {
       const text = chatInput.value.trim();
       if (!text || isSending) return;
-
-      if (OLLAMA_API_KEY.includes('DÁN_KEY')) {
-        renderMsg('❌ Chưa điền OLLAMA_API_KEY trong code. Sửa const OLLAMA_API_KEY.', 'error');
-        return;
-      }
 
       renderMsg(text, 'user');
       chatInput.value = '';
@@ -858,7 +828,7 @@
           let errText = 'HTTP ' + response.status;
           try {
             const errBody = await response.text();
-            dbg('error', '📄 error body (200): ' + errBody.slice(0, 200));
+            dbg('error', '📄 error body: ' + errBody.slice(0, 200));
             try {
               const j = JSON.parse(errBody);
               if (j?.error) errText += ' — ' + j.error;
@@ -972,9 +942,6 @@
       }
     }
 
-    // ============================================
-    // DEBUG TESTS
-    // ============================================
     async function dbgEnvInfo() {
       dbg('step', '=== ENV INFO ===');
       dbg('info', '🌐 protocol: ' + location.protocol);
@@ -1078,9 +1045,6 @@
       dbg('ok', '🏁 DONE — copy log ở trên gửi cho dev nếu cần');
     }
 
-    // ============================================
-    // EVENTS
-    // ============================================
     chatBtn.addEventListener('click', async () => {
       chatModal.style.display = 'flex';
       chatModal.classList.add('open');
