@@ -801,276 +801,374 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-  <!-- ===== CHAT MODULE ===== -->
-  <script type="module">
-  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-  import { SUPABASE_URL, SUPABASE_KEY } from './supabase.js';
+  <!-- ===== SUPABASE UMD (dùng chung với app chính) ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  const OLLAMA_API_KEY = 'DÁN_OLLAMA_KEY_VÀO_ĐÂY';
-  const OLLAMA_URL     = 'https://api.ollama.com/api/chat';
-  const OLLAMA_MODEL   = 'llama3.2';
-  const MAX_CONTEXT    = 20;
+  <!-- ===== CHAT MODULE (vanilla JS, chạy được trên file:// và http://) ===== -->
+  <script>
+  (function() {
+    'use strict';
 
-  const chatSupabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: {
-      storageKey: 'chat-anon-session',
-      persistSession: true,
-      autoRefreshToken: true,
+    // ============================================
+    // ⚙️ CẤU HÌNH — SỬA DUY NHẤT 1 DÒNG DƯỚI ĐÂY
+    // ============================================
+    const OLLAMA_API_KEY = 'DÁN_KEY_OLLAMA_VÀO_ĐÂY';
+
+    // Endpoint chuẩn của Ollama Cloud
+    const OLLAMA_URL   = 'https://ollama.com/api/chat';
+
+    // Model free khả dụng: 'gpt-oss:20b', 'gpt-oss:120b', 'gemma3:4b', 'gemma3:12b', 'gemma3:27b'
+    const OLLAMA_MODEL = 'gpt-oss:20b';
+
+    const MAX_CONTEXT  = 20;
+
+    // Config Supabase (khớp với supabase.js của bạn)
+    const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
+
+    // ============================================
+    // GUARD: kiểm tra SDK Supabase đã load chưa
+    // ============================================
+    if (!window.supabase || !window.supabase.createClient) {
+      console.error('[Chat] Supabase SDK chưa load. Kiểm tra thẻ <script src="...@supabase/supabase-js@2">');
+      return;
     }
-  });
 
-  const chatModal    = document.getElementById('chatModal');
-  const chatMessages = document.getElementById('chatMessages');
-  const chatInput    = document.getElementById('chatInput');
-  const chatSendBtn  = document.getElementById('chatSendBtn');
-  const chatClearBtn = document.getElementById('chatClearBtn');
-  const chatBtn      = document.getElementById('chatBtn');
-
-  let chatUserId    = null;
-  let chatHistory   = [];
-  let isInitialized = false;
-  let isSending     = false;
-
-  function showEmptyState(msg) {
-    chatMessages.innerHTML = '<div class="chat-empty">' +
-      (msg || 'Xin chào! Tôi là trợ lý AI.<br>Hỏi tôi bất cứ điều gì về công việc, chấm công, lịch...') +
-      '</div>';
-  }
-
-  function renderMsg(text, role) {
-    const empty = chatMessages.querySelector('.chat-empty');
-    if (empty) empty.remove();
-    const div = document.createElement('div');
-    div.className = 'chat-msg ' + (role === 'user' ? 'user' : role === 'error' ? 'error' : 'assistant');
-    div.textContent = text;
-    chatMessages.appendChild(div);
-    return div;
-  }
-
-  function createTyping() {
-    const div = document.createElement('div');
-    div.className = 'chat-msg typing';
-    div.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
-    return div;
-  }
-
-  function scrollBottom() {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-
-  async function saveMsg(role, content) {
-    if (!chatSupabase || !chatUserId) return;
-    try {
-      const { error } = await chatSupabase.from('messages').insert({
-        user_id: chatUserId,
-        role: role,
-        content: content
-      });
-      if (error) console.warn('[Chat] save error:', error);
-    } catch (e) {
-      console.warn('[Chat] save fail:', e);
-    }
-  }
-
-  async function initChat() {
-    if (isInitialized) return;
-    isInitialized = true;
-
-    try {
-      const { data: { session } } = await chatSupabase.auth.getSession();
-      if (!session) {
-        const { error } = await chatSupabase.auth.signInAnonymously();
-        if (error) throw error;
+    // Tạo client riêng cho chat — KHÔNG ảnh hưởng session app chính
+    const chatSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        storageKey: 'chat-anon-session',
+        persistSession: true,
+        autoRefreshToken: true,
       }
-      const { data: { user } } = await chatSupabase.auth.getUser();
-      chatUserId = user?.id || null;
-
-      if (!chatUserId) {
-        showEmptyState('⚠️ Không thể tạo phiên chat.');
-        return;
-      }
-
-      const { data: rows, error } = await chatSupabase
-        .from('messages')
-        .select('role, content')
-        .order('created_at', { ascending: true })
-        .limit(100);
-
-      if (error) console.warn('[Chat] load history:', error);
-
-      if (rows && rows.length) {
-        chatHistory = rows.filter(r => r.role === 'user' || r.role === 'assistant');
-        chatHistory.forEach(r => renderMsg(r.content, r.role));
-        scrollBottom();
-      } else {
-        showEmptyState();
-      }
-    } catch (err) {
-      console.warn('[Chat] init failed:', err);
-      showEmptyState('⚠️ Không kết nối được Supabase.<br>Chat vẫn hoạt động nhưng không lưu lịch sử.');
-    }
-  }
-
-  async function sendMessage() {
-    const text = chatInput.value.trim();
-    if (!text || isSending) return;
-
-    renderMsg(text, 'user');
-    chatInput.value = '';
-    chatHistory.push({ role: 'user', content: text });
-    saveMsg('user', text);
-    scrollBottom();
-
-    isSending = true;
-    chatSendBtn.disabled = true;
-    chatSendBtn.textContent = '...';
-
-    const typing = createTyping();
-    chatMessages.appendChild(typing);
-    scrollBottom();
-
-    try {
-      const context = chatHistory.slice(-MAX_CONTEXT);
-
-      const response = await fetch(OLLAMA_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + OLLAMA_API_KEY
-        },
-        body: JSON.stringify({
-          model: OLLAMA_MODEL,
-          messages: context,
-          stream: true
-        })
-      });
-
-      if (!response.ok) {
-        let errMsg = 'HTTP ' + response.status;
-        try {
-          const errData = await response.clone().json();
-          if (errData?.error) errMsg += ': ' + errData.error;
-        } catch (_) {}
-        throw new Error(errMsg);
-      }
-
-      let responseClone = null;
-      try { responseClone = response.clone(); } catch (_) {}
-
-      typing.remove();
-      const botDiv = document.createElement('div');
-      botDiv.className = 'chat-msg assistant';
-      chatMessages.appendChild(botDiv);
-      scrollBottom();
-
-      let fullText = '';
-
-      if (response.body && typeof response.body.getReader === 'function') {
-        try {
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed) continue;
-              try {
-                const json = JSON.parse(trimmed);
-                const chunk = json?.message?.content;
-                if (typeof chunk === 'string' && chunk.length) {
-                  fullText += chunk;
-                  botDiv.textContent = fullText;
-                  scrollBottom();
-                }
-              } catch (_) {}
-            }
-          }
-        } catch (streamErr) {
-          console.warn('[Chat] stream error:', streamErr);
-        }
-      }
-
-      if (!fullText && responseClone) {
-        try {
-          const data = await responseClone.json();
-          const txt =
-            data?.message?.content ||
-            data?.response ||
-            data?.choices?.[0]?.message?.content ||
-            '';
-          if (txt) {
-            fullText = txt;
-            botDiv.textContent = fullText;
-            scrollBottom();
-          }
-        } catch (jsonErr) {
-          console.warn('[Chat] fallback json failed:', jsonErr);
-        }
-      }
-
-      if (!fullText) {
-        botDiv.remove();
-        throw new Error('Không nhận được phản hồi từ AI');
-      }
-
-      chatHistory.push({ role: 'assistant', content: fullText });
-      saveMsg('assistant', fullText);
-      scrollBottom();
-
-    } catch (err) {
-      typing.remove();
-      renderMsg('❌ ' + (err?.message || 'Lỗi không xác định'), 'error');
-      scrollBottom();
-      console.error('[Chat] send error:', err);
-    } finally {
-      isSending = false;
-      chatSendBtn.disabled = false;
-      chatSendBtn.textContent = 'Gửi';
-    }
-  }
-
-  chatBtn.addEventListener('click', async () => {
-    chatModal.style.display = 'flex';
-    chatModal.classList.add('open');
-    await initChat();
-    setTimeout(() => chatInput.focus(), 100);
-  });
-
-  chatSendBtn.addEventListener('click', sendMessage);
-
-  chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-
-  chatModal.querySelectorAll('[data-close="chatModal"]').forEach(el => {
-    el.addEventListener('click', () => {
-      chatModal.style.display = 'none';
-      chatModal.classList.remove('open');
     });
-  });
 
-  chatClearBtn.addEventListener('click', async () => {
-    if (!confirm('Xoá toàn bộ lịch sử chat?')) return;
-    chatMessages.innerHTML = '';
-    chatHistory = [];
-    showEmptyState();
-    if (chatUserId) {
-      try {
-        await chatSupabase.from('messages').delete().eq('user_id', chatUserId);
-      } catch (e) { console.warn(e); }
+    // ============================================
+    // DOM refs
+    // ============================================
+    const chatModal    = document.getElementById('chatModal');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput    = document.getElementById('chatInput');
+    const chatSendBtn  = document.getElementById('chatSendBtn');
+    const chatClearBtn = document.getElementById('chatClearBtn');
+    const chatBtn      = document.getElementById('chatBtn');
+
+    if (!chatBtn || !chatModal || !chatMessages) {
+      console.error('[Chat] Không tìm thấy element chat trong DOM');
+      return;
     }
-  });
+
+    // ============================================
+    // STATE
+    // ============================================
+    let chatUserId    = null;
+    let chatHistory   = [];
+    let isInitialized = false;
+    let isSending     = false;
+
+    // ============================================
+    // HELPERS
+    // ============================================
+    function showEmptyState(msg) {
+      chatMessages.innerHTML = '<div class="chat-empty">' +
+        (msg || 'Xin chào! Tôi là trợ lý AI.<br>Hỏi tôi bất cứ điều gì về công việc, chấm công, lịch...') +
+        '</div>';
+    }
+
+    function renderMsg(text, role) {
+      const empty = chatMessages.querySelector('.chat-empty');
+      if (empty) empty.remove();
+      const div = document.createElement('div');
+      div.className = 'chat-msg ' + (role === 'user' ? 'user' : role === 'error' ? 'error' : 'assistant');
+      div.textContent = text;
+      chatMessages.appendChild(div);
+      return div;
+    }
+
+    function createTyping() {
+      const div = document.createElement('div');
+      div.className = 'chat-msg typing';
+      div.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+      return div;
+    }
+
+    function scrollBottom() {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function saveMsg(role, content) {
+      if (!chatSupabase || !chatUserId) return;
+      try {
+        const { error } = await chatSupabase.from('messages').insert({
+          user_id: chatUserId,
+          role: role,
+          content: content
+        });
+        if (error) console.warn('[Chat] save error:', error);
+      } catch (e) {
+        console.warn('[Chat] save fail:', e);
+      }
+    }
+
+    // ============================================
+    // INIT
+    // ============================================
+    async function initChat() {
+      if (isInitialized) return;
+      isInitialized = true;
+
+      try {
+        console.log('[Chat] init: checking session...');
+        const { data: { session } } = await chatSupabase.auth.getSession();
+        if (!session) {
+          console.log('[Chat] init: signing in anonymously...');
+          const { error } = await chatSupabase.auth.signInAnonymously();
+          if (error) throw error;
+        }
+        const { data: { user } } = await chatSupabase.auth.getUser();
+        chatUserId = user?.id || null;
+        console.log('[Chat] init: user_id =', chatUserId);
+
+        if (!chatUserId) {
+          showEmptyState('⚠️ Không thể tạo phiên chat.');
+          return;
+        }
+
+        const { data: rows, error } = await chatSupabase
+          .from('messages')
+          .select('role, content')
+          .order('created_at', { ascending: true })
+          .limit(100);
+
+        if (error) console.warn('[Chat] load history:', error);
+        console.log('[Chat] init: loaded', rows?.length || 0, 'messages');
+
+        if (rows && rows.length) {
+          chatHistory = rows.filter(r => r.role === 'user' || r.role === 'assistant');
+          chatHistory.forEach(r => renderMsg(r.content, r.role));
+          scrollBottom();
+        } else {
+          showEmptyState();
+        }
+      } catch (err) {
+        console.warn('[Chat] init failed:', err);
+        showEmptyState('⚠️ Không kết nối được Supabase.<br>Chat vẫn hoạt động nhưng không lưu lịch sử.');
+      }
+    }
+
+    // ============================================
+    // SEND MESSAGE
+    // ============================================
+    async function sendMessage() {
+      const text = chatInput.value.trim();
+      if (!text || isSending) return;
+
+      renderMsg(text, 'user');
+      chatInput.value = '';
+      chatHistory.push({ role: 'user', content: text });
+      saveMsg('user', text);
+      scrollBottom();
+
+      isSending = true;
+      chatSendBtn.disabled = true;
+      chatSendBtn.textContent = '...';
+
+      const typing = createTyping();
+      chatMessages.appendChild(typing);
+      scrollBottom();
+
+      try {
+        const context = chatHistory.slice(-MAX_CONTEXT);
+
+        console.log('[Chat] POST', OLLAMA_URL, 'model:', OLLAMA_MODEL);
+
+        const response = await fetch(OLLAMA_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + OLLAMA_API_KEY
+          },
+          body: JSON.stringify({
+            model: OLLAMA_MODEL,
+            messages: context,
+            stream: true
+          })
+        });
+
+        console.log('[Chat] response.status =', response.status);
+
+        if (!response.ok) {
+          let errText = 'HTTP ' + response.status;
+          try {
+            const errBody = await response.text();
+            console.error('[Chat] error body:', errBody);
+            try {
+              const j = JSON.parse(errBody);
+              if (j?.error) errText += ' — ' + j.error;
+            } catch (_) {
+              if (errBody.length < 200) errText += ' — ' + errBody;
+            }
+          } catch (_) {}
+
+          if (response.status === 401 || response.status === 403) {
+            errText = '🔑 API Key Ollama không hợp lệ hoặc hết hạn.';
+          } else if (response.status === 404) {
+            errText = '🚫 Endpoint hoặc model không tồn tại trên Ollama Cloud.';
+          } else if (response.status === 429) {
+            errText = '⏱️ Vượt giới hạn free tier. Đợi vài phút rồi thử lại.';
+          }
+
+          throw new Error(errText);
+        }
+
+        typing.remove();
+        const botDiv = document.createElement('div');
+        botDiv.className = 'chat-msg assistant';
+        chatMessages.appendChild(botDiv);
+        scrollBottom();
+
+        let fullText = '';
+
+        if (response.body && typeof response.body.getReader === 'function') {
+          try {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+
+                if (trimmed[0] !== '{') {
+                  console.warn('[Chat] skip non-JSON line:', trimmed.slice(0, 80));
+                  continue;
+                }
+
+                try {
+                  const json = JSON.parse(trimmed);
+
+                  if (json.error) {
+                    throw new Error('Ollama: ' + json.error);
+                  }
+
+                  const chunk = json?.message?.content;
+                  if (typeof chunk === 'string' && chunk.length) {
+                    fullText += chunk;
+                    botDiv.textContent = fullText;
+                    scrollBottom();
+                  }
+                } catch (parseErr) {
+                  console.warn('[Chat] parse error:', parseErr.message, '| line:', trimmed.slice(0, 120));
+                }
+              }
+            }
+          } catch (streamErr) {
+            console.error('[Chat] stream error:', streamErr);
+          }
+        } else {
+          console.warn('[Chat] response.body không dùng được, fallback non-stream');
+        }
+
+        // Fallback nếu stream fail
+        if (!fullText) {
+          console.log('[Chat] fallback: retrying with stream:false');
+          try {
+            const fbRes = await fetch(OLLAMA_URL, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + OLLAMA_API_KEY
+              },
+              body: JSON.stringify({
+                model: OLLAMA_MODEL,
+                messages: context,
+                stream: false
+              })
+            });
+
+            if (fbRes.ok) {
+              const data = await fbRes.json();
+              const txt = data?.message?.content || data?.response || '';
+              if (txt) {
+                fullText = txt;
+                botDiv.textContent = fullText;
+                scrollBottom();
+              }
+            }
+          } catch (fbErr) {
+            console.warn('[Chat] fallback also failed:', fbErr);
+          }
+        }
+
+        if (!fullText) {
+          botDiv.remove();
+          throw new Error('Không nhận được phản hồi từ AI. Mở Console Safari để xem chi tiết.');
+        }
+
+        chatHistory.push({ role: 'assistant', content: fullText });
+        saveMsg('assistant', fullText);
+        scrollBottom();
+
+      } catch (err) {
+        typing.remove();
+        renderMsg('❌ ' + (err?.message || 'Lỗi không xác định'), 'error');
+        scrollBottom();
+        console.error('[Chat] send error:', err);
+      } finally {
+        isSending = false;
+        chatSendBtn.disabled = false;
+        chatSendBtn.textContent = 'Gửi';
+      }
+    }
+
+    // ============================================
+    // EVENTS
+    // ============================================
+    chatBtn.addEventListener('click', async () => {
+      chatModal.style.display = 'flex';
+      chatModal.classList.add('open');
+      await initChat();
+      setTimeout(() => chatInput.focus(), 100);
+    });
+
+    chatSendBtn.addEventListener('click', sendMessage);
+
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    chatModal.querySelectorAll('[data-close="chatModal"]').forEach(el => {
+      el.addEventListener('click', () => {
+        chatModal.style.display = 'none';
+        chatModal.classList.remove('open');
+      });
+    });
+
+    chatClearBtn.addEventListener('click', async () => {
+      if (!confirm('Xoá toàn bộ lịch sử chat?')) return;
+      chatMessages.innerHTML = '';
+      chatHistory = [];
+      showEmptyState();
+      if (chatUserId) {
+        try {
+          await chatSupabase.from('messages').delete().eq('user_id', chatUserId);
+        } catch (e) { console.warn(e); }
+      }
+    });
+
+    console.log('[Chat] module loaded OK');
+  })();
   </script>
 
   <script type="module" src="app.js"></script>
