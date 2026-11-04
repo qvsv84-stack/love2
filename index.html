@@ -593,11 +593,9 @@
 
     // ============================================
     // ⚙️ CẤU HÌNH
-    // ĐÃ ĐỔI: OLLAMA_URL = '/api/chat' (đi qua proxy Vercel)
-    // Key thật KHÔNG cần nữa — proxy đọc từ Environment Variable
     // ============================================
     const OLLAMA_URL     = '/api/chat';
-    const OLLAMA_MODEL   = 'gpt-oss:20b';
+    const OLLAMA_MODEL   = 'gpt-oss:20b';   // ưu tiên; proxy tự fallback nếu fail
     const MAX_CONTEXT    = 20;
     const SUPABASE_URL   = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
     const SUPABASE_KEY   = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
@@ -819,21 +817,31 @@
         dbg('info', '   content-type = ' + (response.headers.get('content-type') || '?'));
         dbg('info', '   body != null = ' + (response.body != null));
 
+        // === LOG MODEL FALLBACK ===
+        const usedModel = response.headers.get('X-Model-Used');
+        const triedModels = response.headers.get('X-Models-Tried');
+        if (usedModel) dbg('ok', '🤖 Model đang dùng: ' + usedModel);
+        if (triedModels && triedModels.split(',').length > 1) {
+          dbg('warn', '   Đã fallback qua: ' + triedModels);
+        }
+
         if (!response.ok) {
           let errText = 'HTTP ' + response.status;
           try {
             const errBody = await response.text();
-            dbg('error', '📄 error body: ' + errBody.slice(0, 200));
+            dbg('error', '📄 error body: ' + errBody.slice(0, 300));
             try {
               const j = JSON.parse(errBody);
               if (j?.error) errText += ' — ' + j.error;
+              if (j?.triedModels) dbg('warn', '   Đã thử: ' + j.triedModels.join(', '));
             } catch (_) { errText += ' — ' + errBody.slice(0, 100); }
           } catch (_) {}
 
-          if (response.status === 401 || response.status === 403) errText = '🔑 API Key Ollama không hợp lệ (kiểm tra Vercel env).';
-          else if (response.status === 404) errText = '🚫 Endpoint không tồn tại. Kiểm tra file api/chat.js đã deploy chưa.';
+          if (response.status === 401 || response.status === 403) errText = '🔑 API Key Ollama không hợp lệ.';
+          else if (response.status === 404) errText = '🚫 Endpoint không tồn tại. Kiểm tra file api/chat.js.';
           else if (response.status === 429) errText = '⏱️ Vượt giới hạn free tier.';
           else if (response.status === 500) errText = '⚙️ Server proxy lỗi. Kiểm tra Vercel Logs.';
+          else if (response.status === 402) errText = '💳 Hết credit Ollama. Chuyển sang Groq (miễn phí).';
 
           throw new Error(errText);
         }
@@ -945,7 +953,7 @@
       dbg('info', '🔧 Supabase SDK: ' + (window.supabase ? '✅ loaded (v' + (window.supabase.VERSION || '?') + ')' : '❌ missing'));
       dbg('info', '🔗 OLLAMA_URL: ' + OLLAMA_URL + ' (qua proxy Vercel)');
       dbg('info', '🔑 SUPABASE_URL: ' + SUPABASE_URL);
-      dbg('info', '🤖 Model: ' + OLLAMA_MODEL);
+      dbg('info', '🤖 Model ưu tiên: ' + OLLAMA_MODEL + ' (proxy tự fallback)');
       dbg('info', '🌍 fetch: ' + (typeof fetch === 'function' ? '✅' : '❌'));
       dbg('info', '🌍 TextDecoder: ' + (typeof TextDecoder === 'function' ? '✅' : '❌'));
       dbg('info', '🌍 ReadableStream: ' + (typeof ReadableStream === 'function' ? '✅' : '❌'));
@@ -1001,13 +1009,21 @@
         dbg('info', '⏱ status=' + res.status + ' (' + elapsed + 'ms)');
         dbg('info', '📄 content-type=' + (res.headers.get('content-type') || '?'));
 
+        const usedModel = res.headers.get('X-Model-Used');
+        const triedModels = res.headers.get('X-Models-Tried');
+        if (usedModel) dbg('ok', '🤖 Model đang dùng: ' + usedModel);
+        if (triedModels && triedModels.split(',').length > 1) {
+          dbg('warn', '   Đã fallback qua: ' + triedModels);
+        }
+
         const raw = await res.text();
-        dbg('info', '📄 body len=' + raw.length + ' | head=' + raw.slice(0, 150));
+        dbg('info', '📄 body len=' + raw.length + ' | head=' + raw.slice(0, 200));
 
         if (!res.ok) {
           dbg('error', '❌ HTTP ' + res.status);
           if (res.status === 404) dbg('error', '   → File api/chat.js chưa có trên Vercel');
-          if (res.status === 500) dbg('error', '   → Vercel function lỗi. Xem Vercel Deployments → Logs');
+          if (res.status === 402) dbg('error', '   → Hết credit Ollama. Chuyển Groq.');
+          if (res.status === 500) dbg('error', '   → Vercel function lỗi. Xem Deployments → Logs');
           return;
         }
 
@@ -1093,7 +1109,7 @@
       }
     });
 
-    dbg('ok', '💬 Chat module loaded (proxy mode)');
+    dbg('ok', '💬 Chat module loaded (proxy + auto fallback)');
   })();
   </script>
 
