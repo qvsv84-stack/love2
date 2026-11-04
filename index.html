@@ -7,47 +7,210 @@
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- ===== CSS CHO CHAT ===== -->
+  <!-- ===== CSS CHAT (inline, không đụng style.css) ===== -->
   <style>
-    .chat-msg {
-      margin: 8px 0; padding: 10px 14px;
-      border-radius: 14px; max-width: 85%;
-      word-wrap: break-word; font-size: 14px;
-      line-height: 1.5; white-space: pre-wrap;
-      font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
-    }
-    .chat-msg.user {
-      background: #007aff; color: white;
-      margin-left: auto; border-bottom-right-radius: 4px;
-    }
-    .chat-msg.assistant {
-      background: white; color: #333;
-      margin-right: auto; border: 1px solid #e5e5ea;
-      border-bottom-left-radius: 4px;
-    }
-    .chat-msg.typing {
-      background: white; color: #999; font-style: italic;
-      border: 1px solid #e5e5ea; margin-right: auto;
-    }
-    .chat-msg.error {
-      background: #fff0f0; color: #c00;
-      border: 1px solid #ffcccc; margin-right: auto;
-    }
-    #chatMessages { -webkit-overflow-scrolling: touch; }
-    #chatMessages .chat-empty {
-      text-align: center; color: #999;
-      font-size: 13px; padding: 30px 20px; line-height: 1.6;
-    }
     #chatModal .modal {
       padding: 0 !important;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      height: 85vh;
-      height: 85dvh;
-      max-height: 85dvh;
+      height: 88vh;
+      height: 88dvh;
+      max-height: 88dvh;
+      border-radius: 16px;
+      background: #f8f9fb;
     }
-    #chatInput:focus { outline: 2px solid #007aff; outline-offset: -2px; }
+
+    #chatModal .modal-header {
+      flex-shrink: 0 !important;
+      margin: 0 !important;
+      padding: 12px 16px !important;
+      border-bottom: none !important;
+      background: linear-gradient(135deg, #007aff 0%, #5856d6 100%) !important;
+      border-radius: 16px 16px 0 0 !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+    }
+
+    #chatModal .modal-header h3 {
+      color: #fff !important;
+      font-size: 16px !important;
+      font-weight: 600 !important;
+      margin: 0 !important;
+    }
+
+    #chatModal .modal-header .btn-small,
+    #chatModal .modal-header .btn-close {
+      color: #fff !important;
+      background: rgba(255,255,255,0.18) !important;
+      border: none !important;
+      border-radius: 8px !important;
+      padding: 6px 10px !important;
+      font-size: 14px !important;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    #chatModal .modal-header .btn-small:hover,
+    #chatModal .modal-header .btn-close:hover {
+      background: rgba(255,255,255,0.35) !important;
+    }
+
+    #chatMessages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 12px;
+      background: linear-gradient(180deg, #f8f9fb 0%, #eef1f5 100%);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #chatMessages .chat-empty {
+      text-align: center;
+      color: #8a8a8e;
+      font-size: 14px;
+      padding: 40px 20px;
+      line-height: 1.7;
+      animation: msgFadeIn 0.3s;
+    }
+
+    #chatMessages .chat-empty::before {
+      content: '💬';
+      display: block;
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.7;
+    }
+
+    .chat-msg {
+      margin: 0 0 12px 0;
+      padding: 10px 14px;
+      border-radius: 16px;
+      max-width: 82%;
+      word-wrap: break-word;
+      font-size: 14.5px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
+      animation: msgFadeIn 0.22s ease-out;
+      position: relative;
+    }
+
+    @keyframes msgFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .chat-msg.user {
+      background: linear-gradient(135deg, #007aff 0%, #0062cc 100%);
+      color: #fff;
+      margin-left: auto;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,122,255,0.25);
+    }
+
+    .chat-msg.assistant {
+      background: #fff;
+      color: #1c1c1e;
+      margin-right: auto;
+      border: 1px solid #e5e5ea;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      padding-left: 38px;
+    }
+
+    .chat-msg.assistant::before {
+      content: '🤖';
+      position: absolute;
+      left: 10px;
+      top: 11px;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .chat-msg.error {
+      background: #fff0f0;
+      color: #c00;
+      border: 1px solid #ffcccc;
+      margin-right: auto;
+      border-bottom-left-radius: 4px;
+      font-size: 13.5px;
+    }
+
+    .chat-msg.typing {
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      margin-right: auto;
+      border-bottom-left-radius: 4px;
+      padding: 14px 18px;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      width: fit-content;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      animation: msgFadeIn 0.22s;
+    }
+
+    .chat-msg.typing::before { display: none; }
+
+    .typing-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #b0b0b5;
+      animation: typingBounce 1.3s infinite ease-in-out;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    #chatModal > .modal > div:last-child {
+      padding: 12px !important;
+      border-top: 1px solid #e5e5ea !important;
+      display: flex !important;
+      gap: 8px !important;
+      flex-shrink: 0 !important;
+      background: #fff !important;
+      align-items: flex-end !important;
+    }
+
+    #chatInput {
+      flex: 1 !important;
+      padding: 11px 16px !important;
+      border: 1.5px solid #d1d1d6 !important;
+      border-radius: 22px !important;
+      font-size: 15px !important;
+      font-family: 'Be Vietnam Pro', -apple-system, sans-serif !important;
+      background: #f2f2f7 !important;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    #chatInput:focus {
+      outline: none !important;
+      border-color: #007aff !important;
+      background: #fff !important;
+    }
+
+    #chatSendBtn {
+      padding: 11px 18px !important;
+      border-radius: 22px !important;
+      font-weight: 600 !important;
+      min-width: 64px !important;
+      transition: transform 0.1s, opacity 0.15s !important;
+    }
+
+    #chatSendBtn:active:not(:disabled) {
+      transform: scale(0.94);
+    }
+
+    #chatSendBtn:disabled {
+      opacity: 0.55 !important;
+    }
   </style>
 </head>
 <body>
@@ -58,7 +221,6 @@
         <p class="subtitle">Hệ thống giám sát chấm công</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-        <!-- ===== NÚT CHAT MỚI ===== -->
         <button id="chatBtn" class="btn-icon" title="Chat AI">💬</button>
         <button id="loginBtn" class="btn-header-login" style="display:none">Đăng nhập</button>
         <button id="logoutBtn" class="btn-icon" title="Đăng xuất" style="display:none">⎋</button>
@@ -608,17 +770,17 @@
     <!-- ===== MODAL CHAT ===== -->
     <div id="chatModal" class="modal-overlay" style="display:none">
       <div class="modal" style="max-width:600px">
-        <div class="modal-header" style="flex-shrink:0; margin:0; padding:14px 16px; border-bottom:1px solid #e5e5ea;">
-          <h3 style="margin:0">💬 Trợ lý AI</h3>
+        <div class="modal-header">
+          <h3>💬 Trợ lý AI</h3>
           <div style="display:flex; gap:6px; align-items:center;">
             <button id="chatClearBtn" class="btn-small" title="Xóa lịch sử">🗑️</button>
             <button class="btn-close" data-close="chatModal">✕</button>
           </div>
         </div>
-        <div id="chatMessages" style="flex:1; overflow-y:auto; padding:12px; background:#fafafa;"></div>
-        <div style="padding:10px; border-top:1px solid #e5e5ea; display:flex; gap:6px; flex-shrink:0; background:white;">
-          <input type="text" id="chatInput" class="input" placeholder="Hỏi AI bất cứ điều gì..." style="flex:1" autocomplete="off" />
-          <button id="chatSendBtn" class="btn-primary" style="padding:10px 16px; white-space:nowrap;">Gửi</button>
+        <div id="chatMessages"></div>
+        <div>
+          <input type="text" id="chatInput" placeholder="Hỏi AI bất cứ điều gì..." autocomplete="off" />
+          <button id="chatSendBtn" class="btn-primary">Gửi</button>
         </div>
       </div>
     </div>
@@ -639,288 +801,276 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-  <!-- ===== SUPABASE SDK ===== -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- ===== CHAT MODULE ===== -->
+  <script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+  import { SUPABASE_URL, SUPABASE_KEY } from './supabase.js';
 
-  <!-- ===== CHAT LOGIC ===== -->
-  <script>
-  (function() {
-    'use strict';
+  const OLLAMA_API_KEY = 'DÁN_OLLAMA_KEY_VÀO_ĐÂY';
+  const OLLAMA_URL     = 'https://api.ollama.com/api/chat';
+  const OLLAMA_MODEL   = 'llama3.2';
+  const MAX_CONTEXT    = 20;
 
-    // ============================================
-    // ⚙️ CẤU HÌNH - THAY BẰNG KEY CỦA BẠN
-    // ============================================
-    const OLLAMA_API_KEY = 'DÁN_OLLAMA_API_KEY_VÀO_ĐÂY';
-    const OLLAMA_URL     = 'https://api.ollama.com/api/chat';
-    const OLLAMA_MODEL   = 'llama3.2';
+  const chatSupabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      storageKey: 'chat-anon-session',
+      persistSession: true,
+      autoRefreshToken: true,
+    }
+  });
 
-    const SUPABASE_URL      = 'DÁN_SUPABASE_PROJECT_URL_VÀO_ĐÂY';
-    const SUPABASE_ANON_KEY = 'DÁN_SUPABASE_ANON_KEY_VÀO_ĐÂY';
+  const chatModal    = document.getElementById('chatModal');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput    = document.getElementById('chatInput');
+  const chatSendBtn  = document.getElementById('chatSendBtn');
+  const chatClearBtn = document.getElementById('chatClearBtn');
+  const chatBtn      = document.getElementById('chatBtn');
 
-    // Nếu chưa cấu hình Supabase → vẫn chat được, chỉ không lưu lịch sử
-    const HAS_SUPABASE =
-      SUPABASE_URL.startsWith('https://') &&
-      SUPABASE_ANON_KEY.length > 30 &&
-      window.supabase;
+  let chatUserId    = null;
+  let chatHistory   = [];
+  let isInitialized = false;
+  let isSending     = false;
 
-    const MAX_CONTEXT = 20; // số tin nhắn gửi kèm để làm context
+  function showEmptyState(msg) {
+    chatMessages.innerHTML = '<div class="chat-empty">' +
+      (msg || 'Xin chào! Tôi là trợ lý AI.<br>Hỏi tôi bất cứ điều gì về công việc, chấm công, lịch...') +
+      '</div>';
+  }
 
-    // ============================================
-    // STATE
-    // ============================================
-    const chatModal    = document.getElementById('chatModal');
-    const chatMessages = document.getElementById('chatMessages');
-    const chatInput    = document.getElementById('chatInput');
-    const chatSendBtn  = document.getElementById('chatSendBtn');
-    const chatClearBtn = document.getElementById('chatClearBtn');
-    const chatBtn      = document.getElementById('chatBtn');
+  function renderMsg(text, role) {
+    const empty = chatMessages.querySelector('.chat-empty');
+    if (empty) empty.remove();
+    const div = document.createElement('div');
+    div.className = 'chat-msg ' + (role === 'user' ? 'user' : role === 'error' ? 'error' : 'assistant');
+    div.textContent = text;
+    chatMessages.appendChild(div);
+    return div;
+  }
 
-    let chatSupabase = null;
-    let chatUserId   = null;
-    let chatHistory  = []; // [{role, content}]
-    let isInitialized = false;
-    let isSending     = false;
+  function createTyping() {
+    const div = document.createElement('div');
+    div.className = 'chat-msg typing';
+    div.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+    return div;
+  }
 
-    // ============================================
-    // INIT
-    // ============================================
-    async function initChat() {
-      if (isInitialized) return;
+  function scrollBottom() {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
 
-      // Hiển thị welcome
-      if (!chatMessages.children.length) {
-        chatMessages.innerHTML = '';
-        chatHistory = [];
+  async function saveMsg(role, content) {
+    if (!chatSupabase || !chatUserId) return;
+    try {
+      const { error } = await chatSupabase.from('messages').insert({
+        user_id: chatUserId,
+        role: role,
+        content: content
+      });
+      if (error) console.warn('[Chat] save error:', error);
+    } catch (e) {
+      console.warn('[Chat] save fail:', e);
+    }
+  }
+
+  async function initChat() {
+    if (isInitialized) return;
+    isInitialized = true;
+
+    try {
+      const { data: { session } } = await chatSupabase.auth.getSession();
+      if (!session) {
+        const { error } = await chatSupabase.auth.signInAnonymously();
+        if (error) throw error;
       }
+      const { data: { user } } = await chatSupabase.auth.getUser();
+      chatUserId = user?.id || null;
 
-      if (!HAS_SUPABASE) {
-        showEmptyState('⚠️ Chưa cấu hình Supabase — lịch sử chat sẽ không được lưu.');
-        isInitialized = true;
+      if (!chatUserId) {
+        showEmptyState('⚠️ Không thể tạo phiên chat.');
         return;
       }
 
-      try {
-        chatSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-          auth: {
-            storageKey: 'chat-anon-session',   // tách biệt với session của app chính
-            persistSession: true,
-            autoRefreshToken: true,
-          }
-        });
+      const { data: rows, error } = await chatSupabase
+        .from('messages')
+        .select('role, content')
+        .order('created_at', { ascending: true })
+        .limit(100);
 
-        // Đăng nhập ẩn danh
-        const { data: { session } } = await chatSupabase.auth.getSession();
-        if (!session) {
-          const { error } = await chatSupabase.auth.signInAnonymously();
-          if (error) throw error;
-        }
-        const { data: { user } } = await chatSupabase.auth.getUser();
-        chatUserId = user?.id;
+      if (error) console.warn('[Chat] load history:', error);
 
-        // Tải lịch sử
-        if (chatUserId) {
-          const { data: rows } = await chatSupabase
-            .from('messages')
-            .select('role, content')
-            .order('created_at', { ascending: true })
-            .limit(100);
-
-          if (rows && rows.length) {
-            chatHistory = rows;
-            rows.forEach(r => renderMsg(r.content, r.role));
-            scrollBottom();
-          } else {
-            showEmptyState();
-          }
-        } else {
-          showEmptyState();
-        }
-      } catch (err) {
-        console.warn('[Chat] Supabase init failed:', err);
-        showEmptyState('⚠️ Không kết nối được Supabase. Chat vẫn hoạt động nhưng không lưu lịch sử.');
-      }
-
-      isInitialized = true;
-    }
-
-    // ============================================
-    // HELPERS
-    // ============================================
-    function showEmptyState(msg) {
-      chatMessages.innerHTML = '<div class="chat-empty">' +
-        (msg || '👋 Xin chào!<br>Tôi là trợ lý AI.<br>Hỏi tôi bất cứ điều gì về công việc, chấm công, lịch...') +
-        '</div>';
-    }
-
-    function renderMsg(text, role) {
-      // Xoá empty state nếu có
-      const empty = chatMessages.querySelector('.chat-empty');
-      if (empty) empty.remove();
-
-      const div = document.createElement('div');
-      div.className = 'chat-msg ' + (role === 'user' ? 'user' : role === 'error' ? 'error' : 'assistant');
-      div.textContent = text;
-      chatMessages.appendChild(div);
-      return div;
-    }
-
-    function scrollBottom() {
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    async function saveMsg(role, content) {
-      if (!chatSupabase || !chatUserId) return;
-      try {
-        await chatSupabase.from('messages').insert({
-          user_id: chatUserId,
-          role: role,
-          content: content
-        });
-      } catch (e) { console.warn('[Chat] save fail', e); }
-    }
-
-    // ============================================
-    // GỬI TIN NHẮN
-    // ============================================
-    async function sendMessage() {
-      const text = chatInput.value.trim();
-      if (!text || isSending) return;
-
-      // Hiện message user
-      renderMsg(text, 'user');
-      chatInput.value = '';
-      chatHistory.push({ role: 'user', content: text });
-      saveMsg('user', text);
-      scrollBottom();
-
-      isSending = true;
-      chatSendBtn.disabled = true;
-      chatSendBtn.textContent = '...';
-
-      // Typing indicator
-      const typing = document.createElement('div');
-      typing.className = 'chat-msg typing';
-      typing.textContent = 'AI đang trả lời...';
-      chatMessages.appendChild(typing);
-      scrollBottom();
-
-      try {
-        // Giới hạn context
-        const context = chatHistory.slice(-MAX_CONTEXT);
-
-        const response = await fetch(OLLAMA_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + OLLAMA_API_KEY
-          },
-          body: JSON.stringify({
-            model: OLLAMA_MODEL,
-            messages: context,
-            stream: true
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('HTTP ' + response.status);
-        }
-
-        // Chuẩn bị bubble cho bot
-        const botDiv = document.createElement('div');
-        botDiv.className = 'chat-msg assistant';
-        typing.remove();
-        chatMessages.appendChild(botDiv);
+      if (rows && rows.length) {
+        chatHistory = rows.filter(r => r.role === 'user' || r.role === 'assistant');
+        chatHistory.forEach(r => renderMsg(r.content, r.role));
         scrollBottom();
-
-        // Stream
-        const reader  = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let fullText = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const json = JSON.parse(line);
-              const chunk = json.message?.content || '';
-              if (chunk) {
-                fullText += chunk;
-                botDiv.textContent = fullText;
-                scrollBottom();
-              }
-            } catch (e) { /* ignore parse error */ }
-          }
-        }
-
-        if (!fullText) {
-          fullText = '(Không có phản hồi)';
-          botDiv.textContent = fullText;
-        }
-
-        chatHistory.push({ role: 'assistant', content: fullText });
-        saveMsg('assistant', fullText);
-        scrollBottom();
-
-      } catch (err) {
-        typing.remove();
-        const errDiv = renderMsg('❌ Lỗi: ' + err.message, 'error');
-        scrollBottom();
-        console.error('[Chat] send error:', err);
-      } finally {
-        isSending = false;
-        chatSendBtn.disabled = false;
-        chatSendBtn.textContent = 'Gửi';
+      } else {
+        showEmptyState();
       }
+    } catch (err) {
+      console.warn('[Chat] init failed:', err);
+      showEmptyState('⚠️ Không kết nối được Supabase.<br>Chat vẫn hoạt động nhưng không lưu lịch sử.');
     }
+  }
 
-    // ============================================
-    // SỰ KIỆN
-    // ============================================
-    chatBtn.addEventListener('click', async () => {
-      chatModal.style.display = 'flex';
-      chatModal.classList.add('open');
-      await initChat();
-      setTimeout(() => chatInput.focus(), 100);
-    });
+  async function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text || isSending) return;
 
-    chatSendBtn.addEventListener('click', sendMessage);
-    chatInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
+    renderMsg(text, 'user');
+    chatInput.value = '';
+    chatHistory.push({ role: 'user', content: text });
+    saveMsg('user', text);
+    scrollBottom();
 
-    // Đóng modal
-    chatModal.querySelectorAll('[data-close="chatModal"]').forEach(el => {
-      el.addEventListener('click', () => {
-        chatModal.style.display = 'none';
-        chatModal.classList.remove('open');
+    isSending = true;
+    chatSendBtn.disabled = true;
+    chatSendBtn.textContent = '...';
+
+    const typing = createTyping();
+    chatMessages.appendChild(typing);
+    scrollBottom();
+
+    try {
+      const context = chatHistory.slice(-MAX_CONTEXT);
+
+      const response = await fetch(OLLAMA_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + OLLAMA_API_KEY
+        },
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          messages: context,
+          stream: true
+        })
       });
-    });
 
-    // Xoá lịch sử
-    chatClearBtn.addEventListener('click', async () => {
-      if (!confirm('Xoá toàn bộ lịch sử chat?')) return;
-      chatMessages.innerHTML = '';
-      chatHistory = [];
-      showEmptyState();
-      if (chatSupabase && chatUserId) {
+      if (!response.ok) {
+        let errMsg = 'HTTP ' + response.status;
         try {
-          await chatSupabase.from('messages').delete().eq('user_id', chatUserId);
-        } catch (e) { console.warn(e); }
+          const errData = await response.clone().json();
+          if (errData?.error) errMsg += ': ' + errData.error;
+        } catch (_) {}
+        throw new Error(errMsg);
       }
-    });
 
-  })();
+      let responseClone = null;
+      try { responseClone = response.clone(); } catch (_) {}
+
+      typing.remove();
+      const botDiv = document.createElement('div');
+      botDiv.className = 'chat-msg assistant';
+      chatMessages.appendChild(botDiv);
+      scrollBottom();
+
+      let fullText = '';
+
+      if (response.body && typeof response.body.getReader === 'function') {
+        try {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed) continue;
+              try {
+                const json = JSON.parse(trimmed);
+                const chunk = json?.message?.content;
+                if (typeof chunk === 'string' && chunk.length) {
+                  fullText += chunk;
+                  botDiv.textContent = fullText;
+                  scrollBottom();
+                }
+              } catch (_) {}
+            }
+          }
+        } catch (streamErr) {
+          console.warn('[Chat] stream error:', streamErr);
+        }
+      }
+
+      if (!fullText && responseClone) {
+        try {
+          const data = await responseClone.json();
+          const txt =
+            data?.message?.content ||
+            data?.response ||
+            data?.choices?.[0]?.message?.content ||
+            '';
+          if (txt) {
+            fullText = txt;
+            botDiv.textContent = fullText;
+            scrollBottom();
+          }
+        } catch (jsonErr) {
+          console.warn('[Chat] fallback json failed:', jsonErr);
+        }
+      }
+
+      if (!fullText) {
+        botDiv.remove();
+        throw new Error('Không nhận được phản hồi từ AI');
+      }
+
+      chatHistory.push({ role: 'assistant', content: fullText });
+      saveMsg('assistant', fullText);
+      scrollBottom();
+
+    } catch (err) {
+      typing.remove();
+      renderMsg('❌ ' + (err?.message || 'Lỗi không xác định'), 'error');
+      scrollBottom();
+      console.error('[Chat] send error:', err);
+    } finally {
+      isSending = false;
+      chatSendBtn.disabled = false;
+      chatSendBtn.textContent = 'Gửi';
+    }
+  }
+
+  chatBtn.addEventListener('click', async () => {
+    chatModal.style.display = 'flex';
+    chatModal.classList.add('open');
+    await initChat();
+    setTimeout(() => chatInput.focus(), 100);
+  });
+
+  chatSendBtn.addEventListener('click', sendMessage);
+
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  chatModal.querySelectorAll('[data-close="chatModal"]').forEach(el => {
+    el.addEventListener('click', () => {
+      chatModal.style.display = 'none';
+      chatModal.classList.remove('open');
+    });
+  });
+
+  chatClearBtn.addEventListener('click', async () => {
+    if (!confirm('Xoá toàn bộ lịch sử chat?')) return;
+    chatMessages.innerHTML = '';
+    chatHistory = [];
+    showEmptyState();
+    if (chatUserId) {
+      try {
+        await chatSupabase.from('messages').delete().eq('user_id', chatUserId);
+      } catch (e) { console.warn(e); }
+    }
+  });
   </script>
 
   <script type="module" src="app.js"></script>
