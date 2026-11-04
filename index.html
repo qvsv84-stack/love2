@@ -7,210 +7,128 @@
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- ===== CSS CHAT (inline, không đụng style.css) ===== -->
   <style>
     #chatModal .modal {
-      padding: 0 !important;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      height: 88vh;
-      height: 88dvh;
-      max-height: 88dvh;
-      border-radius: 16px;
-      background: #f8f9fb;
+      padding: 0 !important; overflow: hidden; display: flex; flex-direction: column;
+      height: 88vh; height: 88dvh; max-height: 88dvh; border-radius: 16px; background: #f8f9fb;
     }
-
     #chatModal .modal-header {
-      flex-shrink: 0 !important;
-      margin: 0 !important;
-      padding: 12px 16px !important;
+      flex-shrink: 0 !important; margin: 0 !important; padding: 12px 16px !important;
       border-bottom: none !important;
       background: linear-gradient(135deg, #007aff 0%, #5856d6 100%) !important;
       border-radius: 16px 16px 0 0 !important;
-      display: flex !important;
-      justify-content: space-between !important;
-      align-items: center !important;
+      display: flex !important; justify-content: space-between !important; align-items: center !important;
     }
-
-    #chatModal .modal-header h3 {
-      color: #fff !important;
-      font-size: 16px !important;
-      font-weight: 600 !important;
-      margin: 0 !important;
-    }
-
+    #chatModal .modal-header h3 { color: #fff !important; font-size: 16px !important; font-weight: 600 !important; margin: 0 !important; }
     #chatModal .modal-header .btn-small,
     #chatModal .modal-header .btn-close {
-      color: #fff !important;
-      background: rgba(255,255,255,0.18) !important;
-      border: none !important;
-      border-radius: 8px !important;
-      padding: 6px 10px !important;
-      font-size: 14px !important;
-      cursor: pointer;
-      transition: background 0.15s;
+      color: #fff !important; background: rgba(255,255,255,0.18) !important; border: none !important;
+      border-radius: 8px !important; padding: 6px 10px !important; font-size: 14px !important;
+      cursor: pointer; transition: background 0.15s;
     }
-
     #chatModal .modal-header .btn-small:hover,
-    #chatModal .modal-header .btn-close:hover {
-      background: rgba(255,255,255,0.35) !important;
-    }
+    #chatModal .modal-header .btn-close:hover { background: rgba(255,255,255,0.35) !important; }
 
     #chatMessages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px 12px;
+      flex: 1; overflow-y: auto; padding: 16px 12px;
       background: linear-gradient(180deg, #f8f9fb 0%, #eef1f5 100%);
       -webkit-overflow-scrolling: touch;
     }
-
     #chatMessages .chat-empty {
-      text-align: center;
-      color: #8a8a8e;
-      font-size: 14px;
-      padding: 40px 20px;
-      line-height: 1.7;
-      animation: msgFadeIn 0.3s;
+      text-align: center; color: #8a8a8e; font-size: 14px; padding: 40px 20px;
+      line-height: 1.7; animation: msgFadeIn 0.3s;
     }
-
-    #chatMessages .chat-empty::before {
-      content: '💬';
-      display: block;
-      font-size: 48px;
-      margin-bottom: 12px;
-      opacity: 0.7;
-    }
+    #chatMessages .chat-empty::before { content: '💬'; display: block; font-size: 48px; margin-bottom: 12px; opacity: 0.7; }
 
     .chat-msg {
-      margin: 0 0 12px 0;
-      padding: 10px 14px;
-      border-radius: 16px;
-      max-width: 82%;
-      word-wrap: break-word;
-      font-size: 14.5px;
-      line-height: 1.55;
-      white-space: pre-wrap;
-      font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
-      animation: msgFadeIn 0.22s ease-out;
-      position: relative;
+      margin: 0 0 12px 0; padding: 10px 14px; border-radius: 16px; max-width: 82%;
+      word-wrap: break-word; font-size: 14.5px; line-height: 1.55; white-space: pre-wrap;
+      font-family: 'Be Vietnam Pro', -apple-system, sans-serif; animation: msgFadeIn 0.22s ease-out; position: relative;
     }
-
-    @keyframes msgFadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
+    @keyframes msgFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     .chat-msg.user {
-      background: linear-gradient(135deg, #007aff 0%, #0062cc 100%);
-      color: #fff;
-      margin-left: auto;
-      border-bottom-right-radius: 4px;
-      box-shadow: 0 2px 8px rgba(0,122,255,0.25);
+      background: linear-gradient(135deg, #007aff 0%, #0062cc 100%); color: #fff;
+      margin-left: auto; border-bottom-right-radius: 4px; box-shadow: 0 2px 8px rgba(0,122,255,0.25);
     }
-
     .chat-msg.assistant {
-      background: #fff;
-      color: #1c1c1e;
-      margin-right: auto;
-      border: 1px solid #e5e5ea;
-      border-bottom-left-radius: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-      padding-left: 38px;
+      background: #fff; color: #1c1c1e; margin-right: auto; border: 1px solid #e5e5ea;
+      border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); padding-left: 38px;
     }
-
-    .chat-msg.assistant::before {
-      content: '🤖';
-      position: absolute;
-      left: 10px;
-      top: 11px;
-      font-size: 16px;
-      line-height: 1;
-    }
-
+    .chat-msg.assistant::before { content: '🤖'; position: absolute; left: 10px; top: 11px; font-size: 16px; line-height: 1; }
     .chat-msg.error {
-      background: #fff0f0;
-      color: #c00;
-      border: 1px solid #ffcccc;
-      margin-right: auto;
-      border-bottom-left-radius: 4px;
-      font-size: 13.5px;
+      background: #fff0f0; color: #c00; border: 1px solid #ffcccc;
+      margin-right: auto; border-bottom-left-radius: 4px; font-size: 13.5px;
     }
-
     .chat-msg.typing {
-      background: #fff;
-      border: 1px solid #e5e5ea;
-      margin-right: auto;
-      border-bottom-left-radius: 4px;
-      padding: 14px 18px;
-      display: flex;
-      gap: 5px;
-      align-items: center;
-      width: fit-content;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-      animation: msgFadeIn 0.22s;
+      background: #fff; border: 1px solid #e5e5ea; margin-right: auto; border-bottom-left-radius: 4px;
+      padding: 14px 18px; display: flex; gap: 5px; align-items: center; width: fit-content;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06); animation: msgFadeIn 0.22s;
     }
-
     .chat-msg.typing::before { display: none; }
-
-    .typing-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #b0b0b5;
-      animation: typingBounce 1.3s infinite ease-in-out;
-    }
-
+    .typing-dot { width: 8px; height: 8px; border-radius: 50%; background: #b0b0b5; animation: typingBounce 1.3s infinite ease-in-out; }
     .typing-dot:nth-child(2) { animation-delay: 0.15s; }
     .typing-dot:nth-child(3) { animation-delay: 0.3s; }
-
-    @keyframes typingBounce {
-      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-      30% { transform: translateY(-6px); opacity: 1; }
-    }
+    @keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-6px); opacity: 1; } }
 
     #chatModal > .modal > div:last-child {
-      padding: 12px !important;
-      border-top: 1px solid #e5e5ea !important;
-      display: flex !important;
-      gap: 8px !important;
-      flex-shrink: 0 !important;
-      background: #fff !important;
-      align-items: flex-end !important;
+      padding: 12px !important; border-top: 1px solid #e5e5ea !important;
+      display: flex !important; gap: 8px !important; flex-shrink: 0 !important;
+      background: #fff !important; align-items: flex-end !important;
     }
-
     #chatInput {
-      flex: 1 !important;
-      padding: 11px 16px !important;
-      border: 1.5px solid #d1d1d6 !important;
-      border-radius: 22px !important;
-      font-size: 15px !important;
+      flex: 1 !important; padding: 11px 16px !important; border: 1.5px solid #d1d1d6 !important;
+      border-radius: 22px !important; font-size: 15px !important;
       font-family: 'Be Vietnam Pro', -apple-system, sans-serif !important;
-      background: #f2f2f7 !important;
-      transition: border-color 0.2s, background 0.2s;
+      background: #f2f2f7 !important; transition: border-color 0.2s, background 0.2s;
     }
-
-    #chatInput:focus {
-      outline: none !important;
-      border-color: #007aff !important;
-      background: #fff !important;
-    }
-
+    #chatInput:focus { outline: none !important; border-color: #007aff !important; background: #fff !important; }
     #chatSendBtn {
-      padding: 11px 18px !important;
-      border-radius: 22px !important;
-      font-weight: 600 !important;
-      min-width: 64px !important;
-      transition: transform 0.1s, opacity 0.15s !important;
+      padding: 11px 18px !important; border-radius: 22px !important; font-weight: 600 !important;
+      min-width: 64px !important; transition: transform 0.1s, opacity 0.15s !important;
     }
+    #chatSendBtn:active:not(:disabled) { transform: scale(0.94); }
+    #chatSendBtn:disabled { opacity: 0.55 !important; }
 
-    #chatSendBtn:active:not(:disabled) {
-      transform: scale(0.94);
+    /* ===== DEBUG PANEL ===== */
+    #debugPanel {
+      display: none; flex-direction: column;
+      background: #1c1c1e; color: #e5e5ea;
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 11.5px; line-height: 1.5;
+      max-height: 55%; overflow-y: auto;
+      border-top: 1px solid #333;
     }
-
-    #chatSendBtn:disabled {
-      opacity: 0.55 !important;
+    #debugPanel.active { display: flex; }
+    #debugPanel .dbg-header {
+      padding: 8px 12px; background: #2c2c2e; color: #fff;
+      display: flex; justify-content: space-between; align-items: center;
+      font-weight: 600; position: sticky; top: 0; z-index: 2;
     }
+    #debugPanel .dbg-actions {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+      padding: 8px 12px; background: #2c2c2e; position: sticky; top: 32px; z-index: 1;
+    }
+    #debugPanel .dbg-btn {
+      padding: 7px 10px; border-radius: 6px; border: none;
+      background: #007aff; color: #fff; font-size: 11px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    #debugPanel .dbg-btn:active { opacity: 0.7; }
+    #debugPanel .dbg-btn.secondary { background: #48484a; }
+    #debugPanel .dbg-btn.warn { background: #ff9500; }
+    #debugPanel .dbg-btn.danger { background: #ff3b30; }
+    #debugLog { padding: 8px 12px 16px; }
+    #debugLog .log-line {
+      padding: 3px 0; border-bottom: 1px solid #2c2c2e; word-break: break-all;
+      display: flex; gap: 6px;
+    }
+    #debugLog .log-time { color: #8e8e93; flex-shrink: 0; }
+    #debugLog .log-msg { flex: 1; }
+    #debugLog .log-info   { color: #64d2ff; }
+    #debugLog .log-ok     { color: #32d74b; }
+    #debugLog .log-warn   { color: #ffd60a; }
+    #debugLog .log-error  { color: #ff453a; }
+    #debugLog .log-step   { color: #bf5af2; font-weight: 700; margin-top: 6px; border-top: 1px solid #3a3a3c; padding-top: 6px; }
   </style>
 </head>
 <body>
@@ -272,7 +190,6 @@
           <p>🔑 Đăng nhập để chấm công và quản lý</p>
           <button id="guestLoginBtn" class="btn-primary">Đăng nhập</button>
         </div>
-
         <div class="employee-panel">
           <div class="emp-selector-row" id="empSelectorRow" style="display:none">
             <label>Nhân viên:</label>
@@ -291,40 +208,33 @@
             </div>
           </div>
         </div>
-
         <div class="month-nav">
           <button id="prevMonth" class="btn-icon">◀</button>
           <h2 id="monthLabel">Tháng —</h2>
           <button id="nextMonth" class="btn-icon">▶</button>
         </div>
-
         <div id="quickAttendanceRow" style="display:none; margin-bottom:12px">
           <button id="todayAttendanceBtn" class="btn-primary" style="width:100%">📝 Chấm công hôm nay</button>
         </div>
-
         <div id="calendarActions" style="display:none">
           <button id="selectionToggleBtn" class="btn-secondary">☑️ Chọn nhiều ngày</button>
           <button id="bulkCopyBtn" class="btn-secondary">📋 Copy ngày</button>
         </div>
-
         <div id="exportActionRow" style="display:none; margin-bottom:12px">
           <button id="exportExcelBtn" class="btn-secondary" style="width:100%">📥 Xuất Excel</button>
         </div>
-
         <div class="calendar-wrap">
           <div class="weekdays">
             <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
           </div>
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
-
         <div class="calendar-legend">
           <span class="legend-item"><span class="legend-dot dot-work"></span>Đi làm</span>
           <span class="legend-item"><span class="legend-dot dot-off"></span>OFF</span>
           <span class="legend-item"><span class="legend-dot dot-leave"></span>Phép</span>
           <span class="legend-item"><span class="legend-dot dot-today"></span>Hôm nay</span>
         </div>
-
         <p class="hint" id="calendarHint" style="display:none">💡 Nhấn giữ (long-press) vào một ngày để chấm công</p>
       </section>
 
@@ -333,12 +243,9 @@
           <h2>🏢 Khu vực phụ trách</h2>
           <button id="addBuildingBtn" class="btn-primary">+ Thêm tòa nhà</button>
         </div>
-
         <div id="areasSummary" class="areas-summary" style="display:none"></div>
-
         <div class="areas-filters">
-          <input type="text" id="areasSearch" class="input"
-            placeholder="🔍 Tìm tên hoặc SĐT nhân viên..." autocomplete="off" />
+          <input type="text" id="areasSearch" class="input" placeholder="🔍 Tìm tên hoặc SĐT nhân viên..." autocomplete="off" />
           <select id="areasRoleFilter" class="input">
             <option value="all">Tất cả vai trò</option>
             <option value="admin">Giám sát</option>
@@ -347,7 +254,6 @@
             <option value="external">Ngoại cảnh</option>
           </select>
         </div>
-
         <div id="buildingsList" class="buildings-list"></div>
         <p class="hint" id="areasHint">📅 Đang hiển thị nhân viên được phân công hôm nay</p>
       </section>
@@ -366,12 +272,7 @@
           <h2>💰 Tính công</h2>
           <button id="salaryExportBtn" class="btn-primary">📥 Xuất Excel</button>
         </div>
-
-        <div class="form-group">
-          <label>Tháng</label>
-          <input type="month" id="salaryMonth" class="input" />
-        </div>
-
+        <div class="form-group"><label>Tháng</label><input type="month" id="salaryMonth" class="input" /></div>
         <div class="form-group">
           <label>Đối tượng</label>
           <select id="salaryRoleFilter" class="input">
@@ -382,13 +283,7 @@
             <option value="all">Tất cả (gồm Giám sát)</option>
           </select>
         </div>
-
-        <div class="form-group">
-          <label>Tìm kiếm</label>
-          <input type="text" id="salarySearch" class="input"
-            placeholder="Tên hoặc số điện thoại..." autocomplete="off" />
-        </div>
-
+        <div class="form-group"><label>Tìm kiếm</label><input type="text" id="salarySearch" class="input" placeholder="Tên hoặc số điện thoại..." autocomplete="off" /></div>
         <div class="form-group">
           <label>Sắp xếp</label>
           <select id="salarySort" class="input">
@@ -398,42 +293,26 @@
             <option value="position">Vị trí (theo toà)</option>
           </select>
         </div>
-
         <div id="salarySummary"></div>
         <div id="salaryList"></div>
         <div id="salaryTotal"></div>
       </section>
 
       <section id="tab-excel" class="tab-content">
-        <div class="section-header">
-          <h2>📊 Bảng công</h2>
-        </div>
-
-        <div class="form-group">
-          <label>Tháng</label>
-          <input type="month" id="excelMonth" class="input" />
-        </div>
-
+        <div class="section-header"><h2>📊 Bảng công</h2></div>
+        <div class="form-group"><label>Tháng</label><input type="month" id="excelMonth" class="input" /></div>
         <div class="excel-help">
           💡 <strong>NC</strong> = Ngày công (8h=1) · <strong>OT</strong> = Tăng ca (giờ) · <strong>O</strong> = nghỉ · <strong>P</strong> = phép
           <br><small>Tap vào tên để lưu ảnh / chia sẻ</small>
         </div>
-
         <div class="excel-actions-bar">
-          <button id="excelSaveAllBtn" class="btn-secondary">
-            📷 Lưu tất cả PNG
-          </button>
-          <button id="excelShareAllBtn" class="btn-primary">
-            📤 Chia sẻ tất cả
-          </button>
+          <button id="excelSaveAllBtn" class="btn-secondary">📷 Lưu tất cả PNG</button>
+          <button id="excelShareAllBtn" class="btn-primary">📤 Chia sẻ tất cả</button>
         </div>
-
         <div id="excelLoading" class="hint" style="display:none">Đang tải...</div>
-
         <div id="excelContent" style="display:none">
           <div class="excel-part-label">📅 Ngày 1 → 15</div>
           <div id="excelBlock1" class="excel-block"></div>
-
           <div class="excel-part-label">📅 Ngày 16 → 31</div>
           <div id="excelBlock2" class="excel-block"></div>
         </div>
@@ -448,7 +327,6 @@
         </div>
         <div class="modal-body">
           <p id="prefillNote" class="prefill-note" style="display:none"></p>
-
           <div id="supervisorModeSection" style="display:none">
             <div class="form-group">
               <label>Chế độ chấm công <span style="font-weight:400;color:var(--text-muted);font-size:11px">(Giám sát)</span></label>
@@ -463,23 +341,12 @@
               <label>Số giờ tăng ca</label>
               <input type="number" id="supOtHours" step="0.5" min="0" max="12" class="input" placeholder="0" />
             </div>
-
             <div class="preview-box" style="flex-direction:column;align-items:stretch;gap:6px">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <span>Giờ công chính:</span>
-                <strong id="supMainPreview">8h</strong>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <span>Tăng ca:</span>
-                <strong id="supOtPreview">0h</strong>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--border);padding-top:6px;margin-top:2px">
-                <span>Tổng:</span>
-                <strong id="supTotalPreview" style="color:var(--ocean-600);font-size:20px">8h</strong>
-              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span>Giờ công chính:</span><strong id="supMainPreview">8h</strong></div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span>Tăng ca:</span><strong id="supOtPreview">0h</strong></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--border);padding-top:6px;margin-top:2px"><span>Tổng:</span><strong id="supTotalPreview" style="color:var(--ocean-600);font-size:20px">8h</strong></div>
             </div>
           </div>
-
           <div id="employeeModeSection">
             <div class="form-group">
               <label>1️⃣ Khu vực chính <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tính công thường)</span></label>
@@ -498,32 +365,20 @@
                 <input type="number" id="manualHours" step="0.5" min="0" max="24" class="input" placeholder="VD: 8" />
               </div>
             </div>
-
             <div class="form-group" id="otSection">
               <label>2️⃣ Khu vực tăng ca <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tuỳ chọn)</span></label>
               <div id="otAreaPicker" class="area-picker"></div>
               <button id="addOtAreaBtn" class="btn-small">+ Thêm khu vực tăng ca</button>
             </div>
-
             <div class="preview-box" style="flex-direction:column;align-items:stretch;gap:6px">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <span>Giờ công chính:</span>
-                <strong id="mainHoursPreview">0h</strong>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <span>Tăng ca:</span>
-                <strong id="otHoursPreview">0h</strong>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--border);padding-top:6px;margin-top:2px">
-                <span>Tổng:</span>
-                <strong id="totalHoursPreview" style="color:var(--ocean-600);font-size:20px">0h</strong>
-              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span>Giờ công chính:</span><strong id="mainHoursPreview">0h</strong></div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span>Tăng ca:</span><strong id="otHoursPreview">0h</strong></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--border);padding-top:6px;margin-top:2px"><span>Tổng:</span><strong id="totalHoursPreview" style="color:var(--ocean-600);font-size:20px">0h</strong></div>
             </div>
             <p id="shareNote" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px;display:none">
               ⚠️ Chia sẻ giờ nếu nhiều người cùng tầng. Tối đa 8h công/ngày — phần vượt tự chuyển sang tăng ca.
             </p>
           </div>
-
           <p id="batchNote" class="prefill-note" style="display:none;margin-top:12px;margin-bottom:0"></p>
         </div>
         <div class="modal-footer">
@@ -535,24 +390,12 @@
 
     <div id="bulkCopyModal" class="modal-overlay" style="display:none">
       <div class="modal">
-        <div class="modal-header">
-          <h3>📋 Copy chấm công</h3>
-          <button class="btn-close" data-close="bulkCopyModal">✕</button>
-        </div>
+        <div class="modal-header"><h3>📋 Copy chấm công</h3><button class="btn-close" data-close="bulkCopyModal">✕</button></div>
         <div class="modal-body">
-          <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
-            Copy toàn bộ chấm công của <strong>tất cả nhân viên</strong> từ ngày nguồn sang ngày đích.
-            Nhân viên đã có dữ liệu ngày đích sẽ được bỏ qua.
-          </p>
-          <div class="form-group">
-            <label>Từ ngày (nguồn)</label>
-            <input type="date" id="bulkSourceDate" class="input" />
-          </div>
-          <div class="form-group">
-            <label>Sang ngày (đích)</label>
-            <input type="date" id="bulkTargetDate" class="input" />
-          </div>
-          <p id="bulkCopyInfo" style="font-size:12px; color:var(--text-muted); margin-top:8px;"></p>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.5">Copy toàn bộ chấm công của <strong>tất cả nhân viên</strong> từ ngày nguồn sang ngày đích. Nhân viên đã có dữ liệu ngày đích sẽ được bỏ qua.</p>
+          <div class="form-group"><label>Từ ngày (nguồn)</label><input type="date" id="bulkSourceDate" class="input" /></div>
+          <div class="form-group"><label>Sang ngày (đích)</label><input type="date" id="bulkTargetDate" class="input" /></div>
+          <p id="bulkCopyInfo" style="font-size:12px;color:var(--text-muted);margin-top:8px"></p>
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" data-close="bulkCopyModal">Huỷ</button>
@@ -563,28 +406,15 @@
 
     <div id="buildingModal" class="modal-overlay" style="display:none">
       <div class="modal">
-        <div class="modal-header">
-          <h3>Thêm tòa nhà</h3>
-          <button class="btn-close" data-close="buildingModal">✕</button>
-        </div>
+        <div class="modal-header"><h3>Thêm tòa nhà</h3><button class="btn-close" data-close="buildingModal">✕</button></div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>Tên tòa nhà</label>
-            <input type="text" id="buildingName" class="input" placeholder="VD: Tòa A" />
-          </div>
+          <div class="form-group"><label>Tên tòa nhà</label><input type="text" id="buildingName" class="input" placeholder="VD: Tòa A" /></div>
           <div class="form-group">
             <label>Số tầng lầu</label>
             <input type="number" id="buildingFloors" class="input" min="1" max="50" value="1" />
-            <p style="font-size:12px;color:var(--text-muted);margin-top:6px">
-              VD: nhập 5 + có tầng trệt → tạo <strong>Trệt + Tầng 1..5</strong> (6 mặt bằng)
-            </p>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:6px">VD: nhập 5 + có tầng trệt → tạo <strong>Trệt + Tầng 1..5</strong> (6 mặt bằng)</p>
           </div>
-          <div class="form-group">
-            <label class="radio">
-              <input type="checkbox" id="noGroundFloor" />
-              <span>Không có tầng trệt (bắt đầu từ Tầng 1)</span>
-            </label>
-          </div>
+          <div class="form-group"><label class="radio"><input type="checkbox" id="noGroundFloor" /><span>Không có tầng trệt (bắt đầu từ Tầng 1)</span></label></div>
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" data-close="buildingModal">Huỷ</button>
@@ -595,13 +425,8 @@
 
     <div id="floorModal" class="modal-overlay" style="display:none">
       <div class="modal">
-        <div class="modal-header">
-          <h3 id="floorModalTitle">Thiết lập tầng</h3>
-          <button class="btn-close" data-close="floorModal">✕</button>
-        </div>
-        <div class="modal-body">
-          <div id="floorsForm" class="floors-form"></div>
-        </div>
+        <div class="modal-header"><h3 id="floorModalTitle">Thiết lập tầng</h3><button class="btn-close" data-close="floorModal">✕</button></div>
+        <div class="modal-body"><div id="floorsForm" class="floors-form"></div></div>
         <div class="modal-footer">
           <button class="btn-secondary" data-close="floorModal">Huỷ</button>
           <button id="saveFloorsBtn" class="btn-primary">Lưu</button>
@@ -611,10 +436,7 @@
 
     <div id="employeeModal" class="modal-overlay" style="display:none">
       <div class="modal">
-        <div class="modal-header">
-          <h3>Tạo nhân viên mới</h3>
-          <button class="btn-close" data-close="employeeModal">✕</button>
-        </div>
+        <div class="modal-header"><h3>Tạo nhân viên mới</h3><button class="btn-close" data-close="employeeModal">✕</button></div>
         <div class="modal-body">
           <div class="form-group">
             <label>Tên đăng nhập</label>
@@ -623,19 +445,9 @@
               <span style="font-size:13px;color:var(--text-muted);white-space:nowrap">@skyone.vn</span>
             </div>
           </div>
-          <div class="form-group">
-            <label>Mật khẩu</label>
-            <input type="text" id="empPassword" class="input" placeholder="Tối thiểu 6 ký tự" />
-          </div>
-          <div class="form-group">
-            <label>Số điện thoại <span style="font-weight:400;color:var(--text-muted);font-size:11px">(không bắt buộc)</span></label>
-            <input type="tel" id="empPhone" class="input" placeholder="VD: 0912345678"
-              maxlength="10" pattern="[0-9]{0,10}" inputmode="numeric" autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <label>Tên hiển thị</label>
-            <input type="text" id="empFullName" class="input" placeholder="Nguyễn Văn A" />
-          </div>
+          <div class="form-group"><label>Mật khẩu</label><input type="text" id="empPassword" class="input" placeholder="Tối thiểu 6 ký tự" /></div>
+          <div class="form-group"><label>Số điện thoại</label><input type="tel" id="empPhone" class="input" placeholder="VD: 0912345678" maxlength="10" pattern="[0-9]{0,10}" inputmode="numeric" autocomplete="off" /></div>
+          <div class="form-group"><label>Tên hiển thị</label><input type="text" id="empFullName" class="input" placeholder="Nguyễn Văn A" /></div>
           <p class="error-msg" id="empCreateError" style="text-align:left"></p>
         </div>
         <div class="modal-footer">
@@ -647,28 +459,12 @@
 
     <div id="editEmployeeModal" class="modal-overlay" style="display:none">
       <div class="modal">
-        <div class="modal-header">
-          <h3 id="editEmpTitle">Sửa nhân viên</h3>
-          <button class="btn-close" data-close="editEmployeeModal">✕</button>
-        </div>
+        <div class="modal-header"><h3 id="editEmpTitle">Sửa nhân viên</h3><button class="btn-close" data-close="editEmployeeModal">✕</button></div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>Tên đăng nhập</label>
-            <input type="text" id="editEmpUsername" class="input" disabled />
-          </div>
-          <div class="form-group">
-            <label>Tên hiển thị</label>
-            <input type="text" id="editEmpFullName" class="input" placeholder="Nguyễn Văn A" />
-          </div>
-          <div class="form-group">
-            <label>Số điện thoại <span style="font-weight:400;color:var(--text-muted);font-size:11px">(không bắt buộc)</span></label>
-            <input type="tel" id="editEmpPhone" class="input" placeholder="VD: 0912345678"
-              maxlength="10" pattern="[0-9]{0,10}" inputmode="numeric" autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <label>Mật khẩu mới <span style="font-weight:400;color:var(--text-muted);font-size:11px">(để trống nếu không đổi)</span></label>
-            <input type="text" id="editEmpPassword" class="input" placeholder="Tối thiểu 6 ký tự" autocomplete="off" />
-          </div>
+          <div class="form-group"><label>Tên đăng nhập</label><input type="text" id="editEmpUsername" class="input" disabled /></div>
+          <div class="form-group"><label>Tên hiển thị</label><input type="text" id="editEmpFullName" class="input" placeholder="Nguyễn Văn A" /></div>
+          <div class="form-group"><label>Số điện thoại</label><input type="tel" id="editEmpPhone" class="input" placeholder="VD: 0912345678" maxlength="10" pattern="[0-9]{0,10}" inputmode="numeric" autocomplete="off" /></div>
+          <div class="form-group"><label>Mật khẩu mới</label><input type="text" id="editEmpPassword" class="input" placeholder="Tối thiểu 6 ký tự" autocomplete="off" /></div>
           <p class="error-msg" id="editEmpError" style="text-align:left"></p>
         </div>
         <div class="modal-footer">
@@ -680,49 +476,29 @@
 
     <div id="phoneActionModal" class="modal-overlay center" style="display:none">
       <div class="modal" style="max-width: 340px;">
-        <div class="modal-header">
-          <h3 id="phoneActionNumber">—</h3>
-          <button class="btn-close" data-close="phoneActionModal">✕</button>
-        </div>
+        <div class="modal-header"><h3 id="phoneActionNumber">—</h3><button class="btn-close" data-close="phoneActionModal">✕</button></div>
         <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
-          <button id="phoneCallBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px">
-            📞 Gọi
-          </button>
-          <button id="phoneCopyBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
-            📋 Sao chép số
-          </button>
+          <button id="phoneCallBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px">📞 Gọi</button>
+          <button id="phoneCopyBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">📋 Sao chép số</button>
         </div>
       </div>
     </div>
 
     <div id="excelActionModal" class="modal-overlay center" style="display:none">
       <div class="modal" style="max-width: 340px;">
-        <div class="modal-header">
-          <h3 id="excelActionName">—</h3>
-          <button class="btn-close" data-close="excelActionModal">✕</button>
-        </div>
+        <div class="modal-header"><h3 id="excelActionName">—</h3><button class="btn-close" data-close="excelActionModal">✕</button></div>
         <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
-          <button id="excelSaveOneBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px">
-            📷 Lưu ảnh PNG
-          </button>
-          <button id="excelShareOneBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
-            📤 Chia sẻ
-          </button>
+          <button id="excelSaveOneBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px">📷 Lưu ảnh PNG</button>
+          <button id="excelShareOneBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">📤 Chia sẻ</button>
         </div>
       </div>
     </div>
 
     <div id="exportModal" class="modal-overlay center" style="display:none">
       <div class="modal" style="max-width:440px">
-        <div class="modal-header">
-          <h3>📥 Xuất bảng chấm công</h3>
-          <button class="btn-close" data-close="exportModal">✕</button>
-        </div>
+        <div class="modal-header"><h3>📥 Xuất bảng chấm công</h3><button class="btn-close" data-close="exportModal">✕</button></div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>Tháng</label>
-            <input type="month" id="exportMonth" class="input" />
-          </div>
+          <div class="form-group"><label>Tháng</label><input type="month" id="exportMonth" class="input" /></div>
           <div class="form-group">
             <label>Vai trò</label>
             <select id="exportRole" class="input">
@@ -744,14 +520,8 @@
           <div class="form-group">
             <label>Phạm vi</label>
             <div class="radio-group">
-              <label class="radio">
-                <input type="radio" name="exportScope" value="all" checked />
-                <span>Toàn bộ (theo bộ lọc trên)</span>
-              </label>
-              <label class="radio">
-                <input type="radio" name="exportScope" value="one" />
-                <span>Chỉ 1 người</span>
-              </label>
+              <label class="radio"><input type="radio" name="exportScope" value="all" checked /><span>Toàn bộ (theo bộ lọc trên)</span></label>
+              <label class="radio"><input type="radio" name="exportScope" value="one" /><span>Chỉ 1 người</span></label>
             </div>
           </div>
           <div class="form-group" id="exportOnePersonGroup" style="display:none">
@@ -773,11 +543,30 @@
         <div class="modal-header">
           <h3>💬 Trợ lý AI</h3>
           <div style="display:flex; gap:6px; align-items:center;">
+            <button id="chatDebugBtn" class="btn-small" title="Debug">🔍</button>
             <button id="chatClearBtn" class="btn-small" title="Xóa lịch sử">🗑️</button>
             <button class="btn-close" data-close="chatModal">✕</button>
           </div>
         </div>
         <div id="chatMessages"></div>
+
+        <!-- ===== DEBUG PANEL ===== -->
+        <div id="debugPanel">
+          <div class="dbg-header">
+            <span>🔍 Debug Panel</span>
+            <button id="debugCloseBtn" class="dbg-btn secondary" style="padding:3px 8px;font-size:10px">Đóng</button>
+          </div>
+          <div class="dbg-actions">
+            <button id="dbgRunAll" class="dbg-btn">▶️ Chạy tất cả test</button>
+            <button id="dbgTestOllama" class="dbg-btn warn">⚡ Test Ollama</button>
+            <button id="dbgTestSupabase" class="dbg-btn warn">🗄️ Test Supabase</button>
+            <button id="dbgEnv" class="dbg-btn secondary">🌐 Môi trường</button>
+            <button id="dbgClear" class="dbg-btn secondary">🧹 Xóa log</button>
+            <button id="dbgCopy" class="dbg-btn danger">📋 Copy log</button>
+          </div>
+          <div id="debugLog"></div>
+        </div>
+
         <div>
           <input type="text" id="chatInput" placeholder="Hỏi AI bất cứ điều gì..." autocomplete="off" />
           <button id="chatSendBtn" class="btn-primary">Gửi</button>
@@ -794,53 +583,63 @@
     </div>
 
     <div id="excelCaptureArea" style="position:fixed;left:-99999px;top:0;pointer-events:none;z-index:-1"></div>
-
     <div id="toast" class="toast" style="display:none"></div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
-  <!-- ===== SUPABASE UMD (dùng chung với app chính) ===== -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- ===== CHAT MODULE (vanilla JS, chạy được trên file:// và http://) ===== -->
   <script>
   (function() {
     'use strict';
 
     // ============================================
-    // ⚙️ CẤU HÌNH — SỬA DUY NHẤT 1 DÒNG DƯỚI ĐÂY
+    // ⚙️ CẤU HÌNH
     // ============================================
     const OLLAMA_API_KEY = 'DÁN_KEY_OLLAMA_VÀO_ĐÂY';
-
-    // Endpoint chuẩn của Ollama Cloud
-    const OLLAMA_URL   = 'https://ollama.com/api/chat';
-
-    // Model free khả dụng: 'gpt-oss:20b', 'gpt-oss:120b', 'gemma3:4b', 'gemma3:12b', 'gemma3:27b'
-    const OLLAMA_MODEL = 'gpt-oss:20b';
-
-    const MAX_CONTEXT  = 20;
-
-    // Config Supabase (khớp với supabase.js của bạn)
-    const SUPABASE_URL = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
+    const OLLAMA_URL     = 'https://ollama.com/api/chat';
+    const OLLAMA_MODEL   = 'gpt-oss:20b';
+    const MAX_CONTEXT    = 20;
+    const SUPABASE_URL   = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
+    const SUPABASE_KEY   = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
 
     // ============================================
-    // GUARD: kiểm tra SDK Supabase đã load chưa
+    // DEBUG LOGGER — ghi cả Console lẫn UI
     // ============================================
-    if (!window.supabase || !window.supabase.createClient) {
-      console.error('[Chat] Supabase SDK chưa load. Kiểm tra thẻ <script src="...@supabase/supabase-js@2">');
-      return;
+    const debugPanel  = document.getElementById('debugPanel');
+    const debugLog    = document.getElementById('debugLog');
+    let   debugLines  = [];
+
+    function dbg(level, msg) {
+      const t = new Date();
+      const time = t.toTimeString().slice(0,8);
+      const line = '[' + time + '] ' + msg;
+      debugLines.push(line);
+      if (debugLines.length > 500) debugLines.shift();
+
+      const div = document.createElement('div');
+      div.className = 'log-line';
+      div.innerHTML = '<span class="log-time">' + time + '</span><span class="log-msg log-' + level + '">' + escapeHtml(msg) + '</span>';
+      debugLog.appendChild(div);
+      debugLog.scrollTop = debugLog.scrollHeight;
+
+      // Đồng thời log ra Console Safari
+      const fn = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
+      console[fn]('[Chat]', msg);
     }
 
-    // Tạo client riêng cho chat — KHÔNG ảnh hưởng session app chính
-    const chatSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        storageKey: 'chat-anon-session',
-        persistSession: true,
-        autoRefreshToken: true,
-      }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // Bắt lỗi global — hiển thị lên Debug Panel
+    window.addEventListener('error', (e) => {
+      dbg('error', '💥 window.error: ' + (e.message || 'unknown') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '?'));
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      const r = e.reason;
+      dbg('error', '💥 unhandledrejection: ' + (r?.message || r || 'unknown'));
     });
 
     // ============================================
@@ -852,10 +651,38 @@
     const chatSendBtn  = document.getElementById('chatSendBtn');
     const chatClearBtn = document.getElementById('chatClearBtn');
     const chatBtn      = document.getElementById('chatBtn');
+    const chatDebugBtn = document.getElementById('chatDebugBtn');
 
     if (!chatBtn || !chatModal || !chatMessages) {
-      console.error('[Chat] Không tìm thấy element chat trong DOM');
+      console.error('[Chat] Không tìm thấy element chat');
       return;
+    }
+
+    // ============================================
+    // KHỞI TẠO SUPABASE CLIENT
+    // ============================================
+    let chatSupabase = null;
+
+    function initSupabase() {
+      try {
+        if (!window.supabase) {
+          dbg('error', '❌ window.supabase undefined — SDK chưa load');
+          return null;
+        }
+        dbg('ok', '✅ window.supabase loaded (v' + (window.supabase.VERSION || '?') + ')');
+        if (!window.supabase.createClient) {
+          dbg('error', '❌ window.supabase.createClient không phải function');
+          return null;
+        }
+        chatSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+          auth: { storageKey: 'chat-anon-session', persistSession: true, autoRefreshToken: true }
+        });
+        dbg('ok', '✅ createClient OK');
+        return chatSupabase;
+      } catch (err) {
+        dbg('error', '❌ createClient throw: ' + (err?.message || err));
+        return null;
+      }
     }
 
     // ============================================
@@ -892,56 +719,79 @@
       return div;
     }
 
-    function scrollBottom() {
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
+    function scrollBottom() { chatMessages.scrollTop = chatMessages.scrollHeight; }
 
     async function saveMsg(role, content) {
       if (!chatSupabase || !chatUserId) return;
       try {
         const { error } = await chatSupabase.from('messages').insert({
-          user_id: chatUserId,
-          role: role,
-          content: content
+          user_id: chatUserId, role, content
         });
-        if (error) console.warn('[Chat] save error:', error);
+        if (error) dbg('warn', '⚠️ save insert error: ' + (error.message || JSON.stringify(error)));
+        else dbg('ok', '💾 saved ' + role + ' (' + content.length + ' chars)');
       } catch (e) {
-        console.warn('[Chat] save fail:', e);
+        dbg('warn', '⚠️ save throw: ' + (e?.message || e));
       }
     }
 
     // ============================================
-    // INIT
+    // INIT CHAT
     // ============================================
     async function initChat() {
       if (isInitialized) return;
       isInitialized = true;
 
+      dbg('step', '=== INIT CHAT ===');
+
+      if (!chatSupabase) {
+        initSupabase();
+      }
+
+      if (!chatSupabase) {
+        showEmptyState('⚠️ Supabase không khởi tạo được.<br>Bấm 🔍 Debug để xem chi tiết.');
+        return;
+      }
+
       try {
-        console.log('[Chat] init: checking session...');
-        const { data: { session } } = await chatSupabase.auth.getSession();
-        if (!session) {
-          console.log('[Chat] init: signing in anonymously...');
+        dbg('info', '→ getSession()...');
+        const { data, error: sessErr } = await chatSupabase.auth.getSession();
+        if (sessErr) dbg('warn', '⚠️ getSession error: ' + sessErr.message);
+
+        if (!data?.session) {
+          dbg('info', '→ signInAnonymously()...');
           const { error } = await chatSupabase.auth.signInAnonymously();
-          if (error) throw error;
+          if (error) {
+            dbg('error', '❌ signInAnonymously: ' + error.message);
+            throw new Error('Anonymous sign-in thất bại: ' + error.message);
+          }
+          dbg('ok', '✅ Anonymous sign-in OK');
+        } else {
+          dbg('ok', '✅ Đã có session');
         }
-        const { data: { user } } = await chatSupabase.auth.getUser();
-        chatUserId = user?.id || null;
-        console.log('[Chat] init: user_id =', chatUserId);
+
+        const { data: userData } = await chatSupabase.auth.getUser();
+        chatUserId = userData?.user?.id || null;
+        dbg('ok', '👤 user_id = ' + (chatUserId || 'null'));
 
         if (!chatUserId) {
-          showEmptyState('⚠️ Không thể tạo phiên chat.');
+          showEmptyState('⚠️ Không có user_id sau khi sign-in.');
           return;
         }
 
+        dbg('info', '→ Query messages...');
         const { data: rows, error } = await chatSupabase
           .from('messages')
           .select('role, content')
           .order('created_at', { ascending: true })
           .limit(100);
 
-        if (error) console.warn('[Chat] load history:', error);
-        console.log('[Chat] init: loaded', rows?.length || 0, 'messages');
+        if (error) {
+          dbg('error', '❌ Query messages: ' + error.message + ' (code=' + error.code + ')');
+          showEmptyState('⚠️ Không đọc được bảng messages.<br>Kiểm tra RLS/SQL. Bấm 🔍 Debug.');
+          return;
+        }
+
+        dbg('ok', '✅ Loaded ' + (rows?.length || 0) + ' messages');
 
         if (rows && rows.length) {
           chatHistory = rows.filter(r => r.role === 'user' || r.role === 'assistant');
@@ -951,8 +801,8 @@
           showEmptyState();
         }
       } catch (err) {
-        console.warn('[Chat] init failed:', err);
-        showEmptyState('⚠️ Không kết nối được Supabase.<br>Chat vẫn hoạt động nhưng không lưu lịch sử.');
+        dbg('error', '❌ initChat: ' + (err?.message || err));
+        showEmptyState('⚠️ Lỗi khởi tạo chat.<br>' + (err?.message || '') + '<br>Bấm 🔍 Debug.');
       }
     }
 
@@ -962,6 +812,11 @@
     async function sendMessage() {
       const text = chatInput.value.trim();
       if (!text || isSending) return;
+
+      if (OLLAMA_API_KEY.includes('DÁN_KEY')) {
+        renderMsg('❌ Chưa điền OLLAMA_API_KEY trong code. Sửa const OLLAMA_API_KEY.', 'error');
+        return;
+      }
 
       renderMsg(text, 'user');
       chatInput.value = '';
@@ -977,46 +832,42 @@
       chatMessages.appendChild(typing);
       scrollBottom();
 
+      dbg('step', '=== SEND MESSAGE ===');
+
       try {
         const context = chatHistory.slice(-MAX_CONTEXT);
+        dbg('info', '→ POST ' + OLLAMA_URL);
+        dbg('info', '   model=' + OLLAMA_MODEL + ' | msgs=' + context.length);
 
-        console.log('[Chat] POST', OLLAMA_URL, 'model:', OLLAMA_MODEL);
-
+        const t0 = performance.now();
         const response = await fetch(OLLAMA_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + OLLAMA_API_KEY
           },
-          body: JSON.stringify({
-            model: OLLAMA_MODEL,
-            messages: context,
-            stream: true
-          })
+          body: JSON.stringify({ model: OLLAMA_MODEL, messages: context, stream: true })
         });
+        const elapsed = Math.round(performance.now() - t0);
 
-        console.log('[Chat] response.status =', response.status);
+        dbg('ok', '✅ response.status = ' + response.status + ' (' + elapsed + 'ms)');
+        dbg('info', '   content-type = ' + (response.headers.get('content-type') || '?'));
+        dbg('info', '   body != null = ' + (response.body != null));
 
         if (!response.ok) {
           let errText = 'HTTP ' + response.status;
           try {
             const errBody = await response.text();
-            console.error('[Chat] error body:', errBody);
+            dbg('error', '📄 error body (200): ' + errBody.slice(0, 200));
             try {
               const j = JSON.parse(errBody);
               if (j?.error) errText += ' — ' + j.error;
-            } catch (_) {
-              if (errBody.length < 200) errText += ' — ' + errBody;
-            }
+            } catch (_) { errText += ' — ' + errBody.slice(0, 100); }
           } catch (_) {}
 
-          if (response.status === 401 || response.status === 403) {
-            errText = '🔑 API Key Ollama không hợp lệ hoặc hết hạn.';
-          } else if (response.status === 404) {
-            errText = '🚫 Endpoint hoặc model không tồn tại trên Ollama Cloud.';
-          } else if (response.status === 429) {
-            errText = '⏱️ Vượt giới hạn free tier. Đợi vài phút rồi thử lại.';
-          }
+          if (response.status === 401 || response.status === 403) errText = '🔑 API Key Ollama không hợp lệ.';
+          else if (response.status === 404) errText = '🚫 Endpoint/model không tồn tại.';
+          else if (response.status === 429) errText = '⏱️ Vượt giới hạn free tier.';
 
           throw new Error(errText);
         }
@@ -1030,10 +881,12 @@
         let fullText = '';
 
         if (response.body && typeof response.body.getReader === 'function') {
+          dbg('info', '→ Đọc stream...');
           try {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
+            let chunkCount = 0;
 
             while (true) {
               const { done, value } = await reader.read();
@@ -1048,69 +901,59 @@
                 if (!trimmed) continue;
 
                 if (trimmed[0] !== '{') {
-                  console.warn('[Chat] skip non-JSON line:', trimmed.slice(0, 80));
+                  dbg('warn', '⏭ skip non-JSON: ' + trimmed.slice(0, 100));
                   continue;
                 }
 
                 try {
                   const json = JSON.parse(trimmed);
-
-                  if (json.error) {
-                    throw new Error('Ollama: ' + json.error);
-                  }
-
+                  if (json.error) throw new Error('Ollama: ' + json.error);
                   const chunk = json?.message?.content;
                   if (typeof chunk === 'string' && chunk.length) {
                     fullText += chunk;
                     botDiv.textContent = fullText;
                     scrollBottom();
+                    chunkCount++;
                   }
                 } catch (parseErr) {
-                  console.warn('[Chat] parse error:', parseErr.message, '| line:', trimmed.slice(0, 120));
+                  dbg('warn', '⏭ parse fail: ' + parseErr.message + ' | ' + trimmed.slice(0, 100));
                 }
               }
             }
+            dbg('ok', '✅ Stream xong: ' + chunkCount + ' chunks, ' + fullText.length + ' chars');
           } catch (streamErr) {
-            console.error('[Chat] stream error:', streamErr);
+            dbg('error', '❌ Stream error: ' + (streamErr?.message || streamErr));
           }
         } else {
-          console.warn('[Chat] response.body không dùng được, fallback non-stream');
+          dbg('warn', '⚠️ response.body không dùng được');
         }
 
-        // Fallback nếu stream fail
         if (!fullText) {
-          console.log('[Chat] fallback: retrying with stream:false');
+          dbg('warn', '→ Fallback non-stream...');
           try {
             const fbRes = await fetch(OLLAMA_URL, {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + OLLAMA_API_KEY
-              },
-              body: JSON.stringify({
-                model: OLLAMA_MODEL,
-                messages: context,
-                stream: false
-              })
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + OLLAMA_API_KEY },
+              body: JSON.stringify({ model: OLLAMA_MODEL, messages: context, stream: false })
             });
-
+            dbg('info', '   fallback.status = ' + fbRes.status);
             if (fbRes.ok) {
-              const data = await fbRes.json();
-              const txt = data?.message?.content || data?.response || '';
-              if (txt) {
-                fullText = txt;
-                botDiv.textContent = fullText;
-                scrollBottom();
-              }
+              const fbData = await fbRes.json();
+              dbg('info', '   fallback keys: ' + Object.keys(fbData).join(','));
+              const txt = fbData?.message?.content || fbData?.response || '';
+              if (txt) { fullText = txt; botDiv.textContent = fullText; scrollBottom(); }
+            } else {
+              const errTxt = await fbRes.text();
+              dbg('error', '   fallback error body: ' + errTxt.slice(0, 200));
             }
           } catch (fbErr) {
-            console.warn('[Chat] fallback also failed:', fbErr);
+            dbg('error', '❌ Fallback: ' + (fbErr?.message || fbErr));
           }
         }
 
         if (!fullText) {
           botDiv.remove();
-          throw new Error('Không nhận được phản hồi từ AI. Mở Console Safari để xem chi tiết.');
+          throw new Error('Không nhận được phản hồi từ AI');
         }
 
         chatHistory.push({ role: 'assistant', content: fullText });
@@ -1121,12 +964,118 @@
         typing.remove();
         renderMsg('❌ ' + (err?.message || 'Lỗi không xác định'), 'error');
         scrollBottom();
-        console.error('[Chat] send error:', err);
+        dbg('error', '❌ sendMessage: ' + (err?.message || err));
       } finally {
         isSending = false;
         chatSendBtn.disabled = false;
         chatSendBtn.textContent = 'Gửi';
       }
+    }
+
+    // ============================================
+    // DEBUG TESTS
+    // ============================================
+    async function dbgEnvInfo() {
+      dbg('step', '=== ENV INFO ===');
+      dbg('info', '🌐 protocol: ' + location.protocol);
+      dbg('info', '🌐 hostname: ' + (location.hostname || '(empty — file://?)'));
+      dbg('info', '🌐 href: ' + location.href.slice(0, 100));
+      dbg('info', '📱 UA: ' + navigator.userAgent.slice(0, 120));
+      dbg('info', '🔧 Supabase SDK: ' + (window.supabase ? '✅ loaded (v' + (window.supabase.VERSION || '?') + ')' : '❌ missing'));
+      dbg('info', '🔑 OLLAMA_API_KEY: ' + (OLLAMA_API_KEY.includes('DÁN_KEY') ? '❌ chưa điền' : '✅ đã điền (' + OLLAMA_API_KEY.length + ' chars)'));
+      dbg('info', '🔑 SUPABASE_URL: ' + SUPABASE_URL);
+      dbg('info', '🔑 SUPABASE_KEY: ' + (SUPABASE_KEY.length > 20 ? '✅ có (' + SUPABASE_KEY.length + ' chars)' : '❌ ngắn'));
+      dbg('info', '🤖 Model: ' + OLLAMA_MODEL);
+      dbg('info', '🌍 fetch: ' + (typeof fetch === 'function' ? '✅' : '❌'));
+      dbg('info', '🌍 TextDecoder: ' + (typeof TextDecoder === 'function' ? '✅' : '❌'));
+      dbg('info', '🌍 ReadableStream: ' + (typeof ReadableStream === 'function' ? '✅' : '❌'));
+    }
+
+    async function dbgTestSupabase() {
+      dbg('step', '=== TEST SUPABASE ===');
+      try {
+        if (!chatSupabase) initSupabase();
+        if (!chatSupabase) { dbg('error', '❌ Không có chatSupabase client'); return; }
+
+        dbg('info', '→ getSession...');
+        const { data: sessData, error: sessErr } = await chatSupabase.auth.getSession();
+        if (sessErr) dbg('error', '❌ getSession: ' + sessErr.message);
+        else dbg('ok', '✅ session: ' + (sessData?.session ? 'có' : 'không'));
+
+        if (!sessData?.session) {
+          dbg('info', '→ signInAnonymously...');
+          const { error } = await chatSupabase.auth.signInAnonymously();
+          if (error) { dbg('error', '❌ signInAnonymously: ' + error.message); return; }
+          dbg('ok', '✅ sign-in anonymous OK');
+        }
+
+        dbg('info', '→ getUser...');
+        const { data: u } = await chatSupabase.auth.getUser();
+        dbg('ok', '✅ user_id: ' + (u?.user?.id || 'null'));
+
+        dbg('info', '→ SELECT messages LIMIT 5...');
+        const { data, error, count } = await chatSupabase
+          .from('messages').select('*', { count: 'exact' }).limit(5);
+        if (error) dbg('error', '❌ SELECT: ' + error.message + ' (code=' + error.code + ', hint=' + (error.hint || '') + ')');
+        else dbg('ok', '✅ SELECT OK — total=' + count + ', sample=' + (data?.length || 0) + ' rows');
+      } catch (err) {
+        dbg('error', '❌ Supabase test: ' + (err?.message || err));
+      }
+    }
+
+    async function dbgTestOllama() {
+      dbg('step', '=== TEST OLLAMA ===');
+      if (OLLAMA_API_KEY.includes('DÁN_KEY')) {
+        dbg('error', '❌ Chưa điền OLLAMA_API_KEY');
+        return;
+      }
+      try {
+        dbg('info', '→ POST ' + OLLAMA_URL + ' (stream:false)...');
+        const t0 = performance.now();
+        const res = await fetch(OLLAMA_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + OLLAMA_API_KEY
+          },
+          body: JSON.stringify({
+            model: OLLAMA_MODEL,
+            messages: [{ role: 'user', content: 'Say hi in 3 words' }],
+            stream: false
+          })
+        });
+        const elapsed = Math.round(performance.now() - t0);
+        dbg('info', '⏱ status=' + res.status + ' (' + elapsed + 'ms)');
+        dbg('info', '📄 content-type=' + (res.headers.get('content-type') || '?'));
+
+        const raw = await res.text();
+        dbg('info', '📄 body len=' + raw.length + ' | head=' + raw.slice(0, 150));
+
+        if (!res.ok) {
+          dbg('error', '❌ HTTP ' + res.status);
+          return;
+        }
+
+        try {
+          const j = JSON.parse(raw);
+          dbg('ok', '✅ JSON parse OK');
+          dbg('ok', '🤖 reply: ' + (j?.message?.content || j?.response || '(empty)').slice(0, 100));
+        } catch (e) {
+          dbg('warn', '⚠️ Body không phải JSON — có thể endpoint sai');
+        }
+      } catch (err) {
+        dbg('error', '❌ Ollama test: ' + (err?.message || err));
+        dbg('error', '   Có thể do CORS, network, hoặc DNS.');
+      }
+    }
+
+    async function dbgRunAll() {
+      debugLog.innerHTML = '';
+      debugLines = [];
+      await dbgEnvInfo();
+      await dbgTestSupabase();
+      await dbgTestOllama();
+      dbg('ok', '🏁 DONE — copy log ở trên gửi cho dev nếu cần');
     }
 
     // ============================================
@@ -1139,13 +1088,38 @@
       setTimeout(() => chatInput.focus(), 100);
     });
 
-    chatSendBtn.addEventListener('click', sendMessage);
-
-    chatInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+    chatDebugBtn.addEventListener('click', () => {
+      debugPanel.classList.toggle('active');
+      if (debugPanel.classList.contains('active') && debugLines.length === 0) {
+        dbg('info', '💡 Bấm "Chạy tất cả test" để kiểm tra toàn bộ');
       }
+    });
+
+    document.getElementById('debugCloseBtn').addEventListener('click', () => {
+      debugPanel.classList.remove('active');
+    });
+
+    document.getElementById('dbgRunAll').addEventListener('click', dbgRunAll);
+    document.getElementById('dbgTestOllama').addEventListener('click', dbgTestOllama);
+    document.getElementById('dbgTestSupabase').addEventListener('click', dbgTestSupabase);
+    document.getElementById('dbgEnv').addEventListener('click', dbgEnvInfo);
+    document.getElementById('dbgClear').addEventListener('click', () => {
+      debugLog.innerHTML = '';
+      debugLines = [];
+    });
+    document.getElementById('dbgCopy').addEventListener('click', async () => {
+      const txt = debugLines.join('\n');
+      try {
+        await navigator.clipboard.writeText(txt);
+        dbg('ok', '📋 Đã copy ' + debugLines.length + ' dòng vào clipboard');
+      } catch (e) {
+        dbg('warn', '⚠️ Không copy được: ' + e.message);
+      }
+    });
+
+    chatSendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
 
     chatModal.querySelectorAll('[data-close="chatModal"]').forEach(el => {
@@ -1160,14 +1134,15 @@
       chatMessages.innerHTML = '';
       chatHistory = [];
       showEmptyState();
-      if (chatUserId) {
+      if (chatUserId && chatSupabase) {
         try {
           await chatSupabase.from('messages').delete().eq('user_id', chatUserId);
-        } catch (e) { console.warn(e); }
+          dbg('ok', '🗑️ Đã xoá lịch sử trên Supabase');
+        } catch (e) { dbg('warn', '⚠️ Xoá fail: ' + e.message); }
       }
     });
 
-    console.log('[Chat] module loaded OK');
+    dbg('ok', '💬 Chat module loaded');
   })();
   </script>
 
