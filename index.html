@@ -592,18 +592,16 @@
     'use strict';
 
     // ============================================
-    // ⚙️ CẤU HÌNH — KEY ĐÃ ĐIỀN
+    // ⚙️ CẤU HÌNH
+    // ĐÃ ĐỔI: OLLAMA_URL = '/api/chat' (đi qua proxy Vercel)
+    // Key thật KHÔNG cần nữa — proxy đọc từ Environment Variable
     // ============================================
-    const OLLAMA_API_KEY = '34f4d1f7ec504d038ca611218e9aaa64.XdbQM9vQjaAyUTQWIpEPBapp';
-    const OLLAMA_URL     = 'https://ollama.com/api/chat';
+    const OLLAMA_URL     = '/api/chat';
     const OLLAMA_MODEL   = 'gpt-oss:20b';
     const MAX_CONTEXT    = 20;
     const SUPABASE_URL   = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
     const SUPABASE_KEY   = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
 
-    // ============================================
-    // DEBUG LOGGER
-    // ============================================
     const debugPanel  = document.getElementById('debugPanel');
     const debugLog    = document.getElementById('debugLog');
     let   debugLines  = [];
@@ -812,10 +810,7 @@
         const t0 = performance.now();
         const response = await fetch(OLLAMA_URL, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + OLLAMA_API_KEY
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: OLLAMA_MODEL, messages: context, stream: true })
         });
         const elapsed = Math.round(performance.now() - t0);
@@ -835,9 +830,10 @@
             } catch (_) { errText += ' — ' + errBody.slice(0, 100); }
           } catch (_) {}
 
-          if (response.status === 401 || response.status === 403) errText = '🔑 API Key Ollama không hợp lệ.';
-          else if (response.status === 404) errText = '🚫 Endpoint/model không tồn tại.';
+          if (response.status === 401 || response.status === 403) errText = '🔑 API Key Ollama không hợp lệ (kiểm tra Vercel env).';
+          else if (response.status === 404) errText = '🚫 Endpoint không tồn tại. Kiểm tra file api/chat.js đã deploy chưa.';
           else if (response.status === 429) errText = '⏱️ Vượt giới hạn free tier.';
+          else if (response.status === 500) errText = '⚙️ Server proxy lỗi. Kiểm tra Vercel Logs.';
 
           throw new Error(errText);
         }
@@ -894,8 +890,6 @@
           } catch (streamErr) {
             dbg('error', '❌ Stream error: ' + (streamErr?.message || streamErr));
           }
-        } else {
-          dbg('warn', '⚠️ response.body không dùng được');
         }
 
         if (!fullText) {
@@ -903,7 +897,7 @@
           try {
             const fbRes = await fetch(OLLAMA_URL, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + OLLAMA_API_KEY },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ model: OLLAMA_MODEL, messages: context, stream: false })
             });
             dbg('info', '   fallback.status = ' + fbRes.status);
@@ -949,9 +943,8 @@
       dbg('info', '🌐 href: ' + location.href.slice(0, 100));
       dbg('info', '📱 UA: ' + navigator.userAgent.slice(0, 120));
       dbg('info', '🔧 Supabase SDK: ' + (window.supabase ? '✅ loaded (v' + (window.supabase.VERSION || '?') + ')' : '❌ missing'));
-      dbg('info', '🔑 OLLAMA_API_KEY: ' + (OLLAMA_API_KEY.includes('DÁN_KEY') ? '❌ chưa điền' : '✅ đã điền (' + OLLAMA_API_KEY.length + ' chars)'));
+      dbg('info', '🔗 OLLAMA_URL: ' + OLLAMA_URL + ' (qua proxy Vercel)');
       dbg('info', '🔑 SUPABASE_URL: ' + SUPABASE_URL);
-      dbg('info', '🔑 SUPABASE_KEY: ' + (SUPABASE_KEY.length > 20 ? '✅ có (' + SUPABASE_KEY.length + ' chars)' : '❌ ngắn'));
       dbg('info', '🤖 Model: ' + OLLAMA_MODEL);
       dbg('info', '🌍 fetch: ' + (typeof fetch === 'function' ? '✅' : '❌'));
       dbg('info', '🌍 TextDecoder: ' + (typeof TextDecoder === 'function' ? '✅' : '❌'));
@@ -991,20 +984,13 @@
     }
 
     async function dbgTestOllama() {
-      dbg('step', '=== TEST OLLAMA ===');
-      if (OLLAMA_API_KEY.includes('DÁN_KEY')) {
-        dbg('error', '❌ Chưa điền OLLAMA_API_KEY');
-        return;
-      }
+      dbg('step', '=== TEST OLLAMA (qua proxy /api/chat) ===');
       try {
         dbg('info', '→ POST ' + OLLAMA_URL + ' (stream:false)...');
         const t0 = performance.now();
         const res = await fetch(OLLAMA_URL, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + OLLAMA_API_KEY
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: OLLAMA_MODEL,
             messages: [{ role: 'user', content: 'Say hi in 3 words' }],
@@ -1020,6 +1006,8 @@
 
         if (!res.ok) {
           dbg('error', '❌ HTTP ' + res.status);
+          if (res.status === 404) dbg('error', '   → File api/chat.js chưa có trên Vercel');
+          if (res.status === 500) dbg('error', '   → Vercel function lỗi. Xem Vercel Deployments → Logs');
           return;
         }
 
@@ -1028,11 +1016,10 @@
           dbg('ok', '✅ JSON parse OK');
           dbg('ok', '🤖 reply: ' + (j?.message?.content || j?.response || '(empty)').slice(0, 100));
         } catch (e) {
-          dbg('warn', '⚠️ Body không phải JSON — có thể endpoint sai');
+          dbg('warn', '⚠️ Body không phải JSON — proxy trả về HTML?');
         }
       } catch (err) {
         dbg('error', '❌ Ollama test: ' + (err?.message || err));
-        dbg('error', '   Có thể do CORS, network, hoặc DNS.');
       }
     }
 
@@ -1042,7 +1029,7 @@
       await dbgEnvInfo();
       await dbgTestSupabase();
       await dbgTestOllama();
-      dbg('ok', '🏁 DONE — copy log ở trên gửi cho dev nếu cần');
+      dbg('ok', '🏁 DONE');
     }
 
     chatBtn.addEventListener('click', async () => {
@@ -1106,7 +1093,7 @@
       }
     });
 
-    dbg('ok', '💬 Chat module loaded');
+    dbg('ok', '💬 Chat module loaded (proxy mode)');
   })();
   </script>
 
