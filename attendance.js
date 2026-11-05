@@ -13,6 +13,27 @@ function ensureSpecialState() {
   if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
+/* ⭐ SELECTED VIEW DATE — ngày đang được chọn để xem */
+export function setSelectedViewDate(dateStr) {
+  state.selectedViewDate = dateStr || null;
+  const $row = $('#viewDateRow');
+  const $label = $('#viewDateLabel');
+
+  if (state.selectedViewDate) {
+    if ($row) $row.style.display = 'block';
+    if ($label) $label.textContent = formatDateVN(state.selectedViewDate);
+  } else {
+    if ($row) $row.style.display = 'none';
+  }
+  renderCalendar();
+}
+
+/* ⭐ Mở modal từ ngày đã chọn */
+export function openSelectedDate() {
+  if (!state.selectedViewDate) return;
+  openAttendanceModal(state.selectedViewDate);
+}
+
 export async function loadAttendanceForMonth(forceRefresh = false) {
   if (!state.selectedEmployeeId) { state.attendance = []; return; }
   const y = state.currentMonth.getFullYear();
@@ -395,7 +416,6 @@ function applySundayToggle(dateStr, batchDates) {
   }
 }
 
-/* ⭐ MỞ MODAL TỨC THÌ — single tap → instant */
 export async function openAttendanceModal(dateStr, batchDates = null) {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
@@ -403,22 +423,18 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   ensureSpecialState();
   state.editingDate = dateStr;
   state.batchDates = batchDates;
-
-  // ⚡ Reset dayAssignments (sẽ load ngầm)
   state.dayAssignments = [];
 
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   const targetIsSupervisor = emp?.role === 'admin';
   state.isSupervisorMode = targetIsSupervisor;
 
-  // ⚡ Template từ cache
   let template = null, source = 'none', prevDate = null;
   if (!batchDates) {
     template = state.attendance.find(a => a.date === dateStr) || null;
     if (template) source = 'existing';
   }
 
-  // ⚡ Render UI ngay
   if (targetIsSupervisor) openSupervisorModeContent(template);
   else openEmployeeModeContent(template);
 
@@ -451,11 +467,8 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   }
 
   updatePreview();
-
-  // ⚡ MỞ MODAL NGAY — 0ms
   openModal('attendanceModal');
 
-  // ⚡ Background tasks
   const bgTasks = [];
 
   if (!state.buildings || !state.buildings.length) {
@@ -1009,6 +1022,11 @@ export function toggleSelectionMode() {
   else {
     state.selectionMode = true;
     state.selectedDates.clear();
+
+    // ⭐ Clear view date khi vào selection mode
+    state.selectedViewDate = null;
+    const $vrow = $('#viewDateRow'); if ($vrow) $vrow.style.display = 'none';
+
     const bar = $('#selectionBar'); if (bar) bar.style.display = 'block';
     const btn = $('#selectionToggleBtn');
     if (btn) { btn.textContent = '✕ Thoát chọn'; btn.classList.add('active'); }
@@ -1072,6 +1090,9 @@ export function renderCalendar() {
     }
     if (dateStr === todayStr) cls += ' today';
     if (state.selectionMode && state.selectedDates.has(dateStr)) cls += ' selected';
+    // ⭐ Highlight ngày đang chọn xem (không phải selection mode)
+    if (!state.selectionMode && state.selectedViewDate === dateStr) cls += ' selected-view';
+
     html += `<div class="${cls}" data-date="${dateStr}">
       <span class="day-num">${d}</span>
       ${sub ? `<span class="day-hours">${sub}</span>` : ''}
@@ -1084,21 +1105,64 @@ export function renderCalendar() {
       el.addEventListener('click', () => toggleDateSelection(el.dataset.date)));
   } else if (state.isAdmin) {
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
-      attachSingleTap(el, () => openAttendanceModal(el.dataset.date)));
+      attachCalendarSelect(el, el.dataset.date));
+  }
+
+  // Đảm bảo button row đúng trạng thái
+  const $row = $('#viewDateRow');
+  if ($row) {
+    if (!state.selectionMode && state.selectedViewDate) {
+      $row.style.display = 'block';
+      const $label = $('#viewDateLabel');
+      if ($label) $label.textContent = formatDateVN(state.selectedViewDate);
+    } else {
+      $row.style.display = 'none';
+    }
   }
 }
 
-/* ⭐ SINGLE TAP — nhấp 1 lần mở ngay */
-function attachSingleTap(el, cb) {
-  const onTap = (e) => {
-    el.classList.add('pressing');
-    setTimeout(() => el.classList.remove('pressing'), 120);
-    try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
+/* ⭐ Tap = chọn ngày (không mở modal) — dùng pointerdown để cảm giác tức thì */
+function attachCalendarSelect(el, dateStr) {
+  let startX = 0, startY = 0, moved = false;
+
+  const onDown = (e) => {
+    moved = false;
+    const t = e.touches?.[0] || e;
+    startX = t.clientX;
+    startY = t.clientY;
+  };
+
+  const onMove = (e) => {
+    if (moved) return;
+    const t = e.touches?.[0] || e;
+    if (Math.abs(t.clientX - startX) > 8 || Math.abs(t.clientY - startY) > 8) {
+      moved = true;
+    }
+  };
+
+  const onUp = (e) => {
+    if (moved) return;
     e.preventDefault();
     e.stopPropagation();
-    cb();
+    try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
+
+    if (state.selectedViewDate === dateStr) {
+      setSelectedViewDate(null);
+    } else {
+      setSelectedViewDate(dateStr);
+    }
   };
-  el.addEventListener('click', onTap);
+
+  if (window.PointerEvent) {
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+  } else {
+    el.addEventListener('touchstart', onDown, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: true });
+    el.addEventListener('touchend', onUp);
+    el.addEventListener('click', onUp);
+  }
 }
 
 export function switchTab(name) {
@@ -1134,6 +1198,11 @@ export async function changeMonth(delta) {
   const d = new Date(state.currentMonth);
   d.setMonth(d.getMonth() + delta);
   state.currentMonth = d;
+
+  // ⭐ Clear selected view khi đổi tháng
+  state.selectedViewDate = null;
+  const $row = $('#viewDateRow'); if ($row) $row.style.display = 'none';
+
   await loadAttendanceForMonth();
   renderCalendar();
 }
