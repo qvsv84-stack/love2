@@ -1,4 +1,4 @@
-// buildings.js — Toà nhà, tầng, và 2 khu vực đặc biệt (Ngoại cảnh + Ca đêm) + collapsible
+// buildings.js — Toà nhà, tầng, special areas, xem ngày cũ
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast,
@@ -8,19 +8,35 @@ import {
 import { showPhoneAction } from './phone.js';
 
 function ensureState() {
-  if (!state.specialAreas) {
-    state.specialAreas = { external: null, night: null };
-  }
+  if (!state.specialAreas) state.specialAreas = { external: null, night: null };
   if (!Array.isArray(state.externalAssignments)) state.externalAssignments = [];
   if (!Array.isArray(state.nightAssignments)) state.nightAssignments = [];
   if (!Array.isArray(state.sundayOtAssignments)) state.sundayOtAssignments = [];
-  // ⭐ Set các building đang expand
-  if (!(state.expandedBuildings instanceof Set)) {
-    state.expandedBuildings = new Set();
-  }
+  if (!(state.expandedBuildings instanceof Set)) state.expandedBuildings = new Set();
 }
 
-/* ============ LOAD ============ */
+/* ⭐ Post-process: chia đều giờ cho external/night nếu cùng giờ + nhiều user */
+function processSharedAssigns(mapObj) {
+  const arr = Object.values(mapObj);
+  if (arr.length <= 1) return arr;
+
+  const hoursSet = new Set();
+  let maxH = 0;
+  for (const a of arr) {
+    const h = Number(a.hours);
+    hoursSet.add(h);
+    if (h > maxH) maxH = h;
+  }
+
+  // Tất cả cùng giờ và count > 1 → chia đều
+  if (hoursSet.size === 1 && arr.length > 1) {
+    const perPerson = maxH / arr.length;
+    return arr.map(a => ({ ...a, hours: perPerson, shared: arr.length }));
+  }
+
+  return arr.map(a => ({ ...a, shared: arr.length }));
+}
+
 export async function loadBuildings() {
   ensureState();
 
@@ -33,12 +49,9 @@ export async function loadBuildings() {
     const { data: floors } = await supabase
       .from('floors').select('*').in('building_id', ids).order('floor_number');
     state.floors = floors || [];
-  } else {
-    state.floors = [];
-  }
+  } else state.floors = [];
 
-  const { data: special, error: e2 } = await supabase
-    .from('special_areas').select('*');
+  const { data: special, error: e2 } = await supabase.from('special_areas').select('*');
   if (!e2 && special) {
     state.specialAreas = { external: null, night: null };
     for (const row of special) {
@@ -51,14 +64,16 @@ export async function loadBuildings() {
   renderBuildings();
 }
 
-export async function loadTodayAssignments() {
+/* ⭐ Đổi: nhận dateStr để xem ngày cũ */
+export async function loadDayAssignments(dateStr = null) {
   ensureState();
 
-  const todayStr = toDateStr(new Date());
+  const targetDate = dateStr || state.areasViewDate || toDateStr(new Date());
+
   const { data, error } = await supabase
     .from('attendance')
     .select('employee_id, areas, ot_areas, is_off, mode, total_hours, ot_hours')
-    .eq('date', todayStr)
+    .eq('date', targetDate)
     .neq('is_off', true);
 
   if (error) {
@@ -85,11 +100,9 @@ export async function loadTodayAssignments() {
   for (const a of data) {
     if (Array.isArray(a.areas)) {
       for (const area of a.areas) {
-        if (area.type === 'external') {
-          addSpecial(externalByEmp, a.employee_id, area.hours);
-        } else if (area.type === 'night') {
-          addSpecial(nightByEmp, a.employee_id, area.hours);
-        } else if (area.building_id && area.floor_id) {
+        if (area.type === 'external') addSpecial(externalByEmp, a.employee_id, area.hours);
+        else if (area.type === 'night') addSpecial(nightByEmp, a.employee_id, area.hours);
+        else if (area.building_id && area.floor_id) {
           const fid = area.floor_id;
           if (!mainUsersByFloor[fid]) mainUsersByFloor[fid] = new Set();
           mainUsersByFloor[fid].add(a.employee_id);
@@ -99,13 +112,10 @@ export async function loadTodayAssignments() {
 
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
-        if (area.type === 'sunday_ot') {
-          addSpecial(sundayOtByEmp, a.employee_id, area.hours);
-        } else if (area.type === 'external') {
-          addSpecial(externalByEmp, a.employee_id, area.hours);
-        } else if (area.type === 'night') {
-          addSpecial(nightByEmp, a.employee_id, area.hours);
-        } else if (area.building_id && area.floor_id) {
+        if (area.type === 'sunday_ot') addSpecial(sundayOtByEmp, a.employee_id, area.hours);
+        else if (area.type === 'external') addSpecial(externalByEmp, a.employee_id, area.hours);
+        else if (area.type === 'night') addSpecial(nightByEmp, a.employee_id, area.hours);
+        else if (area.building_id && area.floor_id) {
           const fid = area.floor_id;
           const h = area.hours;
           if (h != null && h !== '' && !isNaN(Number(h))) continue;
@@ -120,8 +130,7 @@ export async function loadTodayAssignments() {
 
   for (const a of data) {
     const perFloor = {};
-    let mainRawTotal = 0;
-    let otRawTotal = 0;
+    let mainRawTotal = 0, otRawTotal = 0;
 
     if (Array.isArray(a.areas)) {
       for (const area of a.areas) {
@@ -150,9 +159,8 @@ export async function loadTodayAssignments() {
         const h = area.hours;
         const isManual = h != null && h !== '' && !isNaN(Number(h));
         let raw;
-        if (isManual) {
-          raw = Number(h);
-        } else {
+        if (isManual) raw = Number(h);
+        else {
           const floor = state.floors.find(x => x.id === fid);
           const floorDefault = floor ? Number(floor.default_hours || 0) : 0;
           const cnt = otAutoUsersByFloor[fid]?.size || 1;
@@ -167,14 +175,10 @@ export async function loadTodayAssignments() {
     const otFromDB = Number(a.ot_hours || 0);
 
     if (mainRawTotal > 0) {
-      for (const fid in perFloor) {
-        perFloor[fid].main = perFloor[fid].main * (mainFromDB / mainRawTotal);
-      }
+      for (const fid in perFloor) perFloor[fid].main = perFloor[fid].main * (mainFromDB / mainRawTotal);
     }
     if (otRawTotal > 0) {
-      for (const fid in perFloor) {
-        perFloor[fid].ot = perFloor[fid].ot * (otFromDB / otRawTotal);
-      }
+      for (const fid in perFloor) perFloor[fid].ot = perFloor[fid].ot * (otFromDB / otRawTotal);
     }
 
     for (const [fid, h] of Object.entries(perFloor)) {
@@ -194,17 +198,25 @@ export async function loadTodayAssignments() {
   }
 
   state.floorAssignments = map;
-  state.externalAssignments = Object.values(externalByEmp);
-  state.nightAssignments = Object.values(nightByEmp);
+  // ⭐ FIX: chia đều giờ ca đêm/ngoại cảnh
+  state.externalAssignments = processSharedAssigns(externalByEmp);
+  state.nightAssignments = processSharedAssigns(nightByEmp);
   state.sundayOtAssignments = Object.values(sundayOtByEmp);
 
   const hint = $('#areasHint');
   if (hint) {
-    hint.textContent = `📅 Đang hiển thị nhân viên được phân công hôm nay (${formatDateVN(todayStr)})`;
+    const isToday = targetDate === toDateStr(new Date());
+    hint.textContent = isToday
+      ? `📅 Đang hiển thị nhân viên được phân công hôm nay (${formatDateVN(targetDate)})`
+      : `📅 Đang xem lại ngày ${formatDateVN(targetDate)}`;
   }
 }
 
-/* ============ RENDER ============ */
+/* Compat: giữ tên cũ cho app.js */
+export async function loadTodayAssignments() {
+  return loadDayAssignments(toDateStr(new Date()));
+}
+
 export function renderBuildings() {
   ensureState();
 
@@ -213,6 +225,12 @@ export function renderBuildings() {
   if (!wrap) return;
 
   updateCreateButtons();
+
+  // Sync date picker
+  const $datePicker = $('#areasViewDate');
+  if ($datePicker && !$datePicker.value) {
+    $datePicker.value = state.areasViewDate || toDateStr(new Date());
+  }
 
   const hasAny =
     state.buildings.length ||
@@ -282,7 +300,7 @@ export function renderBuildings() {
     $sum.style.display = 'block';
     $sum.innerHTML = `
       <div class="areas-summary-row">
-        <span class="areas-summary-label">👥 Nhân viên đi làm hôm nay</span>
+        <span class="areas-summary-label">👥 Nhân viên đi làm</span>
         <span class="areas-summary-value">
           <span class="${workingNVCount === totalNV && totalNV > 0 ? 'ok' : ''}">${workingNVCount}</span>/${totalNV}
         </span>
@@ -293,11 +311,10 @@ export function renderBuildings() {
           <span class="${floorsWithPeopleCount === totalFloors && totalFloors > 0 ? 'ok' : ''}">${floorsWithPeopleCount}</span>/${totalFloors}
         </span>
       </div>
-      ${isFiltered ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed var(--border)">🔍 Đang lọc — số liệu tầng chỉ tính người khớp bộ lọc</div>` : ''}
+      ${isFiltered ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed var(--border)">🔍 Đang lọc</div>` : ''}
     `;
   }
 
-  // Special cards
   const externalHtml = renderSpecialCard({
     type: 'external',
     record: state.specialAreas.external,
@@ -340,7 +357,6 @@ export function renderBuildings() {
       })
     : '';
 
-  // ⭐ Buildings — collapsible
   const expanded = state.expandedBuildings;
   const buildingsHtml = state.buildings.map(b => {
     const floors = state.floors.filter(f => f.building_id === b.id)
@@ -348,7 +364,6 @@ export function renderBuildings() {
 
     const isExpanded = expanded.has(b.id);
 
-    // Đếm số người hôm nay toàn building
     let peopleCount = 0;
     for (const f of floors) {
       const assigns = state.floorAssignments[f.id] || [];
@@ -420,16 +435,12 @@ export function renderBuildings() {
 
   wrap.innerHTML = externalHtml + nightHtml + sundayOtHtml + buildingsHtml;
 
-  // Bind
   wrap.querySelectorAll('[data-toggle-building]').forEach(el => {
     el.addEventListener('click', () => {
       const bid = el.dataset.toggleBuilding;
       if (!(state.expandedBuildings instanceof Set)) state.expandedBuildings = new Set();
-      if (state.expandedBuildings.has(bid)) {
-        state.expandedBuildings.delete(bid);
-      } else {
-        state.expandedBuildings.add(bid);
-      }
+      if (state.expandedBuildings.has(bid)) state.expandedBuildings.delete(bid);
+      else state.expandedBuildings.add(bid);
       renderBuildings();
     });
   });
@@ -494,14 +505,15 @@ function renderSpecialCard(opts) {
 
   const visible = items.filter(x => filteredEmpIds.has(x.employee_id));
   const headerRight = visible.length > 0
-    ? `<span class="building-people" style="background:${colorEnd};color:${accentColor}">${visible.length} người hôm nay</span>`
-    : `<span class="building-people" style="background:${colorEnd};color:${accentColor}">Chưa có ai hôm nay</span>`;
+    ? `<span class="building-people" style="background:${colorEnd};color:${accentColor}">${visible.length} người</span>`
+    : `<span class="building-people" style="background:${colorEnd};color:${accentColor}">Chưa có ai</span>`;
 
   const rowsHtml = visible.length > 0
     ? visible.map(item => {
         const emp = state.employees.find(e => e.id === item.employee_id);
         if (!emp) return '';
         const name = emp.full_name || emp.username || '';
+        const sharedNote = (item.shared && item.shared > 1) ? ` <span style="font-size:11px;opacity:0.75;font-weight:500">(chia ${item.shared} người)</span>` : '';
         return `
           <div class="floor-assignee" style="padding:6px 0">
             <div class="assignee-avatar" style="background:linear-gradient(135deg, ${avatarGrad})">${name.charAt(0).toUpperCase()}</div>
@@ -509,11 +521,11 @@ function renderSpecialCard(opts) {
               <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
               ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
             </div>
-            <span style="margin-left:auto;font-weight:700;color:${accentColor};font-size:13px">${formatHours(item.hours)}</span>
+            <span style="margin-left:auto;font-weight:700;color:${accentColor};font-size:13px;text-align:right">${formatHours(item.hours)}${sharedNote}</span>
           </div>`;
       }).join('')
     : `<p class="hint" style="margin:0;font-size:12px;background:transparent;border:none;color:${accentColor}">
-         Hôm nay chưa có nhân viên nào làm ${title.toLowerCase()}.
+         Chưa có nhân viên nào làm ${title.toLowerCase()}.
        </p>`;
 
   return `
@@ -524,7 +536,7 @@ function renderSpecialCard(opts) {
         </div>
         <div class="building-header-right">${headerRight}</div>
       </div>
-      <div style="padding:0 16px 14px;color:${accentColor};font-size:12px;font-weight:600">
+      <div style="padding:0 16px 8px;color:${accentColor};font-size:12px;font-weight:600">
         📌 Giờ mặc định: ${formatHours(record.default_hours)}
         ${record.name && record.name !== title ? ` · ${record.name}` : ''}
       </div>
@@ -578,7 +590,6 @@ function renderSimpleCard(opts) {
   `;
 }
 
-/* ============ SPECIAL AREA MODAL ============ */
 let _editingSpecialType = null;
 
 export function openSpecialAreaModal(type) {
@@ -627,15 +638,10 @@ export async function saveSpecialArea() {
 
   let error;
   if (existing) {
-    const res = await supabase
-      .from('special_areas')
-      .update({ name, default_hours: hours })
-      .eq('id', existing.id);
+    const res = await supabase.from('special_areas').update({ name, default_hours: hours }).eq('id', existing.id);
     error = res.error;
   } else {
-    const res = await supabase
-      .from('special_areas')
-      .insert({ type: _editingSpecialType, name, default_hours: hours });
+    const res = await supabase.from('special_areas').insert({ type: _editingSpecialType, name, default_hours: hours });
     error = res.error;
   }
 
@@ -663,10 +669,7 @@ export async function deleteSpecialArea(type) {
 
   const title = type === 'external' ? 'Ngoại cảnh' : 'Ca đêm';
   const ok = confirm(
-    `Xoá "${title}"?\n\n` +
-    `• Chỉ xoá cấu hình khu vực\n` +
-    `• Dữ liệu chấm công cũ vẫn được giữ nguyên\n\n` +
-    `Tiếp tục?`
+    `Xoá "${title}"?\n\n• Chỉ xoá cấu hình khu vực\n• Dữ liệu chấm công cũ vẫn được giữ nguyên\n\nTiếp tục?`
   );
   if (!ok) return;
 
@@ -677,7 +680,6 @@ export async function deleteSpecialArea(type) {
   await loadBuildings();
 }
 
-/* ============ JUMP ============ */
 export async function jumpToEmployeeCalendar(empId) {
   const emp = state.employees.find(e => e.id === empId);
   if (!emp) { toast('Không tìm thấy nhân viên'); return; }
@@ -694,7 +696,6 @@ export async function jumpToEmployeeCalendar(empId) {
   toast(`📅 Đang xem lịch của ${emp.full_name || emp.username || ''}`);
 }
 
-/* ============ DELETE BUILDING ============ */
 export async function deleteBuilding(id) {
   if (!confirm('Xoá toà nhà này và tất cả tầng?')) return;
   const { error } = await supabase.from('buildings').delete().eq('id', id);
@@ -712,7 +713,6 @@ export async function deleteBuilding(id) {
   attendance.renderCalendar();
 }
 
-/* ============ SAVE BUILDING ============ */
 export async function saveBuilding() {
   if (!state.isAdmin) { toast('Chỉ Giám sát được thêm toà nhà'); return; }
   const name = $('#buildingName').value.trim();
@@ -723,18 +723,13 @@ export async function saveBuilding() {
   if (!count || count < 1) { toast('Số tầng lầu không hợp lệ'); return; }
   if (count > 50) { toast('Tối đa 50 tầng lầu'); return; }
 
-  const { data: b, error } = await supabase
-    .from('buildings').insert({ name }).select().single();
+  const { data: b, error } = await supabase.from('buildings').insert({ name }).select().single();
   if (error) { toast('Lỗi: ' + error.message); return; }
 
   const startFloor = noGround ? 1 : 0;
   const floors = [];
   for (let i = 0; i < count; i++) {
-    floors.push({
-      building_id: b.id,
-      floor_number: startFloor + i,
-      default_hours: 8,
-    });
+    floors.push({ building_id: b.id, floor_number: startFloor + i, default_hours: 8 });
   }
   const { error: e2 } = await supabase.from('floors').insert(floors);
   if (e2) { toast('Lỗi tạo tầng: ' + e2.message); return; }
@@ -748,7 +743,6 @@ export async function saveBuilding() {
   await loadBuildings();
 }
 
-/* ============ FLOOR SETUP ============ */
 export function openFloorSetup(buildingId) {
   state.floorSetupBuildingId = buildingId;
   const b = state.buildings.find(x => x.id === buildingId);
