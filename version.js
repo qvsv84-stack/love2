@@ -1,6 +1,6 @@
 // version.js — Version tracking + update check
-export const APP_VERSION = '2.0.0';
-export const APP_BUILD = '2026-11-05';
+export const APP_VERSION = '2.0.1';
+export const APP_BUILD = '2026-11-06';
 
 // ⭐ Expose cho debug
 if (typeof window !== 'undefined') {
