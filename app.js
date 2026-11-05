@@ -230,13 +230,14 @@ function bindEvents() {
     $sundayHours.addEventListener('input', updatePreview);
   }
 
+  /* ⭐ Add main/ot area — tạo dòng với type 'building' mặc định */
   $('#addMainAreaBtn').addEventListener('click', () => {
-    state.modalAreas.push({ building_id: '', floor_id: '', hours: 0 });
+    state.modalAreas.push({ type: 'building', building_id: '', floor_id: '', hours: null });
     renderMainAreaPicker();
     updatePreview();
   });
   $('#addOtAreaBtn').addEventListener('click', () => {
-    state.modalOtAreas.push({ building_id: '', floor_id: '', hours: null });
+    state.modalOtAreas.push({ type: 'building', building_id: '', floor_id: '', hours: null });
     renderOtAreaPicker();
     updatePreview();
   });
@@ -303,7 +304,7 @@ function bindEvents() {
 document.addEventListener('DOMContentLoaded', async () => {
   dbg('ok', '🚀 App khởi động');
 
-  // ⭐ Init debug module TRƯỚC — để bắt lỗi từ các module sau
+  // Init debug module TRƯỚC — để bắt lỗi từ các module sau
   initDebugModule();
 
   try {
@@ -351,7 +352,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     dbg('error', '💥 App init crash: ' + err.message);
     console.error(err);
-    // Không crash — hiện loading với nút Debug
     const loading = $('#loading');
     if (loading) {
       loading.innerHTML =
