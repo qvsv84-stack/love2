@@ -32,7 +32,7 @@ export function invalidateDayAssignCache() {
   _dayAssignCache.clear();
 }
 
-/* ⭐ SELECTED VIEW DATE — nhấp là vào split-view */
+/* ⭐ SELECTED VIEW DATE — nhấp là vào fullpage mode */
 export function setSelectedViewDate(dateStr) {
   const newVal = dateStr || null;
   if (state.selectedViewDate === newVal) return;
@@ -45,9 +45,8 @@ function hideDayPreview() {
   const $p = $('#dayPreviewPanel');
   if ($p) $p.style.display = 'none';
 
-  // ⭐ Thoát split-view
-  const $tab = $('#tab-calendar');
-  if ($tab) $tab.classList.remove('split-view');
+  // ⭐ Tắt fullpage mode
+  document.body.classList.remove('dpp-fullpage');
 }
 
 function renderDayPreview(dateStr) {
@@ -57,11 +56,10 @@ function renderDayPreview(dateStr) {
   const $body   = $('#dppBody');
   if (!$panel || !$body) return;
 
-  // ⭐ Bật split-view ngay (trước khi async load)
-  const $tab = $('#tab-calendar');
-  if ($tab) $tab.classList.add('split-view');
+  // ⭐ Bật fullpage NGAY (trước async)
+  document.body.classList.add('dpp-fullpage');
 
-  // ⭐ Setup nút ✕ đóng split-view
+  // ⭐ Setup nút X floating
   const $closeBtn = $('#dppCloseBtn');
   if ($closeBtn) {
     $closeBtn.onclick = (e) => {
@@ -114,9 +112,8 @@ function _renderDayPreviewImmediate(dateStr) {
 
   $panel.style.display = 'block';
 
-  // Đảm bảo split-view vẫn bật (phòng case gọi trực tiếp)
-  const $tab = $('#tab-calendar');
-  if ($tab) $tab.classList.add('split-view');
+  // Đảm bảo fullpage vẫn bật
+  document.body.classList.add('dpp-fullpage');
 }
 
 /* ⭐ Preview dùng CÙNG logic chia giờ với modal (calcEntryActualHours) */
@@ -1283,7 +1280,7 @@ export function renderCalendar() {
       attachCalendarSelect(el, el.dataset.date));
   }
 
-  // ⭐ Sync day preview panel / split-view
+  // ⭐ Sync day preview panel / fullpage mode
   if (!state.selectionMode && state.selectedViewDate) {
     renderDayPreview(state.selectedViewDate);
   } else {
