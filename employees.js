@@ -310,6 +310,7 @@ export async function toggleEmployeeStatus(userId, currentStatus) {
   await loadEmployees();
 }
 
+/* ⭐ FIX Bug 1: reset selectedEmployeeId nếu xoá chính NV đang chọn */
 export async function deleteEmployee(userId, name) {
   if (!state.isAdmin) return;
   const ok = confirm(
@@ -328,12 +329,24 @@ export async function deleteEmployee(userId, name) {
   invalidateAttendanceCache();
   if (state.salaryModule) state.salaryModule.invalidateCache();
 
+  // ⭐ FIX Bug 1: reset selectedEmployeeId nếu đang trỏ đến user bị xoá
+  const wasSelected = state.selectedEmployeeId === userId;
+  if (wasSelected) {
+    state.selectedEmployeeId = null;
+  }
+
+  // Reload danh sách — nếu selectedEmployeeId null, loadEmployees tự chọn user đầu tiên
   await loadEmployees();
 
   const buildings = await import('./buildings.js');
   const attendance = await import('./attendance.js');
-  await attendance.loadAttendanceForMonth();
-  await buildings.loadTodayAssignments();
+
+  // ⭐ Song song load lại data
+  await Promise.all([
+    attendance.loadAttendanceForMonth(),
+    buildings.loadTodayAssignments(),
+  ]);
+
   attendance.renderCalendar();
   buildings.renderBuildings();
 }
