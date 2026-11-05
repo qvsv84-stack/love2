@@ -334,6 +334,28 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .cal-day.off-day .day-hours { color: var(--danger); }
 
+/* ⭐ Ngày đang chọn để xem */
+.cal-day.selected-view {
+  background: var(--ocean-500) !important;
+  color: white !important;
+  border-color: var(--ocean-700) !important;
+  box-shadow: 0 0 0 2px var(--ocean-200), 0 4px 12px rgba(14,165,183,0.4) !important;
+  transform: scale(1.06);
+  z-index: 2;
+  transition: all 0.15s ease;
+}
+.cal-day.selected-view .day-hours {
+  color: rgba(255,255,255,0.9) !important;
+}
+.cal-day.selected-view .day-num {
+  color: white !important;
+}
+
+/* Animation cho nút Xem */
+#viewDateRow {
+  animation: fadeIn 0.2s ease;
+}
+
 /* ============ Calendar Legend ============ */
 .calendar-legend {
   display: flex;
@@ -1473,6 +1495,73 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .floor-form-row input.hours-input { flex: 0 0 80px; }
 
+/* ============ Summary view ============ */
+#attSummaryView { padding: 4px 0; }
+#attSummaryContent .summary-lines {
+  background: var(--ocean-50);
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  margin-bottom: 12px;
+}
+#attSummaryContent .summary-line-item {
+  font-size: 14px;
+  color: var(--text);
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+  line-height: 1.5;
+  font-weight: 600;
+  word-break: break-word;
+}
+#attSummaryContent .summary-line-item:last-child { border-bottom: none; }
+#attSummaryContent .summary-totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: linear-gradient(135deg, var(--ocean-100), var(--primary-light));
+  border-radius: 12px;
+  padding: 12px 10px;
+}
+#attSummaryContent .summary-totals > div { text-align: center; }
+#attSummaryContent .summary-totals span {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+#attSummaryContent .summary-totals strong {
+  display: block;
+  font-size: 16px;
+  color: var(--ocean-700);
+  font-weight: 700;
+}
+#attSummaryContent .summary-status {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+}
+#attSummaryContent .summary-status.leave {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1.5px solid #fcd34d;
+}
+#attSummaryContent .summary-status.off {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1.5px solid #fecaca;
+}
+#attSummaryContent .summary-shared {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 12px;
+  margin-left: 2px;
+}
+
 /* ============ Toast ============ */
 .toast {
   position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
@@ -1547,70 +1636,4 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .excel-matrix { font-size: 9px; }
   .excel-matrix tbody td { font-size: 9px; height: 18px; }
   .excel-matrix tbody td.td-name { font-size: 9px; }
-}
-/* ⭐ Summary view (sau khi lưu) */
-#attSummaryView { padding: 4px 0; }
-#attSummaryContent .summary-lines {
-  background: var(--ocean-50);
-  border-radius: 12px;
-  padding: 12px 14px;
-  border: 1.5px solid var(--border);
-  margin-bottom: 12px;
-}
-#attSummaryContent .summary-line-item {
-  font-size: 14px;
-  color: var(--text);
-  padding: 8px 0;
-  border-bottom: 1px dashed var(--border);
-  line-height: 1.5;
-  font-weight: 600;
-  word-break: break-word;
-}
-#attSummaryContent .summary-line-item:last-child { border-bottom: none; }
-#attSummaryContent .summary-totals {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  background: linear-gradient(135deg, var(--ocean-100), var(--primary-light));
-  border-radius: 12px;
-  padding: 12px 10px;
-}
-#attSummaryContent .summary-totals > div { text-align: center; }
-#attSummaryContent .summary-totals span {
-  display: block;
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-#attSummaryContent .summary-totals strong {
-  display: block;
-  font-size: 16px;
-  color: var(--ocean-700);
-  font-weight: 700;
-}
-#attSummaryContent .summary-status {
-  font-size: 15px;
-  font-weight: 700;
-  padding: 16px;
-  border-radius: 12px;
-  text-align: center;
-}
-#attSummaryContent .summary-status.leave {
-  background: #fef3c7;
-  color: #b45309;
-  border: 1.5px solid #fcd34d;
-}
-#attSummaryContent .summary-status.off {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1.5px solid #fecaca;
-}
-#attSummaryContent .summary-shared {
-  color: var(--text-muted);
-  font-weight: 500;
-  font-size: 12px;
-  margin-left: 2px;
 }
