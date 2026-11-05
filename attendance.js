@@ -573,10 +573,17 @@ export async function saveAttendance() {
 
   await loadAttendanceForMonth(true);
 
-  const buildings = await import('./buildings.js');
-  await buildings.loadTodayAssignments();
+  // ⭐ FIX Bug 3: render calendar NGAY — không chờ areas refresh
   renderCalendar();
-  buildings.renderBuildings();
+
+  // Areas refresh chạy nền — không block UX
+  import('./buildings.js')
+    .then(buildings => {
+      buildings.loadTodayAssignments()
+        .then(() => buildings.renderBuildings())
+        .catch(err => console.warn('[saveAttendance] refresh areas failed:', err));
+    })
+    .catch(err => console.warn('[saveAttendance] import buildings failed:', err));
 }
 
 /* ============ SELECTION MODE ============ */
@@ -586,7 +593,7 @@ export function toggleSelectionMode() {
   } else {
     state.selectionMode = true;
     state.selectedDates.clear();
-    $('#selectionBar').style.display = 'block';
+    const bar = $('#selectionBar'); if (bar) bar.style.display = 'block';
     const btn = $('#selectionToggleBtn');
     if (btn) { btn.textContent = '✕ Thoát chọn'; btn.classList.add('active'); }
     updateSelectionCount();
@@ -711,17 +718,24 @@ export function switchTab(name) {
     state.salaryModule.loadSalaryForMonth(false);
   }
 
+  // ⭐ FIX unhandled promise: thêm .catch
   if (name === 'areas' && state.isAdmin) {
-    import('./buildings.js').then(b => {
-      b.loadTodayAssignments().then(b.renderBuildings);
-    });
+    import('./buildings.js')
+      .then(b => {
+        b.loadTodayAssignments()
+          .then(() => b.renderBuildings())
+          .catch(err => console.warn('[switchTab areas] failed:', err));
+      })
+      .catch(err => console.warn('[switchTab areas] import failed:', err));
   }
 
   if (name === 'excel' && state.isAdmin) {
     const y = state.excelMonth.getFullYear();
     const m = state.excelMonth.getMonth() + 1;
     $('#excelMonth').value = `${y}-${String(m).padStart(2, '0')}`;
-    import('./excel.js').then(e => e.loadExcelData());
+    import('./excel.js')
+      .then(e => e.loadExcelData())
+      .catch(err => console.warn('[switchTab excel] failed:', err));
   }
 }
 
