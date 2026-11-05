@@ -3,7 +3,8 @@ import { supabase } from './supabase.js';
 import {
   state, $, $$, toast, toDateStr,
   DEFAULT_DOMAIN, LS_KEY,
-  initAuth, showLoginScreen, showGuestView, handleLogout,
+  initAuth, showLoginScreen, showGuestView, handleLogout, onLoggedIn,
+  invalidateAttendanceCache,
   openModal, closeModal,
 } from './core.js';
 
@@ -34,6 +35,7 @@ import {
 import { initExportModule } from './export.js';
 import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
+import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
 /* ============ BIND EVENTS ============ */
 function bindEvents() {
@@ -52,8 +54,14 @@ function bindEvents() {
     const remember = $('#rememberPass').checked;
 
     $('#loginError').textContent = '';
+    dbg('info', 'Đăng nhập: ' + raw);
     const { data, error } = await supabase.auth.signInWithPassword({ email: raw, password: pass });
-    if (error) { $('#loginError').textContent = 'Sai tên đăng nhập hoặc mật khẩu'; return; }
+    if (error) {
+      dbg('error', 'Login fail: ' + error.message);
+      $('#loginError').textContent = 'Sai tên đăng nhập hoặc mật khẩu';
+      return;
+    }
+    dbg('ok', 'Login OK: ' + data.user.email);
 
     if (remember) {
       localStorage.setItem(LS_KEY, JSON.stringify({
@@ -61,9 +69,12 @@ function bindEvents() {
       }));
     } else localStorage.removeItem(LS_KEY);
 
-    const { onLoggedIn } = await import('./core.js');
     await onLoggedIn(data.user);
   });
+
+  /* --- Debug button --- */
+  const debugBtn = $('#debugBtn');
+  if (debugBtn) debugBtn.addEventListener('click', toggleDebug);
 
   /* --- Tabs --- */
   $$('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -128,7 +139,7 @@ function bindEvents() {
     });
   }
 
-  /* --- Export (attendance excel) --- */
+  /* --- Export --- */
   $('#exportExcelBtn').addEventListener('click', () => {
     if (state.exportModule) state.exportModule.openExportModal();
   });
@@ -136,7 +147,10 @@ function bindEvents() {
     if (e.target.id === 'exportModal') closeModal('exportModal');
   });
   $('#exportSubmitBtn').addEventListener('click', () => {
-    if (state.exportModule) state.exportModule.doExport().catch(err => console.error(err));
+    if (state.exportModule) state.exportModule.doExport().catch(err => {
+      console.error(err);
+      dbg('error', 'Export fail: ' + err.message);
+    });
   });
   $$('input[name="exportScope"]').forEach(r => {
     r.addEventListener('change', () => {
@@ -167,7 +181,7 @@ function bindEvents() {
     }
   });
 
-  /* --- Excel tab --- */
+  /* --- Excel --- */
   const excelMonthEl = $('#excelMonth');
   if (excelMonthEl) excelMonthEl.addEventListener('change', onExcelMonthChanged);
 
@@ -265,51 +279,82 @@ function bindEvents() {
   /* --- Auth state change --- */
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session && state.user) {
-      import('./core.js').then(({ invalidateAttendanceCache }) => {
-        invalidateAttendanceCache();
-        if (state.salaryModule) state.salaryModule.invalidateCache();
-        showGuestView();
-      });
+      invalidateAttendanceCache();
+      if (state.salaryModule) state.salaryModule.invalidateCache();
+      showGuestView();
     }
   });
 }
 
 /* ============ DOM READY ============ */
-document.addEventListener('DOMContentLoaded', () => {
-  // Init 3 module con
-  state.exportModule = initExportModule({
-    state, toast, openModal, closeModal,
-  });
+document.addEventListener('DOMContentLoaded', async () => {
+  dbg('ok', '🚀 App khởi động');
 
-  state.salaryModule = initSalaryModule({
-    state, toast,
-    formatHours: (h) => {
-      if (h == null || isNaN(h)) return '0h';
-      const n = Number(h);
-      if (Number.isInteger(n)) return n + 'h';
-      return n.toFixed(2).replace(/\.?0+$/, '') + 'h';
-    },
-    formatVND: (n) => {
-      if (!n || isNaN(n)) return '0 đ';
-      return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' đ';
-    },
-    roleLabelOf: (p) => {
-      const ROLE_LABELS = {
-        admin: 'Giám sát',
-        temporary: 'Thời vụ',
-        employee: 'Nhân viên',
-        external: 'Ngoại cảnh',
-      };
-      if (!p) return 'Nhân viên';
-      if (p.role === 'admin') return ROLE_LABELS.admin;
-      if (p.role === 'temporary') return ROLE_LABELS.temporary;
-      if (p.role === 'external') return ROLE_LABELS.external;
-      return p.position || ROLE_LABELS.employee;
-    },
-  });
+  // ⭐ Init debug module TRƯỚC — để bắt lỗi từ các module sau
+  initDebugModule();
 
-  initPhoneModule();
+  try {
+    dbg('info', 'Init export module...');
+    state.exportModule = initExportModule({ state, toast, openModal, closeModal });
 
-  bindEvents();
-  initAuth();
+    dbg('info', 'Init salary module...');
+    state.salaryModule = initSalaryModule({
+      state, toast,
+      formatHours: (h) => {
+        if (h == null || isNaN(h)) return '0h';
+        const n = Number(h);
+        if (Number.isInteger(n)) return n + 'h';
+        return n.toFixed(2).replace(/\.?0+$/, '') + 'h';
+      },
+      formatVND: (n) => {
+        if (!n || isNaN(n)) return '0 đ';
+        return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' đ';
+      },
+      roleLabelOf: (p) => {
+        const ROLE_LABELS = {
+          admin: 'Giám sát',
+          temporary: 'Thời vụ',
+          employee: 'Nhân viên',
+          external: 'Ngoại cảnh',
+        };
+        if (!p) return 'Nhân viên';
+        if (p.role === 'admin') return ROLE_LABELS.admin;
+        if (p.role === 'temporary') return ROLE_LABELS.temporary;
+        if (p.role === 'external') return ROLE_LABELS.external;
+        return p.position || ROLE_LABELS.employee;
+      },
+    });
+
+    dbg('info', 'Init phone module...');
+    initPhoneModule();
+
+    dbg('info', 'Bind events...');
+    bindEvents();
+
+    dbg('info', 'Init auth...');
+    await initAuth();
+
+    dbg('ok', '✅ App ready');
+  } catch (err) {
+    dbg('error', '💥 App init crash: ' + err.message);
+    console.error(err);
+    // Không crash — hiện loading với nút Debug
+    const loading = $('#loading');
+    if (loading) {
+      loading.innerHTML =
+        '<div style="text-align:center;padding:24px;font-family:sans-serif">' +
+        '<p style="color:#e74c3c;font-weight:700;margin-bottom:12px">⚠️ Lỗi khởi động</p>' +
+        '<p style="font-size:13px;color:#5c7c82;margin-bottom:16px">' + (err.message || '') + '</p>' +
+        '<button id="errDebugBtn" style="padding:10px 20px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🔍 Mở Debug</button>' +
+        '</div>';
+      setTimeout(() => {
+        const b = document.getElementById('errDebugBtn');
+        if (b) b.addEventListener('click', async () => {
+          const mod = await import('./debug.js');
+          mod.openDebug();
+          mod.runAll();
+        });
+      }, 50);
+    }
+  }
 });
