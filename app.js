@@ -161,7 +161,6 @@ async function initAuth() {
     }
   } catch {}
 
-  // ⭐ FIX #1: clear timeout khi session resolve trước
   let session = null;
   let timeoutId = null;
   try {
@@ -191,7 +190,6 @@ function showLoginScreen() {
   $('#mainScreen').style.display = 'none';
 }
 
-// ⭐ FIX #2: guard chống double execution khi logout
 let _showGuestInProgress = false;
 
 async function showGuestView() {
@@ -236,7 +234,7 @@ async function showGuestView() {
 
     await loadPublicEmployees();
     await Promise.all([loadBuildings(), loadAttendanceForMonth()]);
-    updateSummary();  // ⭐ FIX race: double-safe
+    updateSummary();
     renderCalendar();
   } finally {
     _showGuestInProgress = false;
@@ -285,21 +283,19 @@ async function onLoggedIn(user) {
   state.selectedEmployeeId = user.id;
   switchTab('calendar');
 
-  // ⭐⭐⭐ LOAD SONG SONG — nhanh gấp 2-3 lần
   await Promise.all([
     loadEmployees(),
     loadBuildings(),
     loadAttendanceForMonth(),
   ]);
 
-  updateSummary();  // ⭐ FIX race: double-safe
+  updateSummary();
   renderCalendar();
   renderBuildings();
 }
 
 async function handleLogout() {
   await supabase.auth.signOut();
-  // ⭐ Clear cache khi logout
   invalidateAttendanceCache();
   if (salaryModule) salaryModule.invalidateCache();
   await showGuestView();
@@ -336,7 +332,7 @@ async function loadEmployees() {
 
   renderEmployeeSelect();
   renderEmployeeList();
-  updateSummary();  // ⭐ FIX race: gọi lại khi employees đã load xong
+  updateSummary();
 }
 
 function renderEmployeeSelect() {
@@ -495,7 +491,6 @@ async function saveEditEmployee() {
 
   toast('Đã cập nhật nhân viên ✓');
   closeModal('editEmployeeModal');
-  // ⭐ FIX #3: tên/SĐT đổi → invalidate salary
   if (salaryModule) salaryModule.invalidateCache();
   await loadEmployees();
   if (state.isAdmin) renderBuildings();
@@ -540,38 +535,41 @@ async function copyPhoneNumber() {
   }
 }
 
-/* ⭐ Mở Zalo — ưu tiên deep link để tránh lỗi zalo.me/{sđt} báo trang không tồn tại */
+/* ⭐ Mở Zalo — dùng IFRAME ẩn, KHÔNG navigate tab hiện tại (tránh trang trắng) */
 function openZalo() {
   const phone = state.phoneActionNumber;
   if (!phone) return;
 
   const deepLink = `zalo://conversation?phone=${phone}`;
-  const webFallback = `https://zalo.me/${phone}`;
 
-  // Đánh dấu để biết app có mở không
+  // Đánh dấu xem app có mở không
   let appOpened = false;
-  const onVisibilityChange = () => {
+  const onVis = () => {
     if (document.hidden) {
       appOpened = true;
-      document.removeEventListener('visibilitychange', onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVis);
     }
   };
-  document.addEventListener('visibilitychange', onVisibilityChange);
+  document.addEventListener('visibilitychange', onVis);
 
-  // Thử mở app Zalo trước (deep link — mobile có app sẽ nhảy thẳng vào chat)
-  try {
-    window.location.href = deepLink;
-  } catch (err) {
-    // Một số trình duyệt chặn — bỏ qua, fallback sẽ lo
-  }
+  // ⭐ Trigger deep link qua iframe ẩn — KHÔNG navigate tab chính
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:0;';
+  iframe.src = deepLink;
+  document.body.appendChild(iframe);
 
-  // Sau 1.5s nếu tab vẫn active (app chưa mở) → fallback web
+  // Dọn iframe sau 2s
   setTimeout(() => {
-    document.removeEventListener('visibilitychange', onVisibilityChange);
-    if (!appOpened && !document.hidden) {
-      window.open(webFallback, '_blank', 'noopener');
+    try { document.body.removeChild(iframe); } catch (_) {}
+  }, 2000);
+
+  // Sau 2s nếu app không mở → toast hướng dẫn (không mở web, không mất tab)
+  setTimeout(() => {
+    document.removeEventListener('visibilitychange', onVis);
+    if (!appOpened) {
+      toast('Nếu Zalo không tự mở, vào app Zalo tìm số ' + phone, 4500);
     }
-  }, 1500);
+  }, 2000);
 
   closeModal('phoneActionModal');
 }
@@ -606,7 +604,6 @@ async function changeEmployeeRole(userId, newRole, currentRole) {
   }
 
   toast(`Đã đổi thành ${ROLE_LABELS[newRole]} ✓`);
-  // ⭐ FIX #4: role đổi → invalidate salary
   if (salaryModule) salaryModule.invalidateCache();
   await loadEmployees();
   if (state.selectedEmployeeId === userId) updateSummary();
@@ -625,7 +622,6 @@ async function toggleEmployeeStatus(userId, currentStatus) {
   });
   if (error) { toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, '')); return; }
   toast(newStatus === 'inactive' ? '⏸ Đã vô hiệu hoá' : '▶ Đã kích hoạt');
-  // ⭐ FIX #5: status đổi → invalidate salary
   if (salaryModule) salaryModule.invalidateCache();
   await loadEmployees();
 }
@@ -644,7 +640,6 @@ async function deleteEmployee(userId, name) {
   if (error) { toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, '')); return; }
   toast('🗑 Đã xoá nhân viên');
 
-  // ⭐ Invalidate cache
   invalidateAttendanceCache();
   if (salaryModule) salaryModule.invalidateCache();
 
@@ -690,7 +685,6 @@ async function createEmployee() {
   }
   toast('Đã tạo nhân viên ✓');
   closeModal('employeeModal');
-  // ⭐ FIX #6: nhân viên mới → invalidate salary
   if (salaryModule) salaryModule.invalidateCache();
   await loadEmployees();
 }
@@ -710,7 +704,6 @@ async function loadBuildings() {
     state.floors = [];
   }
 
-  // ⭐ KHÔNG gọi loadTodayAssignments ở đây — chỉ cần khi mở tab Khu vực
   renderBuildings();
 }
 
@@ -1060,7 +1053,6 @@ async function saveBuilding() {
   $('#buildingName').value = '';
   $('#buildingFloors').value = '1';
   $('#noGroundFloor').checked = false;
-  // ⭐ FIX #7: toà mới → invalidate salary
   if (salaryModule) salaryModule.invalidateCache();
   await loadBuildings();
 }
@@ -1109,7 +1101,6 @@ async function loadAttendanceForMonth(forceRefresh = false) {
   const m = state.currentMonth.getMonth();
   const key = attendanceCacheKey(state.selectedEmployeeId, y, m);
 
-  // ⭐ Cache hit
   if (!forceRefresh && attendanceCache[key]) {
     state.attendance = attendanceCache[key];
     updateSummary();
@@ -1139,9 +1130,7 @@ function updateSummary() {
   if (!emp) {
     ['sumName', 'sumRole', 'sumMonthLabel', 'sumTodayDate']
       .forEach(id => { const el = $('#' + id); if (el) el.textContent = '—'; });
-    // ⭐ Ẩn phone row khi không có employee
     const $pr = $('#sumPhoneRow'); if ($pr) $pr.style.display = 'none';
-    // ⭐ FIX #8: reset đúng kiểu
     const $sd = $('#sumDays'); if ($sd) $sd.textContent = '0';
     const $sw = $('#sumWork'); if ($sw) $sw.textContent = '0h';
     const $so = $('#sumOT'); if ($so) $so.textContent = '0h';
@@ -1154,7 +1143,6 @@ function updateSummary() {
   $('#sumName').textContent = emp.full_name || emp.username || emp.email || '—';
   $('#sumRole').textContent = roleLabelOf(emp);
 
-  // ⭐ Phone row — hiện nếu có SĐT, tap mở modal 3 hành động
   const $phoneRow = $('#sumPhoneRow');
   const $phoneBtn = $('#sumPhoneBtn');
   const $phoneText = $('#sumPhoneText');
@@ -1162,7 +1150,6 @@ function updateSummary() {
   if ($phoneRow && $phoneBtn && $phoneText) {
     if (empPhone) {
       $phoneText.textContent = empPhone;
-      // Gỡ handler cũ (nếu có) rồi gắn mới — tránh leak khi đổi employee
       $phoneBtn.onclick = (ev) => {
         ev.preventDefault();
         showPhoneAction(empPhone);
@@ -1174,7 +1161,6 @@ function updateSummary() {
     }
   }
 
-  // ⭐ Label tháng đang xem (MM/YYYY)
   const y = state.currentMonth.getFullYear();
   const mo = state.currentMonth.getMonth() + 1;
   $('#sumMonthLabel').textContent = `${pad(mo)}/${y}`;
@@ -1197,7 +1183,6 @@ function updateSummary() {
     work += h;
     ot += o;
 
-    // ⭐ Cộng dồn riêng cho hôm nay
     if (a.date === todayStr) {
       todayWork += h;
       todayOT += o;
@@ -1209,7 +1194,6 @@ function updateSummary() {
   $('#sumOT').textContent = formatHours(ot);
   $('#sumLeave').textContent = leaveDays;
 
-  // ⭐ Chỉ hiện section "Hôm nay" khi đang xem đúng tháng hiện tại
   const isViewingCurrentMonth =
     y === todayDate.getFullYear() && (mo - 1) === todayDate.getMonth();
 
@@ -1667,7 +1651,6 @@ async function saveAttendance() {
 
   if (wasSelection) exitSelectionMode();
 
-  // ⭐ Invalidate cache
   invalidateAttendanceCache(state.selectedEmployeeId);
   if (salaryModule) salaryModule.invalidateCache();
 
@@ -1803,7 +1786,6 @@ function switchTab(name) {
     $('#salaryRoleFilter').value = state.salaryRoleFilter;
     $('#salarySearch').value = state.salarySearch || '';
     $('#salarySort').value = state.salarySort || 'hours_desc';
-    // ⭐ false = dùng cache, không force refetch mỗi lần mở tab
     salaryModule.loadSalaryForMonth(false);
   }
 
@@ -1861,7 +1843,6 @@ async function loadExcelData() {
   renderExcelBlocks(y, m, daysInMonth);
 }
 
-/* Xây dựng map emp_id -> { day: att } */
 function buildAttMap() {
   const map = {};
   for (const a of state.excelAttendance) {
@@ -1872,7 +1853,6 @@ function buildAttMap() {
   return map;
 }
 
-/* Tính giá trị 1 ô */
 function getCellData(att) {
   if (!att) return { nc: '', ot: '', ncCls: 'val-empty', otCls: 'val-empty' };
   if (att.mode === 'leave') return { nc: 'P', ot: '', ncCls: 'val-leave', otCls: 'val-empty' };
@@ -1891,7 +1871,6 @@ function getCellData(att) {
   return { nc: ncVal, ot: otVal, ncCls: ncVal ? '' : 'val-empty', otCls: otVal ? '' : 'val-empty' };
 }
 
-/* Render 1 block matrix (portrait) */
 function renderMatrixBlock(y, m, fromDay, toDay, attMap) {
   const todayStr = toDateStr(new Date());
   const todayPrefix = `${y}-${pad(m)}`;
@@ -1979,7 +1958,6 @@ function onExcelMonthChanged() {
   loadExcelData();
 }
 
-/* Modal action cho từng user */
 function openExcelActionModal(empId) {
   const emp = state.excelProfiles.find(e => e.id === empId);
   if (!emp) return;
@@ -1988,7 +1966,6 @@ function openExcelActionModal(empId) {
   openModal('excelActionModal');
 }
 
-/* ⭐ Render PNG capture table (full 31 ngày) — dùng cho html2canvas */
 function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title) {
   const todayStr = toDateStr(new Date());
   const todayPrefix = `${year}-${pad(month)}`;
@@ -2038,7 +2015,6 @@ function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title
   return html;
 }
 
-/* ⭐ Chụp 1 user (hoặc nhiều user) → PNG — lazy load html2canvas */
 async function captureExcelPNG(profilesToCapture, title, filename) {
   try {
     await loadHtml2Canvas();
@@ -2091,7 +2067,6 @@ async function captureExcelPNG(profilesToCapture, title, filename) {
   }
 }
 
-/* ⭐ Lưu 1 user */
 async function saveExcelOne() {
   const empId = state.excelActionEmpId;
   if (!empId) return;
@@ -2124,7 +2099,6 @@ async function saveExcelOne() {
   toast('📷 Đã lưu ảnh: ' + result.filename);
 }
 
-/* ⭐ Chia sẻ 1 user */
 async function shareExcelOne() {
   const empId = state.excelActionEmpId;
   if (!empId) return;
@@ -2148,7 +2122,6 @@ async function shareExcelOne() {
   await sharePNG(result.blob, result.filename, `Bảng công ${name}`);
 }
 
-/* ⭐ Lưu tất cả */
 async function saveExcelAll() {
   if (!state.excelProfiles.length) { toast('Chưa có dữ liệu'); return; }
 
@@ -2177,7 +2150,6 @@ async function saveExcelAll() {
   toast('📷 Đã lưu ảnh: ' + result.filename);
 }
 
-/* ⭐ Chia sẻ tất cả */
 async function shareExcelAll() {
   if (!state.excelProfiles.length) { toast('Chưa có dữ liệu'); return; }
 
@@ -2197,7 +2169,6 @@ async function shareExcelAll() {
   await sharePNG(result.blob, result.filename, 'Bảng công toàn công ty');
 }
 
-/* ⭐ Share PNG — hỗ trợ iOS + desktop */
 async function sharePNG(blob, filename, title) {
   const file = new File([blob], filename, { type: 'image/png' });
 
@@ -2303,7 +2274,6 @@ async function bulkCopySubmit() {
   toast(`Đã copy ${payloads.length} bản ghi ✓`);
   closeModal('bulkCopyModal');
 
-  // ⭐ Invalidate cache
   invalidateAttendanceCache();
   if (salaryModule) salaryModule.invalidateCache();
 
@@ -2382,7 +2352,6 @@ function bindEvents() {
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
 
-  // Areas filters
   const areasSearchEl = $('#areasSearch');
   if (areasSearchEl) {
     areasSearchEl.addEventListener('input', (e) => {
@@ -2398,7 +2367,6 @@ function bindEvents() {
     });
   }
 
-  // EXPORT
   $('#exportExcelBtn').addEventListener('click', () => {
     if (exportModule) exportModule.openExportModal();
   });
@@ -2417,7 +2385,6 @@ function bindEvents() {
     if (exportModule) exportModule.onMonthChanged().catch(err => console.error(err));
   });
 
-  // SALARY
   $('#salaryMonth').addEventListener('change', () => {
     if (salaryModule) salaryModule.onMonthChanged();
   });
@@ -2436,7 +2403,6 @@ function bindEvents() {
     }
   });
 
-  // EXCEL TAB
   const excelMonthEl = $('#excelMonth');
   if (excelMonthEl) excelMonthEl.addEventListener('change', onExcelMonthChanged);
 
@@ -2459,7 +2425,6 @@ function bindEvents() {
     });
   }
 
-  // ATTENDANCE MODAL
   $('#attendanceModal').addEventListener('click', (e) => {
     if (e.target.id === 'attendanceModal') closeModal('attendanceModal');
   });
@@ -2513,7 +2478,6 @@ function bindEvents() {
   });
   $('#saveEditEmpBtn').addEventListener('click', saveEditEmployee);
 
-  // ⭐ PHONE ACTION — Gọi / Zalo / Copy
   $('#phoneCallBtn').addEventListener('click', callPhoneNumber);
   $('#phoneCopyBtn').addEventListener('click', copyPhoneNumber);
   const $zaloBtn = $('#phoneZaloBtn');
