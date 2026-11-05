@@ -25,6 +25,7 @@ import {
   toggleModeSections, toggleSupOtGroup, toggleSundayOtSection, updatePreview,
   saveAttendance, toggleSelectionMode, exitSelectionMode,
   renderCalendar, switchTab, changeMonth,
+  openSelectedDate,
 } from './attendance.js';
 
 import {
@@ -38,7 +39,7 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-/* ⭐ Helper đọc ngày đang xem khu vực — picker là source of truth */
+/* ⭐ Helper đọc ngày đang xem khu vực */
 function getAreasViewDate() {
   const $dp = $('#areasViewDate');
   if ($dp && $dp.value) return $dp.value;
@@ -117,6 +118,14 @@ function bindEvents() {
     const todayStr = toDateStr(new Date());
     openAttendanceModal(todayStr);
   });
+
+  /* ⭐ Nút Xem chi tiết ngày đã chọn */
+  const $viewDateBtn = $('#viewDateBtn');
+  if ($viewDateBtn) {
+    $viewDateBtn.addEventListener('click', () => {
+      openSelectedDate();
+    });
+  }
 
   $('#selectionToggleBtn').addEventListener('click', toggleSelectionMode);
   $('#cancelSelectionBtn').addEventListener('click', exitSelectionMode);
