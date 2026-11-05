@@ -197,13 +197,21 @@
           </div>
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
+
+        <!-- ⭐ Nút Xem chi tiết ngày đã chọn -->
+        <div id="viewDateRow" style="display:none;margin-top:12px">
+          <button id="viewDateBtn" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;font-size:15px">
+            👁 Xem chi tiết ngày <span id="viewDateLabel">—</span>
+          </button>
+        </div>
+
         <div class="calendar-legend">
           <span class="legend-item"><span class="legend-dot dot-work"></span>Đi làm</span>
           <span class="legend-item"><span class="legend-dot dot-off"></span>OFF</span>
           <span class="legend-item"><span class="legend-dot dot-leave"></span>Phép</span>
           <span class="legend-item"><span class="legend-dot dot-today"></span>Hôm nay</span>
         </div>
-        <p class="hint" id="calendarHint" style="display:none">💡 Nhấp 2 lần (double-tap) vào một ngày để chấm công · Sau khi lưu sẽ thu gọn</p>
+        <p class="hint" id="calendarHint" style="display:none">💡 Nhấp vào một ngày để chọn · Nhấn "Xem chi tiết" để chấm công</p>
       </section>
 
       <section id="tab-areas" class="tab-content">
@@ -211,7 +219,6 @@
           <h2>🏢 Khu vực phụ trách</h2>
         </div>
 
-        <!-- ⭐ Date picker xem lại ngày cũ + nút Hôm nay -->
         <div class="form-group" style="margin-bottom:12px">
           <label>📅 Xem ngày</label>
           <div style="display:flex;gap:6px;align-items:center">
