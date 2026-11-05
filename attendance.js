@@ -9,12 +9,8 @@ import {
 import { showPhoneAction } from './phone.js';
 
 function ensureSpecialState() {
-  if (!state.specialAreas) {
-    state.specialAreas = { external: null, night: null };
-  }
-  if (!Array.isArray(state.dayAssignments)) {
-    state.dayAssignments = [];
-  }
+  if (!state.specialAreas) state.specialAreas = { external: null, night: null };
+  if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
 export async function loadAttendanceForMonth(forceRefresh = false) {
@@ -36,13 +32,8 @@ export async function loadAttendanceForMonth(forceRefresh = false) {
     .from('attendance').select('*')
     .eq('employee_id', state.selectedEmployeeId)
     .gte('date', start).lte('date', end);
-  if (error) {
-    console.error(error);
-    state.attendance = [];
-  } else {
-    state.attendance = data || [];
-    attendanceCache[key] = state.attendance;
-  }
+  if (error) { console.error(error); state.attendance = []; }
+  else { state.attendance = data || []; attendanceCache[key] = state.attendance; }
   updateSummary();
 }
 
@@ -50,7 +41,7 @@ async function loadDayAssignments(dateStr) {
   try {
     const { data, error } = await supabase
       .from('attendance')
-      .select('employee_id, areas')
+      .select('employee_id, areas, ot_areas')
       .eq('date', dateStr)
       .neq('is_off', true);
     if (error) { console.error(error); return []; }
@@ -63,13 +54,36 @@ function getConflictsForFloor(floorId, excludeEmpId) {
   const empIds = new Set();
   for (const att of state.dayAssignments) {
     if (att.employee_id === excludeEmpId) continue;
-    if (Array.isArray(att.areas)) {
-      for (const a of att.areas) {
+    const check = (arr) => {
+      if (!Array.isArray(arr)) return;
+      for (const a of arr) {
         if ((!a.type || a.type === 'building') && a.floor_id === floorId) {
           empIds.add(att.employee_id);
         }
       }
-    }
+    };
+    check(att.areas);
+    check(att.ot_areas);
+  }
+  return [...empIds].map(id => {
+    const emp = state.employees.find(e => e.id === id);
+    return emp?.full_name || emp?.username || 'NV khác';
+  });
+}
+
+function getConflictsForSpecialType(type, excludeEmpId) {
+  if (!type || !Array.isArray(state.dayAssignments)) return [];
+  const empIds = new Set();
+  for (const att of state.dayAssignments) {
+    if (att.employee_id === excludeEmpId) continue;
+    const check = (arr) => {
+      if (!Array.isArray(arr)) return;
+      for (const a of arr) {
+        if (a.type === type) empIds.add(att.employee_id);
+      }
+    };
+    check(att.areas);
+    check(att.ot_areas);
   }
   return [...empIds].map(id => {
     const emp = state.employees.find(e => e.id === id);
@@ -105,10 +119,7 @@ export function updateSummary() {
       $phoneText.textContent = empPhone;
       $phoneBtn.onclick = (ev) => { ev.preventDefault(); showPhoneAction(empPhone); };
       $phoneRow.style.display = 'block';
-    } else {
-      $phoneRow.style.display = 'none';
-      $phoneBtn.onclick = null;
-    }
+    } else { $phoneRow.style.display = 'none'; $phoneBtn.onclick = null; }
   }
 
   const y = state.currentMonth.getFullYear();
@@ -143,9 +154,7 @@ export function updateSummary() {
       $('#sumTodayDate').textContent = `${pad(todayDate.getDate())}/${pad(todayDate.getMonth() + 1)}`;
       $('#sumTodayWork').textContent = formatHours(todayWork);
       $('#sumTodayOT').textContent = formatHours(todayOT);
-    } else {
-      $today.style.display = 'none';
-    }
+    } else $today.style.display = 'none';
   }
 }
 
@@ -168,17 +177,14 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   state.editingDate = dateStr;
   state.batchDates = batchDates;
 
-  // Refresh floors để preview dùng giờ mới nhất
   try {
     const buildings = await import('./buildings.js');
     await buildings.loadBuildings();
-  } catch (err) { console.warn('[openAttendanceModal] refresh buildings failed:', err); }
+  } catch (err) { console.warn('[openAttendanceModal] refresh failed:', err); }
 
   if (!batchDates) {
     state.dayAssignments = await loadDayAssignments(dateStr);
-  } else {
-    state.dayAssignments = [];
-  }
+  } else state.dayAssignments = [];
 
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   const targetIsSupervisor = emp?.role === 'admin';
@@ -198,7 +204,7 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
 
   if (!batchDates) {
     template = state.attendance.find(a => a.date === dateStr) || null;
-    if (template) { source = 'existing'; }
+    if (template) source = 'existing';
     else {
       const prev = await getPreviousAttendance(state.selectedEmployeeId, dateStr);
       if (prev) { template = prev; source = 'previous'; prevDate = prev.date; }
@@ -224,7 +230,7 @@ function showPrefillNote(source, prevDate) {
   if (source === 'previous' && prevDate) {
     el.textContent = `📋 Đã điền sẵn theo ngày ${formatDateVN(prevDate)} — sửa lại nếu cần`;
     el.style.display = 'block';
-  } else { el.style.display = 'none'; }
+  } else el.style.display = 'none';
 }
 
 function showBatchNote(batchDates) {
@@ -235,7 +241,7 @@ function showBatchNote(batchDates) {
     const more = sorted.length > 5 ? ` ... +${sorted.length - 5} ngày` : '';
     el.textContent = `📅 Sẽ áp dụng cho ${sorted.length} ngày: ${list}${more}`;
     el.style.display = 'block';
-  } else { el.style.display = 'none'; }
+  } else el.style.display = 'none';
 }
 
 function openSupervisorModeContent(template) {
@@ -361,18 +367,17 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         </option>`
       ).join('');
 
-      // ⭐ Luôn hiện input giờ cho toà nhà (cả main và OT)
       const floor = entry.floor_id ? state.floors.find(x => x.id === entry.floor_id) : null;
       const displayVal = entry.hours != null ? entry.hours : '';
       const placeholder = floor ? formatHours(floor.default_hours) : 'Tự động';
-      const titleHint = isOt ? 'Để trống = chia sẻ tự động' : 'Để trống = tự chia sẻ theo tầng';
+      const titleHint = isOt ? 'Để trống = tự động chia sẻ' : 'Để trống = tự chia sẻ theo tầng';
       const hoursInput = `<input type="number" class="area-hours-input" data-hours-idx="${idx}"
         step="0.5" min="0" max="24" value="${displayVal}" placeholder="${placeholder}" title="${titleHint}" />`;
 
       if (entry.floor_id) {
         const conflicts = getConflictsForFloor(entry.floor_id, state.selectedEmployeeId);
         if (conflicts.length > 0) {
-          conflictHtml = `<div class="area-conflict">⚠️ Đã có ${conflicts.join(', ')} đang làm ở tầng này</div>`;
+          conflictHtml = `<div class="area-conflict">⚠️ Cùng tầng với ${conflicts.join(', ')} — nếu nhập cùng giờ sẽ chia đều</div>`;
         }
       }
 
@@ -387,6 +392,11 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       const displayVal = entry.hours != null ? entry.hours : (defaultH != null ? defaultH : '');
       const label = type === 'external' ? 'Giờ ngoại cảnh' : 'Giờ ca đêm';
       const specialName = special?.name || (type === 'external' ? 'Ngoại cảnh' : 'Ca đêm');
+
+      const conflicts = getConflictsForSpecialType(type, state.selectedEmployeeId);
+      if (conflicts.length > 0) {
+        conflictHtml = `<div class="area-conflict">⚠️ Cùng ${specialName.toLowerCase()} với ${conflicts.join(', ')} — nếu nhập cùng giờ sẽ chia đều</div>`;
+      }
 
       contentHtml = `
         <div style="flex:1 1 auto;display:flex;align-items:center;gap:8px;min-width:0">
@@ -430,7 +440,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         updatePreview();
       });
     }
-
     if (bSel) {
       bSel.addEventListener('change', () => {
         areasState[idx].building_id = bSel.value;
@@ -440,7 +449,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         updatePreview();
       });
     }
-
     if (fSel) {
       fSel.addEventListener('change', () => {
         areasState[idx].floor_id = fSel.value;
@@ -449,7 +457,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         updatePreview();
       });
     }
-
     if (hInput) {
       hInput.addEventListener('input', () => {
         const raw = hInput.value.trim();
@@ -457,7 +464,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         updatePreview();
       });
     }
-
     removeBtn.addEventListener('click', () => {
       areasState.splice(idx, 1);
       if (!areasState.length) {
@@ -469,13 +475,8 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
   });
 }
 
-export function renderMainAreaPicker() {
-  renderAreaPickerInto('mainAreaPicker', state.modalAreas, false);
-}
-
-export function renderOtAreaPicker() {
-  renderAreaPickerInto('otAreaPicker', state.modalOtAreas, true);
-}
+export function renderMainAreaPicker() { renderAreaPickerInto('mainAreaPicker', state.modalAreas, false); }
+export function renderOtAreaPicker() { renderAreaPickerInto('otAreaPicker', state.modalOtAreas, true); }
 
 export function toggleModeSections(mode) {
   const m = $('#manualHoursGroup'); if (m) m.style.display = mode === 'manual' ? 'block' : 'none';
@@ -518,17 +519,14 @@ function computeMainHoursRaw() {
   for (const entry of state.modalAreas) h += entryHours(entry);
   return h;
 }
-
 function computeMainHours() { return Math.min(computeMainHoursRaw(), DAILY_MAIN_CAP); }
 function computeOverflow() { return Math.max(0, computeMainHoursRaw() - DAILY_MAIN_CAP); }
-
 function computeOtHoursRaw() {
   if (isSundayOtChecked()) return getSundayOtHours();
   let h = 0;
   for (const entry of state.modalOtAreas) h += entryHours(entry);
   return h;
 }
-
 function computeOtHours() {
   if (isSundayOtChecked()) return getSundayOtHours();
   return computeOtHoursRaw() + computeOverflow();
@@ -545,7 +543,6 @@ export function updatePreview() {
     const $tp = $('#supTotalPreview'); if ($tp) $tp.textContent = isLeave ? 'PHÉP' : formatHours(mainH + otH);
     return;
   }
-
   const mode = getSelectedMode();
   const isInactive = mode === 'off' || mode === 'leave';
   const mainH = computeMainHours();
@@ -564,9 +561,7 @@ function buildSupervisorPayload() {
   const isOff = mode === 'off', isLeave = mode === 'leave';
   const otH = mode === 'ot' ? Number($('#supOtHours').value || 0) : 0;
   if (mode === 'ot' && otH <= 0) { toast('Nhập số giờ tăng ca (> 0)'); return null; }
-  if (isLeave) {
-    return { employee_id: state.selectedEmployeeId, total_hours: 0, ot_hours: 0, is_off: false, mode: 'leave', manual_hours: null, areas: [], ot_areas: [] };
-  }
+  if (isLeave) return { employee_id: state.selectedEmployeeId, total_hours: 0, ot_hours: 0, is_off: false, mode: 'leave', manual_hours: null, areas: [], ot_areas: [] };
   return {
     employee_id: state.selectedEmployeeId,
     total_hours: isOff ? 0 : SUPERVISOR_HOURS,
@@ -580,36 +575,23 @@ function buildSupervisorPayload() {
 
 function serializeArea(entry) {
   if (entry.type === 'building') {
-    return {
-      type: 'building',
-      building_id: entry.building_id,
-      floor_id: entry.floor_id,
-      hours: entry.hours != null ? Number(entry.hours) : null,
-    };
+    return { type: 'building', building_id: entry.building_id, floor_id: entry.floor_id, hours: entry.hours != null ? Number(entry.hours) : null };
   }
   return { type: entry.type, hours: Number(entry.hours || 0) };
 }
 
 function buildEmployeePayload() {
   const mode = getSelectedMode();
-
-  if (mode === 'leave') {
-    return { employee_id: state.selectedEmployeeId, total_hours: 0, ot_hours: 0, is_off: false, mode: 'leave', manual_hours: null, areas: [], ot_areas: [] };
-  }
-  if (mode === 'off') {
-    return { employee_id: state.selectedEmployeeId, total_hours: 0, ot_hours: 0, is_off: true, mode: 'off', manual_hours: null, areas: [], ot_areas: [] };
-  }
+  if (mode === 'leave') return { employee_id: state.selectedEmployeeId, total_hours: 0, ot_hours: 0, is_off: false, mode: 'leave', manual_hours: null, areas: [], ot_areas: [] };
+  if (mode === 'off') return { employee_id: state.selectedEmployeeId, total_hours: 0, ot_hours: 0, is_off: true, mode: 'off', manual_hours: null, areas: [], ot_areas: [] };
   if (mode === 'manual') {
     const mh = Number($('#manualHours').value || 0);
     if (mh <= 0) { toast('Nhập số giờ công (> 0)'); return null; }
-    const otH = computeOtHours();
     return {
       employee_id: state.selectedEmployeeId,
       total_hours: Math.min(mh, DAILY_MAIN_CAP),
-      ot_hours: otH,
-      is_off: false,
-      mode: 'manual',
-      manual_hours: mh,
+      ot_hours: computeOtHours(),
+      is_off: false, mode: 'manual', manual_hours: mh,
       areas: [],
       ot_areas: isSundayOtChecked()
         ? [{ type: 'sunday_ot', hours: getSundayOtHours() }]
@@ -621,7 +603,6 @@ function buildEmployeePayload() {
     if (a.type === 'building') return a.building_id && a.floor_id;
     return entryHours(a) > 0;
   });
-
   if (!validAreas.length) { toast('Chọn ít nhất 1 khu vực hoặc nhập giờ'); return null; }
 
   let totalMain = 0;
@@ -635,16 +616,13 @@ function buildEmployeePayload() {
   } else {
     otAreas = state.modalOtAreas.filter(a => entryHours(a) > 0).map(a => serializeArea(a));
   }
-
   const totalOt = isSundayOtChecked() ? getSundayOtHours() : otAreas.reduce((s, a) => s + Number(a.hours || 0), 0);
 
   return {
     employee_id: state.selectedEmployeeId,
     total_hours: mainCapped,
     ot_hours: totalOt,
-    is_off: false,
-    mode: 'default',
-    manual_hours: null,
+    is_off: false, mode: 'default', manual_hours: null,
     areas: validAreas.map(a => serializeArea(a)),
     ot_areas: otAreas,
   };
@@ -653,10 +631,8 @@ function buildEmployeePayload() {
 export async function saveAttendance() {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) return;
-
   const basePayload = state.isSupervisorMode ? buildSupervisorPayload() : buildEmployeePayload();
   if (!basePayload) return;
-
   const dates = state.batchDates && state.batchDates.length > 0 ? [...state.batchDates] : [state.editingDate];
 
   if (dates.length > 1) {
@@ -668,7 +644,6 @@ export async function saveAttendance() {
   }
 
   const payloads = dates.map(date => ({ ...basePayload, date }));
-
   const { error } = await supabase.from('attendance').upsert(payloads, { onConflict: 'employee_id,date' });
   if (error) { toast('Lưu thất bại: ' + error.message); return; }
 
@@ -686,10 +661,8 @@ export async function saveAttendance() {
   renderCalendar();
 
   import('./buildings.js').then(buildings => {
-    buildings.loadTodayAssignments()
-      .then(() => buildings.renderBuildings())
-      .catch(err => console.warn('[saveAttendance] refresh areas failed:', err));
-  }).catch(err => console.warn('[saveAttendance] import buildings failed:', err));
+    buildings.loadTodayAssignments().then(() => buildings.renderBuildings()).catch(err => console.warn(err));
+  }).catch(err => console.warn(err));
 }
 
 export function toggleSelectionMode() {
@@ -731,7 +704,6 @@ export function renderCalendar() {
   const y = state.currentMonth.getFullYear();
   const m = state.currentMonth.getMonth();
   const $ml = $('#monthLabel'); if ($ml) $ml.textContent = `Tháng ${m + 1}/${y}`;
-
   const grid = $('#calendarGrid');
   if (!grid) return;
 
@@ -810,14 +782,14 @@ export function switchTab(name) {
   }
   if (name === 'areas' && state.isAdmin) {
     import('./buildings.js').then(b => {
-      b.loadTodayAssignments().then(() => b.renderBuildings()).catch(err => console.warn('[switchTab areas] failed:', err));
-    }).catch(err => console.warn('[switchTab areas] import failed:', err));
+      b.loadTodayAssignments().then(() => b.renderBuildings()).catch(err => console.warn(err));
+    }).catch(err => console.warn(err));
   }
   if (name === 'excel' && state.isAdmin) {
     const y = state.excelMonth.getFullYear();
     const m = state.excelMonth.getMonth() + 1;
     $('#excelMonth').value = `${y}-${String(m).padStart(2, '0')}`;
-    import('./excel.js').then(e => e.loadExcelData()).catch(err => console.warn('[switchTab excel] failed:', err));
+    import('./excel.js').then(e => e.loadExcelData()).catch(err => console.warn(err));
   }
 }
 
