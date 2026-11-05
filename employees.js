@@ -7,12 +7,24 @@ import {
 } from './core.js';
 import { showPhoneAction } from './phone.js';
 
+/* ⭐ Helper: profile có phải user thật không */
+function isValidProfile(p) {
+  const hasName = (p.full_name || '').trim().length > 0;
+  const hasUsername = (p.username || '').trim().length > 0;
+  const hasEmail = (p.email || '').trim().length > 0;
+  return hasName || hasUsername || hasEmail;
+}
+
 /* ============ LOAD ============ */
 export async function loadPublicEmployees() {
   const { data, error } = await supabase
     .from('profiles_public').select('*').order('full_name');
   if (error) { console.error(error); return; }
-  state.employees = sortEmployees(data || []);
+
+  // ⭐ FIX: lọc bỏ profile rỗng (từ anonymous chat)
+  const valid = (data || []).filter(isValidProfile);
+
+  state.employees = sortEmployees(valid);
 
   if (state.employees.length && !state.selectedEmployeeId) {
     state.selectedEmployeeId = state.employees[0].id;
@@ -31,7 +43,11 @@ export async function loadEmployees() {
 
   const { data, error } = await supabase.from('profiles').select('*').order('full_name');
   if (error) { console.error(error); toast('Không tải được nhân viên'); return; }
-  state.employees = sortEmployees(data || []);
+
+  // ⭐ FIX: lọc bỏ profile rỗng (anonymous chat hoặc orphan)
+  const valid = (data || []).filter(isValidProfile);
+
+  state.employees = sortEmployees(valid);
 
   if (state.selectedEmployeeId && !state.employees.find(e => e.id === state.selectedEmployeeId)) {
     state.selectedEmployeeId = state.user?.id || (state.employees[0]?.id ?? null);
@@ -310,7 +326,6 @@ export async function toggleEmployeeStatus(userId, currentStatus) {
   await loadEmployees();
 }
 
-/* ⭐ FIX Bug 1: reset selectedEmployeeId nếu xoá chính NV đang chọn */
 export async function deleteEmployee(userId, name) {
   if (!state.isAdmin) return;
   const ok = confirm(
@@ -329,19 +344,14 @@ export async function deleteEmployee(userId, name) {
   invalidateAttendanceCache();
   if (state.salaryModule) state.salaryModule.invalidateCache();
 
-  // ⭐ FIX Bug 1: reset selectedEmployeeId nếu đang trỏ đến user bị xoá
   const wasSelected = state.selectedEmployeeId === userId;
-  if (wasSelected) {
-    state.selectedEmployeeId = null;
-  }
+  if (wasSelected) state.selectedEmployeeId = null;
 
-  // Reload danh sách — nếu selectedEmployeeId null, loadEmployees tự chọn user đầu tiên
   await loadEmployees();
 
   const buildings = await import('./buildings.js');
   const attendance = await import('./attendance.js');
 
-  // ⭐ Song song load lại data
   await Promise.all([
     attendance.loadAttendanceForMonth(),
     buildings.loadTodayAssignments(),
