@@ -345,6 +345,14 @@ export function initSalaryModule(ctx) {
     renderSalary();
   }
 
+  /* ⭐ Cho phép app.js clear cache sau thao tác ghi (chấm công, xoá NV, copy ngày) */
+  function invalidateCache() {
+    cache.year = null;
+    cache.month = null;
+    cache.profiles = null;
+    cache.attendance = null;
+  }
+
   return {
     loadSalaryForMonth,
     renderSalary,
@@ -352,5 +360,6 @@ export function initSalaryModule(ctx) {
     onRoleFilterChanged,
     onSearchChanged,
     onSortChanged,
+    invalidateCache,   // ⭐ NEW
   };
 }
