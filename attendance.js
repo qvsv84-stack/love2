@@ -395,7 +395,7 @@ function applySundayToggle(dateStr, batchDates) {
   }
 }
 
-/* ⭐⭐ MỞ MODAL TỨC THÌ — không chờ network */
+/* ⭐ MỞ MODAL TỨC THÌ — single tap → instant */
 export async function openAttendanceModal(dateStr, batchDates = null) {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
@@ -404,21 +404,21 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   state.editingDate = dateStr;
   state.batchDates = batchDates;
 
-  // ⚡ Reset dayAssignments (sẽ load lại ngầm)
+  // ⚡ Reset dayAssignments (sẽ load ngầm)
   state.dayAssignments = [];
 
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   const targetIsSupervisor = emp?.role === 'admin';
   state.isSupervisorMode = targetIsSupervisor;
 
-  // ⚡ Template từ cache (không cần network)
+  // ⚡ Template từ cache
   let template = null, source = 'none', prevDate = null;
   if (!batchDates) {
     template = state.attendance.find(a => a.date === dateStr) || null;
     if (template) source = 'existing';
   }
 
-  // ⚡ Render UI ngay với data đã cache
+  // ⚡ Render UI ngay
   if (targetIsSupervisor) openSupervisorModeContent(template);
   else openEmployeeModeContent(template);
 
@@ -452,13 +452,12 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
 
   updatePreview();
 
-  // ⚡ MỞ MODAL NGAY — 0ms network wait
+  // ⚡ MỞ MODAL NGAY — 0ms
   openModal('attendanceModal');
 
-  // ⚡ Background tasks — chạy song song, không block UI
+  // ⚡ Background tasks
   const bgTasks = [];
 
-  // 1. Buildings — chỉ load nếu state rỗng (thường đã có từ login)
   if (!state.buildings || !state.buildings.length) {
     bgTasks.push(
       import('./buildings.js')
@@ -467,7 +466,6 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
     );
   }
 
-  // 2. DayAssignments — để check conflict + chia sẻ giờ
   if (!batchDates) {
     bgTasks.push(
       loadDayAssignments(dateStr)
@@ -476,12 +474,9 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
     );
   }
 
-  // 3. Xong cả 2 → cập nhật hint + summary
   Promise.all(bgTasks).then(async () => {
-    // Update hints (sẽ hiện "làm cùng..." nếu có)
     updateEntryHints();
 
-    // Update summary nếu đang hiển thị
     if (!batchDates && template && source === 'existing') {
       const saved = state.attendance.find(a => a.date === dateStr);
       if (saved) {
@@ -490,12 +485,10 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
       }
     }
 
-    // Nếu không có template (ngày trống) → prefill ngày trước
     if (!template && !batchDates) {
       try {
         const prev = await getPreviousAttendance(state.selectedEmployeeId, dateStr);
         if (prev) {
-          // Chỉ prefill nếu user chưa tương tác
           const stillDefault = document.querySelector('input[name="attMode"]:checked')?.value === 'default';
           const pickerEmpty = state.modalAreas.length === 1 && !state.modalAreas[0].building_id;
           if (stillDefault && pickerEmpty) {
@@ -1091,45 +1084,20 @@ export function renderCalendar() {
       el.addEventListener('click', () => toggleDateSelection(el.dataset.date)));
   } else if (state.isAdmin) {
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
-      attachDoubleTap(el, () => openAttendanceModal(el.dataset.date)));
+      attachSingleTap(el, () => openAttendanceModal(el.dataset.date)));
   }
 }
 
-/* ⭐⭐ DOUBLE-TAP NHANH — 220ms + visual feedback */
-function attachDoubleTap(el, cb) {
-  let lastTap = 0;
-  let tapTimer = null;
-  const DOUBLE_TAP_DELAY = 220;
-
+/* ⭐ SINGLE TAP — nhấp 1 lần mở ngay */
+function attachSingleTap(el, cb) {
   const onTap = (e) => {
-    const now = Date.now();
-    const delta = now - lastTap;
-
-    if (delta > 0 && delta < DOUBLE_TAP_DELAY) {
-      if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; }
-      lastTap = 0;
-
-      el.classList.add('pressing');
-      setTimeout(() => el.classList.remove('pressing'), 120);
-
-      try { if (navigator.vibrate) navigator.vibrate(15); } catch {}
-
-      e.preventDefault();
-      e.stopPropagation();
-      cb();
-      return;
-    }
-
-    lastTap = now;
     el.classList.add('pressing');
-    if (tapTimer) clearTimeout(tapTimer);
-    tapTimer = setTimeout(() => {
-      el.classList.remove('pressing');
-      tapTimer = null;
-      lastTap = 0;
-    }, DOUBLE_TAP_DELAY);
+    setTimeout(() => el.classList.remove('pressing'), 120);
+    try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
+    e.preventDefault();
+    e.stopPropagation();
+    cb();
   };
-
   el.addEventListener('click', onTap);
 }
 
