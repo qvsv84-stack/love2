@@ -228,7 +228,6 @@ function getPoolForEntry(entry) {
   return { count: empIds.size, maxHours: maxHours > 0 ? maxHours : defaultHours, defaultHours, others };
 }
 
-/* ⭐ Format chú thích "(làm cùng A, B, C + N người)" */
 function formatSharedNote(others) {
   if (!others || others.length === 0) return '';
   const first3 = others.slice(0, 3).join(', ');
@@ -236,6 +235,7 @@ function formatSharedNote(others) {
   return `làm cùng ${first3}${more}`;
 }
 
+/* ⭐ FIX: calcEntryActualHours phải chia giờ external/night nếu nhiều user cùng giờ */
 function calcEntryActualHours(entry) {
   const entryHours = (entry.hours != null && entry.hours > 0) ? Number(entry.hours) : null;
 
@@ -244,6 +244,7 @@ function calcEntryActualHours(entry) {
   }
 
   const pool = getPoolForEntry(entry);
+  // Nếu có > 1 người cùng làm và tất cả cùng giờ → chia đều
   if (pool.count > 1) return pool.maxHours / pool.count;
   return entryHours != null ? entryHours : pool.defaultHours;
 }
@@ -273,7 +274,6 @@ function updateEntryHints() {
   });
 }
 
-/* ⭐ Build summary HTML — thêm chú thích "(làm cùng X, Y)" */
 function buildSummaryHTML(template) {
   if (!template) return '';
 
@@ -296,11 +296,9 @@ function buildSummaryHTML(template) {
 
   if (Array.isArray(template.areas) && template.areas.length > 0) {
     for (const a of template.areas) {
-      if (a.type === 'external') {
-        lines.push(buildLine('🌳', 'Ngoại cảnh', a));
-      } else if (a.type === 'night') {
-        lines.push(buildLine('🌙', 'Ca đêm', a));
-      } else if (a.building_id && a.floor_id) {
+      if (a.type === 'external') lines.push(buildLine('🌳', 'Ngoại cảnh', a));
+      else if (a.type === 'night') lines.push(buildLine('🌙', 'Ca đêm', a));
+      else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
         const f = state.floors.find(x => x.id === a.floor_id);
         const bName = b?.name || '?';
@@ -318,11 +316,9 @@ function buildSummaryHTML(template) {
     for (const a of template.ot_areas) {
       if (a.type === 'sunday_ot') {
         lines.push(`<div class="summary-line-item">📅 Tăng ca CN — <strong>${formatHours(a.hours)}</strong></div>`);
-      } else if (a.type === 'external') {
-        lines.push(buildLine('🌳', 'Ngoại cảnh (OT)', a));
-      } else if (a.type === 'night') {
-        lines.push(buildLine('🌙', 'Ca đêm (OT)', a));
-      } else if (a.building_id && a.floor_id) {
+      } else if (a.type === 'external') lines.push(buildLine('🌳', 'Ngoại cảnh (OT)', a));
+      else if (a.type === 'night') lines.push(buildLine('🌙', 'Ca đêm (OT)', a));
+      else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
         const f = state.floors.find(x => x.id === a.floor_id);
         const bName = b?.name || '?';
@@ -956,7 +952,9 @@ export async function saveAttendance() {
   renderCalendar();
 
   import('./buildings.js').then(buildings => {
-    buildings.loadTodayAssignments().then(() => buildings.renderBuildings()).catch(err => console.warn(err));
+    buildings.loadDayAssignments(state.areasViewDate)
+      .then(() => buildings.renderBuildings())
+      .catch(err => console.warn(err));
   }).catch(err => console.warn(err));
 
   if (dates.length === 1 && !wasSelection) {
@@ -1107,7 +1105,11 @@ export function switchTab(name) {
   }
   if (name === 'areas' && state.isAdmin) {
     import('./buildings.js').then(b => {
-      b.loadTodayAssignments().then(() => b.renderBuildings()).catch(err => console.warn(err));
+      // ⭐ Load day assignments theo date picker
+      const targetDate = state.areasViewDate || toDateStr(new Date());
+      const $dp = $('#areasViewDate');
+      if ($dp && !$dp.value) $dp.value = targetDate;
+      b.loadDayAssignments(targetDate).then(() => b.renderBuildings()).catch(err => console.warn(err));
     }).catch(err => console.warn(err));
   }
   if (name === 'excel' && state.isAdmin) {
