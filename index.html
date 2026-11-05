@@ -17,13 +17,40 @@
   <meta name="apple-mobile-web-app-title" content="Chấm Công" />
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230ea5b7'/%3E%3Ctext x='90' y='115' font-size='90' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3EĐH%3C/text%3E%3C/svg%3E" />
 
+  <!-- ⭐ SCRIPT DIỆT CACHE VÀ SERVICE WORKER CŨ -->
+  <script>
+    (function() {
+      // 1. Unregister tất cả Service Worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            registration.unregister();
+            console.log('[Cache] Đã xoá Service Worker cũ');
+          }
+        });
+      }
+      // 2. Xoá toàn bộ Cache Storage
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (let name of names) {
+            caches.delete(name);
+            console.log('[Cache] Đã xoá cache:', name);
+          }
+        });
+      }
+    })();
+  </script>
+
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <link rel="modulepreload" href="/supabase.js" />
-  <link rel="modulepreload" href="/core.js" />
-  <link rel="modulepreload" href="/app.js" />
-  <link rel="modulepreload" href="/attendance.js" />
+  <!-- ⭐ Ép tải file JS mới nhất bằng cách thêm ?v=time -->
+  <script>
+    document.write('<link rel="modulepreload" href="/supabase.js?v=' + Date.now() + '" />');
+    document.write('<link rel="modulepreload" href="/core.js?v=' + Date.now() + '" />');
+    document.write('<link rel="modulepreload" href="/attendance.js?v=' + Date.now() + '" />');
+    document.write('<link rel="modulepreload" href="/app.js?v=' + Date.now() + '" />');
+  </script>
 
   <style>
     .dbg-line { padding: 3px 0; border-bottom: 1px solid #2c2c2e; display: flex; gap: 6px; line-height: 1.4; }
@@ -929,10 +956,16 @@
   })();
   </script>
 
-  <script type="module" src="app.js"></script>
+  <script type="module">
+    // ⭐ Ép load app.js bản mới nhất bằng timestamp
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = './app.js?v=' + Date.now();
+    document.body.appendChild(script);
+  </script>
 
   <script type="module">
-    import { APP_VERSION, checkForUpdate } from './version.js';
+    import { APP_VERSION, checkForUpdate } from './version.js?v=' + Date.now();
     console.log('[App] running v' + APP_VERSION);
 
     setTimeout(async () => {
