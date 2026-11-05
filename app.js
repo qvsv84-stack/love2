@@ -21,7 +21,7 @@ import {
 import {
   loadAttendanceForMonth, updateSummary, openAttendanceModal,
   renderMainAreaPicker, renderOtAreaPicker,
-  toggleModeSections, toggleSupOtGroup, updatePreview,
+  toggleModeSections, toggleSupOtGroup, toggleSundayOtSection, updatePreview,
   saveAttendance, toggleSelectionMode, exitSelectionMode,
   renderCalendar, switchTab, changeMonth,
 } from './attendance.js';
@@ -216,6 +216,19 @@ function bindEvents() {
     toggleSupOtGroup(r.value); updatePreview();
   }));
   $('#supOtHours').addEventListener('input', updatePreview);
+
+  /* ⭐ Bind Tăng ca CN checkbox + input */
+  const $sundayCheck = $('#sundayOtCheck');
+  if ($sundayCheck) {
+    $sundayCheck.addEventListener('change', () => {
+      toggleSundayOtSection($sundayCheck.checked);
+      updatePreview();
+    });
+  }
+  const $sundayHours = $('#sundayOtHours');
+  if ($sundayHours) {
+    $sundayHours.addEventListener('input', updatePreview);
+  }
 
   $('#addMainAreaBtn').addEventListener('click', () => {
     state.modalAreas.push({ building_id: '', floor_id: '', hours: 0 });
