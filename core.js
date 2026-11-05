@@ -16,28 +16,53 @@ export const ROLE_LABELS = {
 export const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3, external: 4 };
 
 export const state = {
-  user: null, profile: null, isAdmin: false, isSupervisorMode: false,
-  employees: [], selectedEmployeeId: null,
-  buildings: [], floors: [],
-  currentMonth: new Date(), attendance: [],
-  editingDate: null, batchDates: null,
-  modalAreas: [], modalOtAreas: [],
+  user: null,
+  profile: null,
+  isAdmin: false,
+  isSupervisorMode: false,
+  employees: [],
+  selectedEmployeeId: null,
+  buildings: [],
+  floors: [],
+  currentMonth: new Date(),
+  attendance: [],
+  editingDate: null,
+  batchDates: null,
+  editingTemplate: null,
+  modalAreas: [],
+  modalOtAreas: [],
   floorSetupBuildingId: null,
-  selectionMode: false, selectedDates: new Set(),
-  editingEmployeeId: null, floorAssignments: {},
-  areasSearch: '', areasRoleFilter: 'all',
-  salaryMonth: new Date(), salaryRoleFilter: 'nv_tv',
-  salarySearch: '', salarySort: 'hours_desc',
-  salaryData: [], salaryMeta: null,
-  excelMonth: new Date(), excelProfiles: [], excelAttendance: [],
+  selectionMode: false,
+  selectedDates: new Set(),
+  editingEmployeeId: null,
+  floorAssignments: {},
+  externalAssignments: [],
+  nightAssignments: [],
+  sundayOtAssignments: [],
+  specialAreas: { external: null, night: null },
+  dayAssignments: [],
+  expandedBuildings: new Set(),
+  areasSearch: '',
+  areasRoleFilter: 'all',
+  areasViewDate: null,
+  salaryMonth: new Date(),
+  salaryRoleFilter: 'nv_tv',
+  salarySearch: '',
+  salarySort: 'hours_desc',
+  salaryData: [],
+  salaryMeta: null,
+  excelMonth: new Date(),
+  excelProfiles: [],
+  excelAttendance: [],
   excelActionEmpId: null,
-  salaryModule: null, exportModule: null, phoneModule: null,
+  salaryModule: null,
+  exportModule: null,
+  phoneModule: null,
 };
 
 export const $ = (sel) => document.querySelector(sel);
 export const $$ = (sel) => document.querySelectorAll(sel);
 
-/* ============ HELPERS ============ */
 export function toast(msg, duration = 2200) {
   const el = $('#toast');
   if (!el) return;
@@ -98,7 +123,6 @@ export function getShortName(fullName) {
 export function openModal(id) { const el = $('#' + id); if (el) el.style.display = 'flex'; }
 export function closeModal(id) { const el = $('#' + id); if (el) el.style.display = 'none'; }
 
-/* ⭐ html2canvas lazy load */
 let _html2canvasPromise = null;
 export function loadHtml2Canvas() {
   if (window.html2canvas) return Promise.resolve(window.html2canvas);
@@ -114,7 +138,6 @@ export function loadHtml2Canvas() {
   return _html2canvasPromise;
 }
 
-/* ⭐ Attendance cache */
 export const attendanceCache = {};
 export function attendanceCacheKey(empId, y, m) { return `${empId}_${y}_${m}`; }
 export function invalidateAttendanceCache(empId) {
@@ -127,7 +150,6 @@ export function invalidateAttendanceCache(empId) {
   }
 }
 
-/* ============ AUTH ============ */
 let _showGuestInProgress = false;
 let _onLoggedInInProgress = false;
 
@@ -169,7 +191,6 @@ export function showLoginScreen() {
   $('#mainScreen').style.display = 'none';
 }
 
-/* ⭐ FIX P1: parallel imports + FIX P2: single updateSummary */
 export async function showGuestView() {
   if (_showGuestInProgress) return;
   _showGuestInProgress = true;
@@ -207,7 +228,6 @@ export async function showGuestView() {
     $('#addEmployeeBtn').style.display = 'none';
     $('#selectionBar').style.display = 'none';
 
-    // ⭐ FIX P1: 3 imports SONG SONG
     const [employees, buildings, attendance] = await Promise.all([
       import('./employees.js'),
       import('./buildings.js'),
@@ -216,24 +236,18 @@ export async function showGuestView() {
 
     attendance.switchTab('calendar');
 
-    // Cần employee trước để set selectedEmployeeId
     await employees.loadPublicEmployees();
-
-    // Song song 2 load nặng
     await Promise.all([
       buildings.loadBuildings(),
       attendance.loadAttendanceForMonth(),
     ]);
 
-    // ⭐ FIX P2: updateSummary 1 lần duy nhất (đã được gọi trong loadAttendanceForMonth)
-    // Không gọi lại — tránh double
     attendance.renderCalendar();
   } finally {
     _showGuestInProgress = false;
   }
 }
 
-/* ⭐ FIX Bug 4: guard double click + FIX P1: parallel imports */
 export async function onLoggedIn(user) {
   if (_onLoggedInInProgress) return;
   _onLoggedInInProgress = true;
@@ -277,7 +291,6 @@ export async function onLoggedIn(user) {
 
     state.selectedEmployeeId = user.id;
 
-    // ⭐ FIX P1: 3 imports SONG SONG
     const [employees, buildings, attendance] = await Promise.all([
       import('./employees.js'),
       import('./buildings.js'),
@@ -292,8 +305,6 @@ export async function onLoggedIn(user) {
       attendance.loadAttendanceForMonth(),
     ]);
 
-    // ⭐ FIX P2: chỉ gọi renderCalendar 1 lần
-    // updateSummary đã được gọi trong loadAttendanceForMonth
     attendance.renderCalendar();
     buildings.renderBuildings();
   } finally {
