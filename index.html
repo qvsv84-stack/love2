@@ -10,8 +10,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
+  <!-- ⭐ PWA manifest + Apple touch -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0ea5b7" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Chấm Công" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230ea5b7'/%3E%3Ctext x='90' y='115' font-size='90' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3EĐH%3C/text%3E%3C/svg%3E" />
+
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- ⭐ Modulepreload — tải song song thay vì chờ parse HTML -->
+  <link rel="modulepreload" href="/supabase.js" />
+  <link rel="modulepreload" href="/core.js" />
+  <link rel="modulepreload" href="/app.js" />
+  <link rel="modulepreload" href="/attendance.js" />
 
   <style>
     .dbg-line { padding: 3px 0; border-bottom: 1px solid #2c2c2e; display: flex; gap: 6px; line-height: 1.4; }
@@ -624,5 +638,22 @@
   </script>
 
   <script type="module" src="app.js"></script>
+
+  <script type="module">
+    import { APP_VERSION, checkForUpdate } from './version.js';
+    console.log('[App] running v' + APP_VERSION);
+
+    // ⭐ Check update sau 3s (không block lúc load)
+    setTimeout(async () => {
+      const upd = await checkForUpdate();
+      if (upd) {
+        const btn = document.createElement('div');
+        btn.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#0ea5b7;color:white;padding:10px 18px;border-radius:24px;font-size:13px;font-weight:600;cursor:pointer;z-index:9999;box-shadow:0 4px 16px rgba(14,165,183,0.4);font-family:inherit;display:flex;align-items:center;gap:8px;';
+        btn.innerHTML = '🔄 Có bản mới (' + upd.latest + ') — Bấm để cập nhật';
+        btn.onclick = () => { location.reload(); };
+        document.body.appendChild(btn);
+      }
+    }, 3000);
+  </script>
 </body>
 </html>
