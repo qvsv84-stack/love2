@@ -232,11 +232,35 @@ function openSupervisorModeContent(template) {
   toggleSupOtGroup(mode);
 }
 
+/* ⭐ FIX: detect external + sunday_ot từ template */
 function openEmployeeModeContent(template) {
   const validFloorIds = new Set(state.floors.map(f => f.id));
   const validBuildingIds = new Set(state.buildings.map(b => b.id));
 
-  if (template && Array.isArray(template.areas) && template.areas.length) {
+  // Detect external từ template
+  const isExternal = template &&
+    Array.isArray(template.areas) &&
+    template.areas.some(a => a.type === 'external');
+
+  // Detect sunday_ot từ template
+  const isSundayOt = template &&
+    Array.isArray(template.ot_areas) &&
+    template.ot_areas.some(a => a.type === 'sunday_ot');
+
+  const sundayOtHours = isSundayOt
+    ? Number(template.ot_areas.find(a => a.type === 'sunday_ot')?.hours || 0)
+    : 0;
+
+  // Set checkbox + input
+  const $sundayCheck = $('#sundayOtCheck');
+  const $sundayHours = $('#sundayOtHours');
+  if ($sundayCheck) $sundayCheck.checked = isSundayOt;
+  if ($sundayHours) $sundayHours.value = sundayOtHours > 0 ? sundayOtHours : '';
+
+  // Main areas
+  if (isExternal) {
+    state.modalAreas = [];
+  } else if (template && Array.isArray(template.areas) && template.areas.length) {
     state.modalAreas = template.areas
       .filter(a => validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id))
       .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: Number(a.hours || 0) }));
@@ -247,9 +271,10 @@ function openEmployeeModeContent(template) {
     state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
   }
 
+  // OT areas (bỏ sunday_ot ra khỏi list bình thường)
   if (template && Array.isArray(template.ot_areas) && template.ot_areas.length) {
     state.modalOtAreas = template.ot_areas
-      .filter(a => validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id))
+      .filter(a => a.type !== 'sunday_ot' && validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id))
       .map(a => ({
         building_id: a.building_id,
         floor_id: a.floor_id,
@@ -262,15 +287,21 @@ function openEmployeeModeContent(template) {
   renderMainAreaPicker();
   renderOtAreaPicker();
 
+  // Determine mode
   let mode = 'default';
   if (template) {
     if (template.mode === 'leave') mode = 'leave';
     else if (template.is_off || template.mode === 'off') mode = 'off';
+    else if (isExternal) mode = 'external';
     else if (template.mode === 'manual') mode = 'manual';
   }
+
   $$('input[name="attMode"]').forEach(r => r.checked = r.value === mode);
   toggleModeSections(mode);
   $('#manualHours').value = template?.manual_hours ?? '';
+
+  // Show/hide sunday OT section
+  toggleSundayOtSection(isSundayOt);
 }
 
 /* ============ AREA PICKER ============ */
@@ -370,9 +401,17 @@ export function renderOtAreaPicker() {
 
 /* ============ MODE TOGGLES ============ */
 export function toggleModeSections(mode) {
-  const m = $('#manualHoursGroup'); if (m) m.style.display = mode === 'manual' ? 'block' : 'none';
+  const m = $('#manualHoursGroup'); if (m) m.style.display = (mode === 'manual' || mode === 'external') ? 'block' : 'none';
   const a = $('#mainAreaSection'); if (a) a.style.display = mode === 'default' ? 'block' : 'none';
   const o = $('#otSection'); if (o) o.style.display = (mode === 'off' || mode === 'leave') ? 'none' : 'block';
+}
+
+/* ⭐ Toggle section "Tăng ca CN" */
+export function toggleSundayOtSection(isChecked) {
+  const normal = $('#otNormalSection');
+  const sunday = $('#sundayOtGroup');
+  if (normal) normal.style.display = isChecked ? 'none' : 'block';
+  if (sunday) sunday.style.display = isChecked ? 'block' : 'none';
 }
 
 export function toggleSupOtGroup(mode) {
@@ -387,11 +426,21 @@ function getSelectedSupMode() {
   return document.querySelector('input[name="supMode"]:checked')?.value || 'default';
 }
 
+function isSundayOtChecked() {
+  const $c = $('#sundayOtCheck');
+  return !!($c && $c.checked);
+}
+
+function getSundayOtHours() {
+  const $h = $('#sundayOtHours');
+  return $h ? Number($h.value || 0) : 0;
+}
+
 /* ============ HOURS CALC ============ */
 function computeMainHoursRaw() {
   const mode = getSelectedMode();
   if (mode === 'off' || mode === 'leave') return 0;
-  if (mode === 'manual') return Number($('#manualHours').value || 0);
+  if (mode === 'manual' || mode === 'external') return Number($('#manualHours').value || 0);
   let h = 0;
   for (const entry of state.modalAreas) {
     if (entry.floor_id) {
@@ -411,6 +460,10 @@ function computeOverflow() {
 }
 
 function computeOtHoursRaw() {
+  // Nếu đang bật tăng ca CN → dùng input riêng
+  if (isSundayOtChecked()) {
+    return getSundayOtHours();
+  }
   let h = 0;
   for (const entry of state.modalOtAreas) {
     if (!entry.floor_id) continue;
@@ -425,6 +478,8 @@ function computeOtHoursRaw() {
 }
 
 function computeOtHours() {
+  // Nếu bật tăng ca CN → không cộng overflow (vì đã là CN thuần)
+  if (isSundayOtChecked()) return getSundayOtHours();
   return computeOtHoursRaw() + computeOverflow();
 }
 
@@ -498,9 +553,43 @@ function buildEmployeePayload() {
     };
   }
 
-  if (mode !== 'off' && mainH <= 0) {
+  if (mode !== 'off' && mode !== 'external' && mainH <= 0) {
     toast('Vui lòng chọn khu vực chính hoặc nhập giờ');
     return null;
+  }
+
+  if (mode === 'external' && mainH <= 0) {
+    toast('Nhập số giờ công ngoại cảnh (> 0)');
+    return null;
+  }
+
+  // ⭐ Build areas
+  let areas = [];
+  if (mode === 'external') {
+    areas = [{ type: 'external', hours: mainH }];
+  } else if (mode !== 'off') {
+    areas = state.modalAreas
+      .filter(a => a.building_id && a.floor_id)
+      .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: a.hours }));
+  }
+
+  // ⭐ Build ot_areas — xử lý cả sunday_ot và normal
+  let otAreas = [];
+  if (mode !== 'off') {
+    if (isSundayOtChecked()) {
+      const sundayH = getSundayOtHours();
+      if (sundayH > 0) {
+        otAreas = [{ type: 'sunday_ot', hours: sundayH }];
+      }
+    } else {
+      otAreas = state.modalOtAreas
+        .filter(a => a.building_id && a.floor_id)
+        .map(a => ({
+          building_id: a.building_id,
+          floor_id: a.floor_id,
+          hours: a.hours != null && !isNaN(a.hours) ? Number(a.hours) : null,
+        }));
+    }
   }
 
   return {
@@ -508,18 +597,10 @@ function buildEmployeePayload() {
     total_hours: mode === 'off' ? 0 : mainH,
     ot_hours: otH,
     is_off: mode === 'off',
-    mode,
-    manual_hours: mode === 'manual' ? rawMain : null,
-    areas: mode === 'off' ? [] : state.modalAreas
-      .filter(a => a.building_id && a.floor_id)
-      .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: a.hours })),
-    ot_areas: mode === 'off' ? [] : state.modalOtAreas
-      .filter(a => a.building_id && a.floor_id)
-      .map(a => ({
-        building_id: a.building_id,
-        floor_id: a.floor_id,
-        hours: a.hours != null && !isNaN(a.hours) ? Number(a.hours) : null,
-      })),
+    mode: mode === 'external' ? 'manual' : mode,  // external lưu dưới dạng manual
+    manual_hours: (mode === 'manual' || mode === 'external') ? rawMain : null,
+    areas,
+    ot_areas: otAreas,
   };
 }
 
@@ -572,11 +653,8 @@ export async function saveAttendance() {
   if (state.salaryModule) state.salaryModule.invalidateCache();
 
   await loadAttendanceForMonth(true);
-
-  // ⭐ FIX Bug 3: render calendar NGAY — không chờ areas refresh
   renderCalendar();
 
-  // Areas refresh chạy nền — không block UX
   import('./buildings.js')
     .then(buildings => {
       buildings.loadTodayAssignments()
@@ -718,7 +796,6 @@ export function switchTab(name) {
     state.salaryModule.loadSalaryForMonth(false);
   }
 
-  // ⭐ FIX unhandled promise: thêm .catch
   if (name === 'areas' && state.isAdmin) {
     import('./buildings.js')
       .then(b => {
