@@ -180,7 +180,6 @@ function getEntryDefaultHours(entry) {
   return sp ? Number(sp.default_hours || 0) : 0;
 }
 
-/* ⭐ Pool: đếm số người + giờ max + TÊN những người làm cùng */
 function getPoolForEntry(entry) {
   const selfId = state.selectedEmployeeId;
   const entryType = entry.type || 'building';
@@ -235,7 +234,6 @@ function formatSharedNote(others) {
   return `làm cùng ${first3}${more}`;
 }
 
-/* ⭐ FIX: calcEntryActualHours phải chia giờ external/night nếu nhiều user cùng giờ */
 function calcEntryActualHours(entry) {
   const entryHours = (entry.hours != null && entry.hours > 0) ? Number(entry.hours) : null;
 
@@ -244,7 +242,6 @@ function calcEntryActualHours(entry) {
   }
 
   const pool = getPoolForEntry(entry);
-  // Nếu có > 1 người cùng làm và tất cả cùng giờ → chia đều
   if (pool.count > 1) return pool.maxHours / pool.count;
   return entryHours != null ? entryHours : pool.defaultHours;
 }
@@ -398,6 +395,7 @@ function applySundayToggle(dateStr, batchDates) {
   }
 }
 
+/* ⭐⭐ MỞ MODAL TỨC THÌ — không chờ network */
 export async function openAttendanceModal(dateStr, batchDates = null) {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
@@ -406,43 +404,29 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   state.editingDate = dateStr;
   state.batchDates = batchDates;
 
-  try {
-    const buildings = await import('./buildings.js');
-    await buildings.loadBuildings();
-  } catch (err) { console.warn('[openAttendanceModal] refresh failed:', err); }
-
-  if (!batchDates) {
-    state.dayAssignments = await loadDayAssignments(dateStr);
-  } else state.dayAssignments = [];
+  // ⚡ Reset dayAssignments (sẽ load lại ngầm)
+  state.dayAssignments = [];
 
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   const targetIsSupervisor = emp?.role === 'admin';
   state.isSupervisorMode = targetIsSupervisor;
 
-  $('#attModalTitle').textContent = batchDates
-    ? `Chấm công ${batchDates.length} ngày — ${emp?.full_name || ''}`
-    : `Chấm công — ${emp?.full_name || ''} — ${formatDateVN(dateStr)}`;
-
-  $('#supervisorModeSection').style.display = targetIsSupervisor ? 'block' : 'none';
-  $('#employeeModeSection').style.display = targetIsSupervisor ? 'none' : 'block';
-
+  // ⚡ Template từ cache (không cần network)
   let template = null, source = 'none', prevDate = null;
-
   if (!batchDates) {
     template = state.attendance.find(a => a.date === dateStr) || null;
     if (template) source = 'existing';
-    else {
-      const prev = await getPreviousAttendance(state.selectedEmployeeId, dateStr);
-      if (prev) { template = prev; source = 'previous'; prevDate = prev.date; }
-    }
-  } else {
-    const earliest = [...batchDates].sort()[0];
-    const prev = await getPreviousAttendance(state.selectedEmployeeId, earliest);
-    if (prev) { template = prev; source = 'previous'; prevDate = prev.date; }
   }
 
+  // ⚡ Render UI ngay với data đã cache
   if (targetIsSupervisor) openSupervisorModeContent(template);
   else openEmployeeModeContent(template);
+
+  $('#attModalTitle').textContent = batchDates
+    ? `Chấm công ${batchDates.length} ngày — ${emp?.full_name || ''}`
+    : `Chấm công — ${emp?.full_name || ''} — ${formatDateVN(dateStr)}`;
+  $('#supervisorModeSection').style.display = targetIsSupervisor ? 'block' : 'none';
+  $('#employeeModeSection').style.display = targetIsSupervisor ? 'none' : 'block';
 
   showPrefillNote(source, prevDate);
   showBatchNote(batchDates);
@@ -467,7 +451,65 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   }
 
   updatePreview();
+
+  // ⚡ MỞ MODAL NGAY — 0ms network wait
   openModal('attendanceModal');
+
+  // ⚡ Background tasks — chạy song song, không block UI
+  const bgTasks = [];
+
+  // 1. Buildings — chỉ load nếu state rỗng (thường đã có từ login)
+  if (!state.buildings || !state.buildings.length) {
+    bgTasks.push(
+      import('./buildings.js')
+        .then(b => b.loadBuildings())
+        .catch(err => console.warn('[bg buildings]', err))
+    );
+  }
+
+  // 2. DayAssignments — để check conflict + chia sẻ giờ
+  if (!batchDates) {
+    bgTasks.push(
+      loadDayAssignments(dateStr)
+        .then(data => { state.dayAssignments = data; })
+        .catch(err => console.warn('[bg day]', err))
+    );
+  }
+
+  // 3. Xong cả 2 → cập nhật hint + summary
+  Promise.all(bgTasks).then(async () => {
+    // Update hints (sẽ hiện "làm cùng..." nếu có)
+    updateEntryHints();
+
+    // Update summary nếu đang hiển thị
+    if (!batchDates && template && source === 'existing') {
+      const saved = state.attendance.find(a => a.date === dateStr);
+      if (saved) {
+        const $c = $('#attSummaryContent');
+        if ($c) $c.innerHTML = buildSummaryHTML(saved);
+      }
+    }
+
+    // Nếu không có template (ngày trống) → prefill ngày trước
+    if (!template && !batchDates) {
+      try {
+        const prev = await getPreviousAttendance(state.selectedEmployeeId, dateStr);
+        if (prev) {
+          // Chỉ prefill nếu user chưa tương tác
+          const stillDefault = document.querySelector('input[name="attMode"]:checked')?.value === 'default';
+          const pickerEmpty = state.modalAreas.length === 1 && !state.modalAreas[0].building_id;
+          if (stillDefault && pickerEmpty) {
+            prevDate = prev.date;
+            if (targetIsSupervisor) openSupervisorModeContent(prev);
+            else openEmployeeModeContent(prev);
+            showPrefillNote('previous', prevDate);
+            showEditorView();
+            updatePreview();
+          }
+        }
+      } catch (err) { console.warn('[bg prev]', err); }
+    }
+  });
 }
 
 function showPrefillNote(source, prevDate) {
@@ -1053,23 +1095,24 @@ export function renderCalendar() {
   }
 }
 
+/* ⭐⭐ DOUBLE-TAP NHANH — 220ms + visual feedback */
 function attachDoubleTap(el, cb) {
   let lastTap = 0;
   let tapTimer = null;
-  const DOUBLE_TAP_DELAY = 300;
+  const DOUBLE_TAP_DELAY = 220;
 
   const onTap = (e) => {
     const now = Date.now();
-    const timeSinceLastTap = now - lastTap;
+    const delta = now - lastTap;
 
-    if (timeSinceLastTap < DOUBLE_TAP_DELAY && timeSinceLastTap > 0) {
+    if (delta > 0 && delta < DOUBLE_TAP_DELAY) {
       if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; }
       lastTap = 0;
 
       el.classList.add('pressing');
-      setTimeout(() => el.classList.remove('pressing'), 200);
+      setTimeout(() => el.classList.remove('pressing'), 120);
 
-      try { if (navigator.vibrate) navigator.vibrate(20); } catch {}
+      try { if (navigator.vibrate) navigator.vibrate(15); } catch {}
 
       e.preventDefault();
       e.stopPropagation();
@@ -1105,7 +1148,6 @@ export function switchTab(name) {
   }
   if (name === 'areas' && state.isAdmin) {
     import('./buildings.js').then(b => {
-      // ⭐ Load day assignments theo date picker
       const targetDate = state.areasViewDate || toDateStr(new Date());
       const $dp = $('#areasViewDate');
       if ($dp && !$dp.value) $dp.value = targetDate;
