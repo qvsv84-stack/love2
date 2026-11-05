@@ -281,7 +281,6 @@
       </section>
     </main>
 
-    <!-- ⭐ ATTENDANCE MODAL — REDESIGNED -->
     <div id="attendanceModal" class="modal-overlay" style="display:none">
       <div class="modal">
         <div class="modal-header">
@@ -291,7 +290,6 @@
         <div class="modal-body">
           <p id="prefillNote" class="prefill-note" style="display:none"></p>
 
-          <!-- SUPERVISOR MODE -->
           <div id="supervisorModeSection" style="display:none">
             <div class="att-section">
               <div class="att-section-title">Chế độ chấm công</div>
@@ -313,7 +311,6 @@
             </div>
           </div>
 
-          <!-- EMPLOYEE MODE -->
           <div id="employeeModeSection">
             <div class="att-section">
               <div class="att-section-title">1️⃣ Chế độ</div>
@@ -339,7 +336,7 @@
             <div class="att-section" id="otSection">
               <div class="att-section-title">🌙 Tăng ca (tuỳ chọn)</div>
 
-              <label class="ot-sunday-toggle">
+              <label class="ot-sunday-toggle" id="sundayOtToggle">
                 <input type="checkbox" id="sundayOtCheck" />
                 <div class="ot-sunday-content">
                   <div class="ot-sunday-title">📅 Tăng ca Chủ nhật</div>
@@ -365,7 +362,6 @@
           <p id="batchNote" class="prefill-note" style="display:none;margin-top:12px;margin-bottom:0"></p>
         </div>
 
-        <!-- ⭐ STICKY PREVIEW (chỉ hiện employee mode) -->
         <div class="att-preview-sticky" id="attPreviewSticky" style="display:none">
           <div class="att-preview-item">
             <span class="label">Công</span>
@@ -566,6 +562,7 @@
       <div class="selection-bar-inner">
         <span id="selectionCount">0 ngày đã chọn</span>
         <button id="cancelSelectionBtn" class="btn-secondary">Huỷ</button>
+        <button id="deleteSelectionBtn" class="btn-secondary" disabled style="background:#fee2e2;color:#e74c3c;border-color:#fecaca">🗑 Xoá</button>
         <button id="applySelectionBtn" class="btn-primary" disabled>Chấm công</button>
       </div>
     </div>
