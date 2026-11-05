@@ -1517,4 +1517,25 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .salary-total-box strong { font-size: 15px; }
   .areas-summary-row { font-size: 12px; }
   .assignee-avatar { width: 22px; height: 22px; font-size: 10px; }
-  .floor-assignee { font-size: 12px; gap:
+  .floor-assignee { font-size: 12px; gap: 6px; }
+
+  .excel-matrix { font-size: 10px; }
+  .excel-matrix thead th { font-size: 9px; padding: 4px 1px; height: 24px; }
+  .excel-matrix thead th.th-name { width: 80px; font-size: 9px; }
+  .excel-matrix tbody td { font-size: 10px; padding: 3px 1px; height: 20px; }
+  .excel-matrix tbody td.td-name { font-size: 10px; padding-left: 6px; }
+  .excel-matrix tr.row-ot td { font-size: 9px; }
+
+  .seg-control label span { font-size: 10px; padding: 9px 2px; min-height: 38px; line-height: 20px; }
+  .att-preview-item .value { font-size: 16px; }
+}
+
+@media (max-width: 360px) {
+  .tab-btn { font-size: 10px; padding: 9px 2px; }
+  .legend-item { font-size: 9px; }
+  .assignee-avatar { width: 20px; height: 20px; font-size: 9px; }
+  .floor-assignee { font-size: 11px; }
+  .excel-matrix { font-size: 9px; }
+  .excel-matrix tbody td { font-size: 9px; height: 18px; }
+  .excel-matrix tbody td.td-name { font-size: 9px; }
+}
