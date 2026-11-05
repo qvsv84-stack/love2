@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Giám Sát Chấm Công - ĐH XH&NV</title>
+
+  <!-- ⭐ PRECONNECT — giảm 100-300ms handshake -->
+  <link rel="preconnect" href="https://cjswxglxyyqrcfbyyjer.supabase.co" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
@@ -583,9 +590,8 @@
     <div id="toast" class="toast" style="display:none"></div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- ⭐ ĐÃ XOÁ 3 script nặng (xlsx, html2canvas, supabase UMD) -->
+  <!-- Chúng được lazy-load khi cần trong app.js / export.js / chat IIFE -->
 
   <script>
   (function() {
@@ -597,8 +603,7 @@
     const OLLAMA_URL     = '/api/chat';
     const OLLAMA_MODEL   = 'gpt-oss:20b';   // ưu tiên; proxy tự fallback nếu fail
     const MAX_CONTEXT    = 20;
-    const SUPABASE_URL   = 'https://cjswxglxyyqrcfbyyjer.supabase.co';
-    const SUPABASE_KEY   = 'sb_publishable_jgRKlQFfL09zN_uU3P6SnQ_F_1UAJx9';
+    // ⭐ Không khai báo SUPABASE_URL/KEY nữa — dùng window.__supabaseUrl/Key từ module
 
     const debugPanel  = document.getElementById('debugPanel');
     const debugLog    = document.getElementById('debugLog');
@@ -648,20 +653,26 @@
 
     let chatSupabase = null;
 
-    function initSupabase() {
+    /* ⭐ Sử dụng lại client creator từ module supabase.js — không load SDK lần 2 */
+    async function initSupabase() {
       try {
-        if (!window.supabase) {
-          dbg('error', '❌ window.supabase undefined — SDK chưa load');
+        // Chờ module supabase.js load (nếu chat mở quá sớm)
+        if (!window.__supabaseCreateClient) {
+          for (let i = 0; i < 30; i++) {
+            await new Promise(r => setTimeout(r, 100));
+            if (window.__supabaseCreateClient) break;
+          }
+        }
+        if (!window.__supabaseCreateClient) {
+          dbg('error', '❌ Supabase SDK chưa load (window.__supabaseCreateClient)');
           return null;
         }
-        dbg('ok', '✅ window.supabase loaded (v' + (window.supabase.VERSION || '?') + ')');
-        if (!window.supabase.createClient) {
-          dbg('error', '❌ window.supabase.createClient không phải function');
-          return null;
-        }
-        chatSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-          auth: { storageKey: 'chat-anon-session', persistSession: true, autoRefreshToken: true }
-        });
+        dbg('ok', '✅ Supabase SDK ready');
+        chatSupabase = window.__supabaseCreateClient(
+          window.__supabaseUrl,
+          window.__supabaseKey,
+          { auth: { storageKey: 'chat-anon-session', persistSession: true, autoRefreshToken: true } }
+        );
         dbg('ok', '✅ createClient OK');
         return chatSupabase;
       } catch (err) {
@@ -719,7 +730,7 @@
 
       dbg('step', '=== INIT CHAT ===');
 
-      if (!chatSupabase) initSupabase();
+      if (!chatSupabase) await initSupabase();
 
       if (!chatSupabase) {
         showEmptyState('⚠️ Supabase không khởi tạo được.<br>Bấm 🔍 Debug để xem chi tiết.');
@@ -950,9 +961,9 @@
       dbg('info', '🌐 hostname: ' + (location.hostname || '(empty — file://?)'));
       dbg('info', '🌐 href: ' + location.href.slice(0, 100));
       dbg('info', '📱 UA: ' + navigator.userAgent.slice(0, 120));
-      dbg('info', '🔧 Supabase SDK: ' + (window.supabase ? '✅ loaded (v' + (window.supabase.VERSION || '?') + ')' : '❌ missing'));
+      dbg('info', '🔧 Supabase SDK: ' + (window.__supabaseCreateClient ? '✅ loaded (từ module)' : '❌ missing'));
       dbg('info', '🔗 OLLAMA_URL: ' + OLLAMA_URL + ' (qua proxy Vercel)');
-      dbg('info', '🔑 SUPABASE_URL: ' + SUPABASE_URL);
+      dbg('info', '🔑 SUPABASE_URL: ' + (window.__supabaseUrl || '(chưa load)'));
       dbg('info', '🤖 Model ưu tiên: ' + OLLAMA_MODEL + ' (proxy tự fallback)');
       dbg('info', '🌍 fetch: ' + (typeof fetch === 'function' ? '✅' : '❌'));
       dbg('info', '🌍 TextDecoder: ' + (typeof TextDecoder === 'function' ? '✅' : '❌'));
@@ -962,7 +973,7 @@
     async function dbgTestSupabase() {
       dbg('step', '=== TEST SUPABASE ===');
       try {
-        if (!chatSupabase) initSupabase();
+        if (!chatSupabase) await initSupabase();
         if (!chatSupabase) { dbg('error', '❌ Không có chatSupabase client'); return; }
 
         dbg('info', '→ getSession...');
@@ -1109,7 +1120,38 @@
       }
     });
 
-    dbg('ok', '💬 Chat module loaded (proxy + auto fallback)');
+    dbg('ok', '💬 Chat module loaded (dùng chung Supabase SDK với module)');
+  })();
+  </script>
+
+  <!-- ⭐ TIMEOUT CHỐNG TRẮNG TRANG -->
+  <script>
+  (function () {
+    let _resolved = false;
+    const check = setInterval(() => {
+      const main = document.getElementById('mainScreen');
+      const login = document.getElementById('loginScreen');
+      if ((main && main.style.display === 'block') ||
+          (login && login.style.display === 'block')) {
+        _resolved = true;
+        clearInterval(check);
+      }
+    }, 200);
+
+    setTimeout(() => {
+      clearInterval(check);
+      if (_resolved) return;
+      const loading = document.getElementById('loading');
+      if (!loading) return;
+      loading.innerHTML =
+        '<div style="text-align:center;padding:24px;color:#5c7c82;font-family:Be Vietnam Pro,sans-serif">' +
+        '<p style="font-size:15px;color:#e74c3c;margin-bottom:12px">⚠️ Tải trang quá lâu</p>' +
+        '<p style="font-size:13px;margin-bottom:16px;line-height:1.5">Có thể do kết nối mạng chậm.<br>Vui lòng thử lại.</p>' +
+        '<button onclick="location.reload()" ' +
+        'style="padding:11px 24px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">' +
+        '🔄 Tải lại</button>' +
+        '</div>';
+    }, 12000);
   })();
   </script>
 
