@@ -10,7 +10,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-  <!-- ⭐ PWA manifest + Apple touch -->
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#0ea5b7" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,7 +20,6 @@
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- ⭐ Modulepreload — tải song song thay vì chờ parse HTML -->
   <link rel="modulepreload" href="/supabase.js" />
   <link rel="modulepreload" href="/core.js" />
   <link rel="modulepreload" href="/app.js" />
@@ -211,6 +209,12 @@
       <section id="tab-areas" class="tab-content">
         <div class="section-header">
           <h2>🏢 Khu vực phụ trách</h2>
+        </div>
+
+        <!-- ⭐ NEW: Date picker xem lại ngày cũ -->
+        <div class="form-group" style="margin-bottom:12px">
+          <label>📅 Xem ngày</label>
+          <input type="date" id="areasViewDate" class="input" />
         </div>
 
         <div class="area-create-buttons">
@@ -643,7 +647,6 @@
     import { APP_VERSION, checkForUpdate } from './version.js';
     console.log('[App] running v' + APP_VERSION);
 
-    // ⭐ Check update sau 3s (không block lúc load)
     setTimeout(async () => {
       const upd = await checkForUpdate();
       if (upd) {
