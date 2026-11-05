@@ -161,16 +161,19 @@ async function initAuth() {
     }
   } catch {}
 
-  // ⭐ Timeout 8s — nếu Supabase treo, không để trang trắng
+  // ⭐ FIX #1: clear timeout khi session resolve trước
   let session = null;
+  let timeoutId = null;
   try {
     const sessionPromise = supabase.auth.getSession();
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 8000)
-    );
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 8000);
+    });
     const { data } = await Promise.race([sessionPromise, timeoutPromise]);
+    clearTimeout(timeoutId);
     session = data?.session;
   } catch (err) {
+    if (timeoutId) clearTimeout(timeoutId);
     console.warn('[Auth]', err.message);
     session = null;
   }
@@ -188,47 +191,55 @@ function showLoginScreen() {
   $('#mainScreen').style.display = 'none';
 }
 
+// ⭐ FIX #2: guard chống double execution khi logout
+let _showGuestInProgress = false;
+
 async function showGuestView() {
-  state.user = null;
-  state.profile = null;
-  state.isAdmin = false;
-  state.isSupervisorMode = false;
-  state.employees = [];
-  state.selectedEmployeeId = null;
-  state.attendance = [];
-  state.selectionMode = false;
-  state.selectedDates.clear();
-  state.batchDates = null;
-  state.floorAssignments = {};
+  if (_showGuestInProgress) return;
+  _showGuestInProgress = true;
+  try {
+    state.user = null;
+    state.profile = null;
+    state.isAdmin = false;
+    state.isSupervisorMode = false;
+    state.employees = [];
+    state.selectedEmployeeId = null;
+    state.attendance = [];
+    state.selectionMode = false;
+    state.selectedDates.clear();
+    state.batchDates = null;
+    state.floorAssignments = {};
 
-  $('#loading').style.display = 'none';
-  $('#loginScreen').style.display = 'none';
-  $('#mainScreen').style.display = 'block';
+    $('#loading').style.display = 'none';
+    $('#loginScreen').style.display = 'none';
+    $('#mainScreen').style.display = 'block';
 
-  $('#loginBtn').style.display = 'block';
-  $('#logoutBtn').style.display = 'none';
+    $('#loginBtn').style.display = 'block';
+    $('#logoutBtn').style.display = 'none';
 
-  $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = 'none');
-  $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = 'none');
-  $$('.tab-btn[data-tab="salary"]').forEach(el => el.style.display = 'none');
-  $$('.tab-btn[data-tab="excel"]').forEach(el => el.style.display = 'none');
+    $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = 'none');
+    $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = 'none');
+    $$('.tab-btn[data-tab="salary"]').forEach(el => el.style.display = 'none');
+    $$('.tab-btn[data-tab="excel"]').forEach(el => el.style.display = 'none');
 
-  $('#empSelectorRow').style.display = 'flex';
-  $('#summaryCard').style.display = 'block';
-  $('#guestBanner').style.display = 'block';
-  $('#quickAttendanceRow').style.display = 'none';
-  $('#calendarActions').style.display = 'none';
-  $('#exportActionRow').style.display = 'block';
-  $('#calendarHint').style.display = 'none';
-  $('#addEmployeeBtn').style.display = 'none';
-  $('#selectionBar').style.display = 'none';
+    $('#empSelectorRow').style.display = 'flex';
+    $('#summaryCard').style.display = 'block';
+    $('#guestBanner').style.display = 'block';
+    $('#quickAttendanceRow').style.display = 'none';
+    $('#calendarActions').style.display = 'none';
+    $('#exportActionRow').style.display = 'block';
+    $('#calendarHint').style.display = 'none';
+    $('#addEmployeeBtn').style.display = 'none';
+    $('#selectionBar').style.display = 'none';
 
-  switchTab('calendar');
+    switchTab('calendar');
 
-  // ⭐ Cần employee trước, sau đó song song
-  await loadPublicEmployees();
-  await Promise.all([loadBuildings(), loadAttendanceForMonth()]);
-  renderCalendar();
+    await loadPublicEmployees();
+    await Promise.all([loadBuildings(), loadAttendanceForMonth()]);
+    renderCalendar();
+  } finally {
+    _showGuestInProgress = false;
+  }
 }
 
 async function onLoggedIn(user) {
@@ -481,6 +492,8 @@ async function saveEditEmployee() {
 
   toast('Đã cập nhật nhân viên ✓');
   closeModal('editEmployeeModal');
+  // ⭐ FIX #3: tên/SĐT đổi → invalidate salary
+  if (salaryModule) salaryModule.invalidateCache();
   await loadEmployees();
   if (state.isAdmin) renderBuildings();
   if (state.selectedEmployeeId === state.editingEmployeeId) updateSummary();
@@ -554,6 +567,8 @@ async function changeEmployeeRole(userId, newRole, currentRole) {
   }
 
   toast(`Đã đổi thành ${ROLE_LABELS[newRole]} ✓`);
+  // ⭐ FIX #4: role đổi → invalidate salary
+  if (salaryModule) salaryModule.invalidateCache();
   await loadEmployees();
   if (state.selectedEmployeeId === userId) updateSummary();
 }
@@ -571,6 +586,8 @@ async function toggleEmployeeStatus(userId, currentStatus) {
   });
   if (error) { toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, '')); return; }
   toast(newStatus === 'inactive' ? '⏸ Đã vô hiệu hoá' : '▶ Đã kích hoạt');
+  // ⭐ FIX #5: status đổi → invalidate salary
+  if (salaryModule) salaryModule.invalidateCache();
   await loadEmployees();
 }
 
@@ -634,6 +651,8 @@ async function createEmployee() {
   }
   toast('Đã tạo nhân viên ✓');
   closeModal('employeeModal');
+  // ⭐ FIX #6: nhân viên mới → invalidate salary
+  if (salaryModule) salaryModule.invalidateCache();
   await loadEmployees();
 }
 
@@ -1002,6 +1021,8 @@ async function saveBuilding() {
   $('#buildingName').value = '';
   $('#buildingFloors').value = '1';
   $('#noGroundFloor').checked = false;
+  // ⭐ FIX #7: toà mới → invalidate salary
+  if (salaryModule) salaryModule.invalidateCache();
   await loadBuildings();
 }
 
@@ -1075,17 +1096,35 @@ async function loadAttendanceForMonth(forceRefresh = false) {
 
 function updateSummary() {
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
+
   if (!emp) {
-    ['sumName', 'sumRole'].forEach(id => $('#' + id).textContent = '—');
-    ['sumDays', 'sumWork', 'sumOT', 'sumLeave'].forEach(id => $('#' + id).textContent = '0');
+    ['sumName', 'sumRole', 'sumMonthLabel', 'sumTodayDate']
+      .forEach(id => { const el = $('#' + id); if (el) el.textContent = '—'; });
+    // ⭐ FIX #8: reset đúng kiểu (giờ có "h", ngày không)
+    const $sd = $('#sumDays'); if ($sd) $sd.textContent = '0';
+    const $sw = $('#sumWork'); if ($sw) $sw.textContent = '0h';
+    const $so = $('#sumOT'); if ($so) $so.textContent = '0h';
+    const $sl = $('#sumLeave'); if ($sl) $sl.textContent = '0';
+    const $stw = $('#sumTodayWork'); if ($stw) $stw.textContent = '0h';
+    const $sto = $('#sumTodayOT'); if ($sto) $sto.textContent = '0h';
     return;
   }
+
   $('#sumName').textContent = emp.full_name || emp.username || emp.email || '—';
   $('#sumRole').textContent = roleLabelOf(emp);
+
+  // ⭐ Label tháng đang xem (MM/YYYY)
+  const y = state.currentMonth.getFullYear();
+  const mo = state.currentMonth.getMonth() + 1;
+  $('#sumMonthLabel').textContent = `${pad(mo)}/${y}`;
 
   let work = 0, ot = 0;
   let workDays = 0;
   let leaveDays = 0;
+  let todayWork = 0, todayOT = 0;
+
+  const todayDate = new Date();
+  const todayStr = toDateStr(todayDate);
 
   for (const a of state.attendance) {
     if (a.mode === 'leave') { leaveDays++; continue; }
@@ -1096,12 +1135,34 @@ function updateSummary() {
     if (h > 0 || o > 0) workDays++;
     work += h;
     ot += o;
+
+    // ⭐ Cộng dồn riêng cho hôm nay
+    if (a.date === todayStr) {
+      todayWork += h;
+      todayOT += o;
+    }
   }
 
   $('#sumDays').textContent = workDays;
   $('#sumWork').textContent = formatHours(work);
   $('#sumOT').textContent = formatHours(ot);
   $('#sumLeave').textContent = leaveDays;
+
+  // ⭐ Chỉ hiện section "Hôm nay" khi đang xem đúng tháng hiện tại
+  const isViewingCurrentMonth =
+    y === todayDate.getFullYear() && (mo - 1) === todayDate.getMonth();
+
+  const $today = $('#sumTodaySection');
+  if ($today) {
+    if (isViewingCurrentMonth) {
+      $today.style.display = 'block';
+      $('#sumTodayDate').textContent = `${pad(todayDate.getDate())}/${pad(todayDate.getMonth() + 1)}`;
+      $('#sumTodayWork').textContent = formatHours(todayWork);
+      $('#sumTodayOT').textContent = formatHours(todayOT);
+    } else {
+      $today.style.display = 'none';
+    }
+  }
 }
 
 /* ============ PREFILL ============ */
