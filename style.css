@@ -1608,3 +1608,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #b91c1c;
   border: 1.5px solid #fecaca;
 }
+#attSummaryContent .summary-shared {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 12px;
+  margin-left: 2px;
+}
