@@ -13,9 +13,10 @@ function ensureSpecialState() {
   if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
-/* ⭐ Cache day assignments theo ngày (dùng cho cả preview lẫn modal) */
+/* ⭐ Cache day assignments theo ngày */
 const _dayAssignCache = new Map();
 let _previewToken = 0;
+let _dppEmpBound = false;
 
 async function getDayAssignments(dateStr) {
   if (_dayAssignCache.has(dateStr)) {
@@ -40,13 +41,13 @@ export function setSelectedViewDate(dateStr) {
   renderCalendar();
 }
 
-/* ⭐ Mở fullpage xem chi tiết (gọi khi ấn nút #viewDetailBtn) */
+/* ⭐ Mở fullpage (gọi khi ấn nút #viewDetailBtn) */
 export function openDayPreview() {
   if (!state.selectedViewDate) return;
   renderDayPreview(state.selectedViewDate);
 }
 
-/* ⭐ Đóng fullpage (giữ selectedViewDate để nút vẫn có thể bấm lại) */
+/* ⭐ Đóng fullpage (giữ selectedViewDate để có thể bấm lại) */
 function closeDayPreview() {
   _previewToken++;
   const $p = $('#dayPreviewPanel');
@@ -54,6 +55,43 @@ function closeDayPreview() {
   document.body.classList.remove('dpp-fullpage');
 }
 
+/* ⭐ Populate dropdown chọn NV trong employee bar */
+function populateDppEmployeeSelect() {
+  const $main = $('#employeeSelect');
+  const $dpp = $('#dppEmployeeSelect');
+  if (!$main || !$dpp) return;
+
+  if ($dpp.options.length !== $main.options.length) {
+    $dpp.innerHTML = $main.innerHTML;
+  }
+  $dpp.value = state.selectedEmployeeId || '';
+  bindDppEmployeeSelect();
+}
+
+function bindDppEmployeeSelect() {
+  if (_dppEmpBound) return;
+  const $dpp = $('#dppEmployeeSelect');
+  if (!$dpp) return;
+  _dppEmpBound = true;
+
+  $dpp.addEventListener('change', async (e) => {
+    const newId = e.target.value;
+    if (!newId) return;
+    if (newId === state.selectedEmployeeId) return;
+
+    state.selectedEmployeeId = newId;
+
+    const $main = $('#employeeSelect');
+    if ($main) $main.value = newId;
+
+    if (state.selectionMode) exitSelectionMode();
+
+    await loadAttendanceForMonth(true);
+    renderCalendar();
+  });
+}
+
+/* ⭐ Render fullpage panel */
 function renderDayPreview(dateStr) {
   const token = ++_previewToken;
   const $panel  = $('#dayPreviewPanel');
@@ -61,10 +99,9 @@ function renderDayPreview(dateStr) {
   const $body   = $('#dppBody');
   if (!$panel || !$body) return;
 
-  // ⭐ Bật fullpage
   document.body.classList.add('dpp-fullpage');
 
-  // ⭐ Nút X → đóng fullpage (giữ selectedViewDate)
+  // Setup nút ✕
   const $closeBtn = $('#dppCloseBtn');
   if ($closeBtn) {
     $closeBtn.onclick = (e) => {
@@ -72,6 +109,9 @@ function renderDayPreview(dateStr) {
       closeDayPreview();
     };
   }
+
+  // Populate dropdown NV
+  populateDppEmployeeSelect();
 
   if ($dateEl) $dateEl.textContent = `📅 ${formatDateVN(dateStr)}`;
   $body.innerHTML = '<p style="margin:0;color:var(--text-muted);font-size:13px">⏳ Đang tải...</p>';
@@ -95,10 +135,17 @@ function _renderDayPreviewImmediate(dateStr) {
   const $panel   = $('#dayPreviewPanel');
   const $body    = $('#dppBody');
   const $editBtn = $('#dppEditBtn');
+  const $avatar  = $('#dppEmpAvatar');
   if (!$panel || !$body) return;
 
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   const att = state.attendance.find(a => a.date === dateStr);
+
+  // Update avatar
+  if ($avatar) {
+    const name = emp?.full_name || emp?.username || '';
+    $avatar.textContent = name ? name.charAt(0).toUpperCase() : '?';
+  }
 
   $body.innerHTML = buildDayPreviewBody(att, emp);
 
@@ -107,6 +154,7 @@ function _renderDayPreviewImmediate(dateStr) {
       $editBtn.style.display = 'inline-flex';
       $editBtn.onclick = (e) => {
         e.stopPropagation();
+        // Modal có z-index 10000 (CSS) → nổi trên fullpage, không cần đóng
         openAttendanceModal(dateStr);
       };
     } else {
@@ -119,10 +167,9 @@ function _renderDayPreviewImmediate(dateStr) {
   document.body.classList.add('dpp-fullpage');
 }
 
-/* ⭐ Preview dùng CÙNG logic chia giờ với modal (calcEntryActualHours) */
 function buildDayPreviewBody(att, emp) {
   if (!emp) {
-    return `<p style="margin:0;color:var(--text-muted);font-size:13px">Chọn nhân viên để xem chi tiết</p>`;
+    return `<p style="margin:0;color:var(--text-muted);font-size:13px">Chọn nhân viên ở trên để xem chi tiết</p>`;
   }
   if (!att) {
     return `<p style="margin:0;color:var(--text-muted);font-size:13px">📭 Chưa có chấm công ngày này</p>`;
@@ -144,7 +191,7 @@ function buildDayPreviewBody(att, emp) {
       ? `<span style="color:var(--text-muted);font-weight:500;font-size:11px"> (${note})</span>`
       : '';
     lines.push(
-      `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
         `<span>${emoji} ${label}${noteHTML}</span><strong>${formatHours(h)}</strong></div>`
     );
   };
@@ -167,7 +214,7 @@ function buildDayPreviewBody(att, emp) {
     const h = Number(att.manual_hours);
     sumMain += h;
     lines.push(
-      `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
+      `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
         `<span>⏱️ Giờ công</span><strong>${formatHours(h)}</strong></div>`
     );
   }
@@ -178,7 +225,7 @@ function buildDayPreviewBody(att, emp) {
         const h = Number(a.hours || 0);
         sumOT += h;
         lines.push(
-          `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
+          `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
             `<span>📅 Tăng ca CN</span><strong>${formatHours(h)}</strong></div>`
         );
       } else if (a.type === 'external') addLine('🌳', 'Ngoại cảnh (OT)', calcEntryActualHours(a), true, getPoolForEntry(a).others);
@@ -194,7 +241,7 @@ function buildDayPreviewBody(att, emp) {
 
   return (
     (lines.length ? `<div>${lines.join('')}</div>` : '') +
-    `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:13px">` +
+    `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px">` +
       `<span style="color:var(--text-muted)">Công: <strong style="color:var(--text)">${formatHours(sumMain)}</strong></span>` +
       `<span style="color:var(--text-muted)">OT: <strong style="color:var(--warning)">${formatHours(sumOT)}</strong></span>` +
       `<span style="color:var(--text-muted);margin-left:auto">Tổng: <strong style="color:var(--ocean-700)">${formatHours(sumMain + sumOT)}</strong></span>` +
@@ -1282,7 +1329,7 @@ export function renderCalendar() {
       attachCalendarSelect(el, el.dataset.date));
   }
 
-  // ⭐ Update nút "Xem chi tiết"
+  // Update nút "Xem chi tiết"
   const $viewBtn = $('#viewDetailBtn');
   if ($viewBtn) {
     if (state.selectedViewDate && !state.selectionMode) {
@@ -1295,7 +1342,7 @@ export function renderCalendar() {
     }
   }
 
-  // ⭐ Sync panel nếu đang fullpage
+  // Sync panel nếu đang fullpage
   const isFullpage = document.body.classList.contains('dpp-fullpage');
   if (isFullpage && state.selectedViewDate) {
     renderDayPreview(state.selectedViewDate);
@@ -1305,7 +1352,7 @@ export function renderCalendar() {
   }
 }
 
-/* ⭐ touchstart (mobile, 0ms) + click (desktop) với dedupe 400ms */
+/* touchstart + click với dedupe */
 function attachCalendarSelect(el, dateStr) {
   let lastFire = 0;
 
@@ -1375,9 +1422,24 @@ export async function changeMonth(delta) {
   d.setMonth(d.getMonth() + delta);
   state.currentMonth = d;
 
-  state.selectedViewDate = null;
-  closeDayPreview();
+  const wasFullpage = document.body.classList.contains('dpp-fullpage');
 
   await loadAttendanceForMonth();
+
+  if (wasFullpage) {
+    // ⭐ Giữ fullpage, auto-select ngày mặc định
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const today = new Date();
+    if (y === today.getFullYear() && m === today.getMonth()) {
+      state.selectedViewDate = toDateStr(today);
+    } else {
+      state.selectedViewDate = `${y}-${pad(m + 1)}-01`;
+    }
+  } else {
+    state.selectedViewDate = null;
+    closeDayPreview();
+  }
+
   renderCalendar();
 }
