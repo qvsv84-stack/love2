@@ -54,6 +54,79 @@
     .area-create-buttons .btn-create[data-create="night"] {
       background: linear-gradient(135deg, #6366f1, #4338ca);
     }
+
+    /* Nút ✕ đóng panel xem ngày */
+    .dpp-close-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      width: 30px; height: 30px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-family: inherit;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .dpp-close-btn:active { background: var(--border); }
+
+    /* ⭐ SPLIT VIEW — chỉ áp dụng khi #tab-calendar đang active */
+    #tab-calendar.active.split-view {
+      position: fixed !important;
+      inset: 0;
+      z-index: 100;
+      display: flex !important;
+      flex-direction: column;
+      background: var(--bg, #fff);
+      overflow: hidden;
+      padding: 0 !important;
+      padding-top: max(6px, env(safe-area-inset-top)) !important;
+      padding-bottom: max(6px, env(safe-area-inset-bottom)) !important;
+      box-sizing: border-box;
+    }
+
+    #tab-calendar.split-view > #guestBanner,
+    #tab-calendar.split-view > .employee-panel,
+    #tab-calendar.split-view > #quickAttendanceRow,
+    #tab-calendar.split-view > #calendarActions,
+    #tab-calendar.split-view > #exportActionRow,
+    #tab-calendar.split-view > .calendar-legend,
+    #tab-calendar.split-view > #calendarHint {
+      display: none !important;
+    }
+
+    #tab-calendar.split-view > .month-nav {
+      flex-shrink: 0;
+      margin: 2px 12px 6px;
+    }
+    #tab-calendar.split-view > .month-nav h2 {
+      font-size: 16px;
+    }
+
+    #tab-calendar.split-view > .calendar-wrap {
+      flex: 1 1 50%;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin: 0 12px;
+      padding-bottom: 8px;
+      -webkit-overflow-scrolling: touch;
+      border-bottom: 2px solid var(--ocean-500, #0ea5b7);
+    }
+
+    #tab-calendar.split-view > #dayPreviewPanel {
+      flex: 1 1 50%;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin: 0 !important;
+      padding: 8px 12px;
+      border-radius: 0 !important;
+      -webkit-overflow-scrolling: touch;
+    }
   </style>
 </head>
 <body>
@@ -199,7 +272,7 @@
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
 
-        <!-- ⭐ GIỮ NGUYÊN TRONG DOM, CHỈ ẨN BẰNG display:none -->
+        <!-- GIỮ NGUYÊN DOM, CHỈ ẨN -->
         <div class="calendar-legend" style="display:none">
           <span class="legend-item"><span class="legend-dot dot-work"></span>Đi làm</span>
           <span class="legend-item"><span class="legend-dot dot-off"></span>OFF</span>
@@ -208,11 +281,14 @@
         </div>
         <p class="hint" id="calendarHint" style="display:none">💡 Nhấp vào một ngày để xem chi tiết · Nút ✏️ Sửa để chấm công</p>
 
-        <!-- ⭐ DAY PREVIEW PANEL — phía dưới lịch -->
+        <!-- DAY PREVIEW PANEL — thêm nút ✕ đóng -->
         <div id="dayPreviewPanel" class="day-preview-panel" style="display:none">
           <div class="dpp-header">
             <span class="dpp-date" id="dppDate">📅 —</span>
-            <button class="dpp-edit-btn" id="dppEditBtn" style="display:none">✏️ Sửa</button>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="dpp-edit-btn" id="dppEditBtn" style="display:none">✏️ Sửa</button>
+              <button class="dpp-close-btn" id="dppCloseBtn" title="Đóng" type="button">✕</button>
+            </div>
           </div>
           <div class="dpp-body" id="dppBody"></div>
         </div>
