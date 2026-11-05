@@ -16,6 +16,7 @@ import {
 import {
   loadBuildings, loadTodayAssignments, renderBuildings,
   saveBuilding, saveFloors,
+  openSpecialAreaModal, saveSpecialArea,
 } from './buildings.js';
 
 import {
@@ -139,6 +140,26 @@ function bindEvents() {
     });
   }
 
+  /* ⭐ 3 nút tạo khu vực: toà nhà / ngoại cảnh / ca đêm */
+  const $createBuildingBtn = document.querySelector('[data-create="building"]');
+  if ($createBuildingBtn) {
+    $createBuildingBtn.addEventListener('click', () => openModal('buildingModal'));
+  }
+  const $createExternalBtn = $('#createExternalBtn');
+  if ($createExternalBtn) {
+    $createExternalBtn.addEventListener('click', () => {
+      if (!state.isAdmin) { toast('Chỉ Giám sát được tạo khu vực'); return; }
+      openSpecialAreaModal('external');
+    });
+  }
+  const $createNightBtn = $('#createNightBtn');
+  if ($createNightBtn) {
+    $createNightBtn.addEventListener('click', () => {
+      if (!state.isAdmin) { toast('Chỉ Giám sát được tạo khu vực'); return; }
+      openSpecialAreaModal('night');
+    });
+  }
+
   /* --- Export --- */
   $('#exportExcelBtn').addEventListener('click', () => {
     if (state.exportModule) state.exportModule.openExportModal();
@@ -217,7 +238,7 @@ function bindEvents() {
   }));
   $('#supOtHours').addEventListener('input', updatePreview);
 
-  /* ⭐ Bind Tăng ca CN checkbox + input */
+  /* ⭐ Bind Tăng ca CN */
   const $sundayCheck = $('#sundayOtCheck');
   if ($sundayCheck) {
     $sundayCheck.addEventListener('change', () => {
@@ -230,7 +251,7 @@ function bindEvents() {
     $sundayHours.addEventListener('input', updatePreview);
   }
 
-  /* ⭐ Add main/ot area — tạo dòng với type 'building' mặc định */
+  /* ⭐ Add main/ot area — default building */
   $('#addMainAreaBtn').addEventListener('click', () => {
     state.modalAreas.push({ type: 'building', building_id: '', floor_id: '', hours: null });
     renderMainAreaPicker();
@@ -244,11 +265,22 @@ function bindEvents() {
   $('#saveAttendanceBtn').addEventListener('click', saveAttendance);
 
   /* --- Building modal --- */
-  $('#addBuildingBtn').addEventListener('click', () => openModal('buildingModal'));
   $('#buildingModal').addEventListener('click', (e) => {
     if (e.target.id === 'buildingModal') closeModal('buildingModal');
   });
   $('#saveBuildingBtn').addEventListener('click', saveBuilding);
+
+  /* ⭐ Special Area modal (dùng chung cho ngoại cảnh + ca đêm) */
+  const $specialModal = $('#specialAreaModal');
+  if ($specialModal) {
+    $specialModal.addEventListener('click', (e) => {
+      if (e.target.id === 'specialAreaModal') closeModal('specialAreaModal');
+    });
+  }
+  const $saveSpecialBtn = $('#saveSpecialAreaBtn');
+  if ($saveSpecialBtn) {
+    $saveSpecialBtn.addEventListener('click', saveSpecialArea);
+  }
 
   /* --- Floor modal --- */
   $('#floorModal').addEventListener('click', (e) => {
@@ -304,7 +336,6 @@ function bindEvents() {
 document.addEventListener('DOMContentLoaded', async () => {
   dbg('ok', '🚀 App khởi động');
 
-  // Init debug module TRƯỚC — để bắt lỗi từ các module sau
   initDebugModule();
 
   try {
