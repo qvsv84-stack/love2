@@ -17,6 +17,22 @@ function formatDateVN(dateStr) {
 }
 function floorLabel(n) { return n === 0 ? 'Trệt' : `Tầng ${n}`; }
 
+/* ⭐ Lazy load XLSX — chỉ tải khi user thực sự xuất file */
+let _xlsxPromise = null;
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (_xlsxPromise) return _xlsxPromise;
+  _xlsxPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.async = true;
+    s.onload = () => resolve(window.XLSX);
+    s.onerror = () => { _xlsxPromise = null; reject(new Error('XLSX load failed')); };
+    document.head.appendChild(s);
+  });
+  return _xlsxPromise;
+}
+
 export function initExportModule(ctx) {
   const { state, toast } = ctx;
 
@@ -120,9 +136,12 @@ export function initExportModule(ctx) {
   }
 
   /* ---------- XUẤT CHẤM CÔNG (Bảng công chi tiết) ---------- */
-  function doExport() {
-    if (typeof XLSX === 'undefined') {
-      toast('Chưa tải được thư viện Excel, vui lòng refresh trang');
+  async function doExport() {
+    /* ⭐ Lazy load XLSX */
+    try {
+      await loadXLSX();
+    } catch {
+      toast('Không tải được thư viện Excel, vui lòng kiểm tra mạng');
       return;
     }
 
@@ -341,11 +360,14 @@ export function initExportModule(ctx) {
   }
 
   /* ---------- XUẤT BẢNG CÔNG TỔNG HỢP ---------- */
-  function doExportSalary() {
-    if (typeof XLSX === 'undefined') {
-      toast('Chưa tải được thư viện Excel');
+  async function doExportSalary() {
+    try {
+      await loadXLSX();
+    } catch {
+      toast('Không tải được thư viện Excel');
       return;
     }
+
     const data = state.salaryData || [];
     const meta = state.salaryMeta || {};
     if (!data.length || !meta.month) {
@@ -452,11 +474,14 @@ export function initExportModule(ctx) {
   }
 
   /* ---------- XUẤT BẢNG CÔNG MATRIX (2 dòng/NV) ---------- */
-  function doExportMatrix(profiles, attendance, monthDate) {
-    if (typeof XLSX === 'undefined') {
-      toast('Chưa tải được thư viện Excel');
+  async function doExportMatrix(profiles, attendance, monthDate) {
+    try {
+      await loadXLSX();
+    } catch {
+      toast('Không tải được thư viện Excel');
       return;
     }
+
     if (!profiles || !profiles.length) {
       toast('Chưa có dữ liệu, vui lòng chờ tải xong');
       return;
