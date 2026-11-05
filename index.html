@@ -55,6 +55,26 @@
       background: linear-gradient(135deg, #6366f1, #4338ca);
     }
 
+    /* ⭐ Nút "Xem chi tiết" nằm dưới lịch tháng */
+    #viewDetailBtn {
+      display: none;
+      width: 100%;
+      margin: 12px 0;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, var(--ocean-500, #0ea5b7), var(--ocean-600, #0891b2));
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(14, 165, 183, 0.35);
+      -webkit-tap-highlight-color: transparent;
+      text-align: center;
+    }
+    #viewDetailBtn:active { transform: translateY(1px); }
+
     /* ⭐ Floating close button — chỉ hiện khi fullpage */
     .dpp-close-btn-float {
       position: fixed;
@@ -125,14 +145,15 @@
     body.dpp-fullpage #tab-calendar > #calendarActions,
     body.dpp-fullpage #tab-calendar > #exportActionRow,
     body.dpp-fullpage #tab-calendar > .calendar-legend,
-    body.dpp-fullpage #tab-calendar > #calendarHint {
+    body.dpp-fullpage #tab-calendar > #calendarHint,
+    body.dpp-fullpage #tab-calendar > #viewDetailBtn {
       display: none !important;
     }
 
     body.dpp-fullpage #tab-calendar > .month-nav {
       flex-shrink: 0;
       margin: 0 0 6px;
-      padding-right: 50px;   /* chừa chỗ cho nút X floating */
+      padding-right: 50px;
     }
     body.dpp-fullpage #tab-calendar > .month-nav h2 {
       font-size: 16px;
@@ -304,6 +325,9 @@
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
 
+        <!-- ⭐ NÚT "Xem chi tiết" — hiện khi có ngày được chọn -->
+        <button id="viewDetailBtn" type="button">👁 Xem chi tiết</button>
+
         <!-- GIỮ NGUYÊN DOM, CHỈ ẨN -->
         <div class="calendar-legend" style="display:none">
           <span class="legend-item"><span class="legend-dot dot-work"></span>Đi làm</span>
@@ -313,7 +337,7 @@
         </div>
         <p class="hint" id="calendarHint" style="display:none">💡 Nhấp vào một ngày để xem chi tiết · Nút ✏️ Sửa để chấm công</p>
 
-        <!-- DAY PREVIEW PANEL — header chỉ có date + edit; X floating riêng -->
+        <!-- DAY PREVIEW PANEL -->
         <div id="dayPreviewPanel" class="day-preview-panel" style="display:none">
           <div class="dpp-header">
             <span class="dpp-date" id="dppDate">📅 —</span>
