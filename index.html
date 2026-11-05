@@ -21,6 +21,69 @@
     .dbg-ok { color: #32d74b; }
     .dbg-warn { color: #ffd60a; }
     .dbg-error { color: #ff453a; }
+
+    /* ⭐ Area entry mới — có select loại (Toà nhà / Ngoại cảnh / Ca đêm / Tuỳ chỉnh) */
+    .area-entry {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      background: var(--ocean-50);
+      padding: 8px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+    }
+    .area-entry .area-type {
+      flex: 0 0 140px;
+      padding: 8px 10px;
+      font-size: 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      font-family: inherit;
+      font-weight: 600;
+      color: var(--ocean-700);
+    }
+    .area-entry .area-building,
+    .area-entry .area-floor {
+      flex: 1 1 120px;
+      padding: 8px 10px;
+      font-size: 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      font-family: inherit;
+      min-width: 0;
+    }
+    .area-entry .area-hours-input {
+      flex: 0 0 80px;
+      padding: 8px 8px;
+      font-size: 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      font-family: inherit;
+      text-align: center;
+    }
+    .area-entry .area-hours-input.area-hours-full {
+      flex: 1 1 auto;
+      text-align: left;
+    }
+    .area-entry .remove-area {
+      flex: 0 0 34px;
+      height: 34px;
+      background: #fef2f2;
+      color: var(--danger);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    @media (max-width: 400px) {
+      .area-entry .area-type { flex: 1 1 100%; }
+    }
   </style>
 </head>
 <body>
@@ -284,39 +347,38 @@
           </div>
           <div id="employeeModeSection">
             <div class="form-group">
-              <label>1️⃣ Khu vực chính <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tính công thường)</span></label>
+              <label>1️⃣ Khu vực chính <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tính công thường — có thể mix nhiều loại)</span></label>
               <div class="radio-group" style="margin-bottom:10px">
-                <label class="radio"><input type="radio" name="attMode" value="default" checked /> Mặc định (theo khu vực)</label>
-                <label class="radio"><input type="radio" name="attMode" value="manual" /> Thủ công</label>
-                <label class="radio"><input type="radio" name="attMode" value="external" /> 🌳 Ngoại cảnh (ngoài toà nhà)</label>
+                <label class="radio"><input type="radio" name="attMode" value="default" checked /> Mặc định (mix nhiều khu vực)</label>
+                <label class="radio"><input type="radio" name="attMode" value="manual" /> Thủ công (nhập tổng giờ)</label>
                 <label class="radio"><input type="radio" name="attMode" value="off" /> OFF (nghỉ)</label>
                 <label class="radio"><input type="radio" name="attMode" value="leave" /> Phép (không tính lương)</label>
               </div>
               <div id="mainAreaSection">
                 <div id="mainAreaPicker" class="area-picker"></div>
                 <button id="addMainAreaBtn" class="btn-small">+ Thêm khu vực chính</button>
+                <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.4">
+                  💡 Mix được: 🏢 Toà nhà (chia sẻ giờ tự động) · 🌳 Ngoại cảnh · 🌙 Ca đêm · 🎯 Tuỳ chỉnh
+                </p>
               </div>
               <div class="form-group" id="manualHoursGroup" style="display:none;margin-top:10px">
-                <label id="manualHoursLabel">Nhập số giờ công</label>
+                <label>Nhập tổng số giờ công</label>
                 <input type="number" id="manualHours" step="0.5" min="0" max="24" class="input" placeholder="VD: 8" />
               </div>
             </div>
             <div class="form-group" id="otSection">
-              <label>2️⃣ Khu vực tăng ca <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tuỳ chọn)</span></label>
+              <label>2️⃣ Khu vực tăng ca <span style="font-weight:400;color:var(--text-muted);font-size:11px">(tuỳ chọn — mix được)</span></label>
 
-              <!-- ⭐ Toggle tăng ca CN bao trùm -->
               <label class="radio" id="sundayOtToggle" style="margin-bottom:10px;background:#fff7ed;border-color:#fdba74">
                 <input type="checkbox" id="sundayOtCheck" />
                 <span style="font-size:13px">📅 <strong>Tăng ca CN (bao trùm)</strong> — không chia tầng, làm ở đâu cũng được</span>
               </label>
 
-              <!-- Khu vực thường (ẩn khi tick CN) -->
               <div id="otNormalSection">
                 <div id="otAreaPicker" class="area-picker"></div>
                 <button id="addOtAreaBtn" class="btn-small">+ Thêm khu vực tăng ca</button>
               </div>
 
-              <!-- Input giờ CN (hiện khi tick CN) -->
               <div id="sundayOtGroup" style="display:none">
                 <label style="font-size:13px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px">Số giờ tăng ca CN</label>
                 <input type="number" id="sundayOtHours" class="input" step="0.5" min="0" max="24" placeholder="VD: 4" />
@@ -502,7 +564,6 @@
     <div id="toast" class="toast" style="display:none"></div>
   </div>
 
-  <!-- ⭐ TIMEOUT CHỐNG TRẮNG TRANG -->
   <script>
   (function () {
     let _resolved = false;
