@@ -16,41 +16,22 @@ export const ROLE_LABELS = {
 export const ROLE_ORDER = { admin: 1, employee: 2, temporary: 3, external: 4 };
 
 export const state = {
-  user: null,
-  profile: null,
-  isAdmin: false,
-  isSupervisorMode: false,
-  employees: [],
-  selectedEmployeeId: null,
-  buildings: [],
-  floors: [],
-  currentMonth: new Date(),
-  attendance: [],
-  editingDate: null,
-  batchDates: null,
-  modalAreas: [],
-  modalOtAreas: [],
+  user: null, profile: null, isAdmin: false, isSupervisorMode: false,
+  employees: [], selectedEmployeeId: null,
+  buildings: [], floors: [],
+  currentMonth: new Date(), attendance: [],
+  editingDate: null, batchDates: null,
+  modalAreas: [], modalOtAreas: [],
   floorSetupBuildingId: null,
-  selectionMode: false,
-  selectedDates: new Set(),
-  editingEmployeeId: null,
-  floorAssignments: {},
-  areasSearch: '',
-  areasRoleFilter: 'all',
-  salaryMonth: new Date(),
-  salaryRoleFilter: 'nv_tv',
-  salarySearch: '',
-  salarySort: 'hours_desc',
-  salaryData: [],
-  salaryMeta: null,
-  excelMonth: new Date(),
-  excelProfiles: [],
-  excelAttendance: [],
+  selectionMode: false, selectedDates: new Set(),
+  editingEmployeeId: null, floorAssignments: {},
+  areasSearch: '', areasRoleFilter: 'all',
+  salaryMonth: new Date(), salaryRoleFilter: 'nv_tv',
+  salarySearch: '', salarySort: 'hours_desc',
+  salaryData: [], salaryMeta: null,
+  excelMonth: new Date(), excelProfiles: [], excelAttendance: [],
   excelActionEmpId: null,
-  // ⭐ Module references — gán trong app.js
-  salaryModule: null,
-  exportModule: null,
-  phoneModule: null,
+  salaryModule: null, exportModule: null, phoneModule: null,
 };
 
 export const $ = (sel) => document.querySelector(sel);
@@ -148,6 +129,7 @@ export function invalidateAttendanceCache(empId) {
 
 /* ============ AUTH ============ */
 let _showGuestInProgress = false;
+let _onLoggedInInProgress = false;
 
 export async function initAuth() {
   try {
@@ -159,8 +141,7 @@ export async function initAuth() {
     }
   } catch {}
 
-  let session = null;
-  let timeoutId = null;
+  let session = null, timeoutId = null;
   try {
     const sessionPromise = supabase.auth.getSession();
     const timeoutPromise = new Promise((_, reject) => {
@@ -188,6 +169,7 @@ export function showLoginScreen() {
   $('#mainScreen').style.display = 'none';
 }
 
+/* ⭐ FIX P1: parallel imports + FIX P2: single updateSummary */
 export async function showGuestView() {
   if (_showGuestInProgress) return;
   _showGuestInProgress = true;
@@ -225,76 +207,98 @@ export async function showGuestView() {
     $('#addEmployeeBtn').style.display = 'none';
     $('#selectionBar').style.display = 'none';
 
-    const employees = await import('./employees.js');
-    const buildings = await import('./buildings.js');
-    const attendance = await import('./attendance.js');
+    // ⭐ FIX P1: 3 imports SONG SONG
+    const [employees, buildings, attendance] = await Promise.all([
+      import('./employees.js'),
+      import('./buildings.js'),
+      import('./attendance.js'),
+    ]);
 
     attendance.switchTab('calendar');
 
+    // Cần employee trước để set selectedEmployeeId
     await employees.loadPublicEmployees();
-    await Promise.all([buildings.loadBuildings(), attendance.loadAttendanceForMonth()]);
-    attendance.updateSummary();
+
+    // Song song 2 load nặng
+    await Promise.all([
+      buildings.loadBuildings(),
+      attendance.loadAttendanceForMonth(),
+    ]);
+
+    // ⭐ FIX P2: updateSummary 1 lần duy nhất (đã được gọi trong loadAttendanceForMonth)
+    // Không gọi lại — tránh double
     attendance.renderCalendar();
   } finally {
     _showGuestInProgress = false;
   }
 }
 
+/* ⭐ FIX Bug 4: guard double click + FIX P1: parallel imports */
 export async function onLoggedIn(user) {
-  state.user = user;
+  if (_onLoggedInInProgress) return;
+  _onLoggedInInProgress = true;
+  try {
+    state.user = user;
 
-  const { data: profile } = await supabase
-    .from('profiles').select('*').eq('id', user.id).single();
-  state.profile = profile || { full_name: user.email, role: 'employee', status: 'active' };
+    const { data: profile } = await supabase
+      .from('profiles').select('*').eq('id', user.id).single();
+    state.profile = profile || { full_name: user.email, role: 'employee', status: 'active' };
 
-  if (state.profile?.status === 'inactive') {
-    await supabase.auth.signOut();
-    await showGuestView();
-    setTimeout(() => {
-      showLoginScreen();
-      $('#loginError').textContent = 'Tài khoản đã bị vô hiệu hoá. Liên hệ admin.';
-    }, 50);
-    return;
+    if (state.profile?.status === 'inactive') {
+      await supabase.auth.signOut();
+      await showGuestView();
+      setTimeout(() => {
+        showLoginScreen();
+        $('#loginError').textContent = 'Tài khoản đã bị vô hiệu hoá. Liên hệ admin.';
+      }, 50);
+      return;
+    }
+
+    state.isAdmin = state.profile?.role === 'admin';
+
+    $('#loading').style.display = 'none';
+    $('#loginScreen').style.display = 'none';
+    $('#mainScreen').style.display = 'block';
+    $('#loginBtn').style.display = 'none';
+    $('#logoutBtn').style.display = 'block';
+
+    $('#addEmployeeBtn').style.display = state.isAdmin ? 'block' : 'none';
+    $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
+    $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
+    $$('.tab-btn[data-tab="salary"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
+    $$('.tab-btn[data-tab="excel"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
+    $('#empSelectorRow').style.display = state.isAdmin ? 'flex' : 'none';
+    $('#summaryCard').style.display = 'block';
+    $('#guestBanner').style.display = 'none';
+    $('#quickAttendanceRow').style.display = state.isAdmin ? 'block' : 'none';
+    $('#calendarActions').style.display = state.isAdmin ? 'flex' : 'none';
+    $('#exportActionRow').style.display = 'block';
+    $('#calendarHint').style.display = state.isAdmin ? '' : 'none';
+
+    state.selectedEmployeeId = user.id;
+
+    // ⭐ FIX P1: 3 imports SONG SONG
+    const [employees, buildings, attendance] = await Promise.all([
+      import('./employees.js'),
+      import('./buildings.js'),
+      import('./attendance.js'),
+    ]);
+
+    attendance.switchTab('calendar');
+
+    await Promise.all([
+      employees.loadEmployees(),
+      buildings.loadBuildings(),
+      attendance.loadAttendanceForMonth(),
+    ]);
+
+    // ⭐ FIX P2: chỉ gọi renderCalendar 1 lần
+    // updateSummary đã được gọi trong loadAttendanceForMonth
+    attendance.renderCalendar();
+    buildings.renderBuildings();
+  } finally {
+    _onLoggedInInProgress = false;
   }
-
-  state.isAdmin = state.profile?.role === 'admin';
-
-  $('#loading').style.display = 'none';
-  $('#loginScreen').style.display = 'none';
-  $('#mainScreen').style.display = 'block';
-  $('#loginBtn').style.display = 'none';
-  $('#logoutBtn').style.display = 'block';
-
-  $('#addEmployeeBtn').style.display = state.isAdmin ? 'block' : 'none';
-  $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
-  $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
-  $$('.tab-btn[data-tab="salary"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
-  $$('.tab-btn[data-tab="excel"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
-  $('#empSelectorRow').style.display = state.isAdmin ? 'flex' : 'none';
-  $('#summaryCard').style.display = 'block';
-  $('#guestBanner').style.display = 'none';
-  $('#quickAttendanceRow').style.display = state.isAdmin ? 'block' : 'none';
-  $('#calendarActions').style.display = state.isAdmin ? 'flex' : 'none';
-  $('#exportActionRow').style.display = 'block';
-  $('#calendarHint').style.display = state.isAdmin ? '' : 'none';
-
-  state.selectedEmployeeId = user.id;
-
-  const employees = await import('./employees.js');
-  const buildings = await import('./buildings.js');
-  const attendance = await import('./attendance.js');
-
-  attendance.switchTab('calendar');
-
-  await Promise.all([
-    employees.loadEmployees(),
-    buildings.loadBuildings(),
-    attendance.loadAttendanceForMonth(),
-  ]);
-
-  attendance.updateSummary();
-  attendance.renderCalendar();
-  buildings.renderBuildings();
 }
 
 export async function handleLogout() {
