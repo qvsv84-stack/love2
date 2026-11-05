@@ -236,6 +236,7 @@ async function showGuestView() {
 
     await loadPublicEmployees();
     await Promise.all([loadBuildings(), loadAttendanceForMonth()]);
+    updateSummary();  // ⭐ FIX #3 (race): double-safe
     renderCalendar();
   } finally {
     _showGuestInProgress = false;
@@ -291,6 +292,7 @@ async function onLoggedIn(user) {
     loadAttendanceForMonth(),
   ]);
 
+  updateSummary();  // ⭐ FIX #2 (race): double-safe sau Promise.all
   renderCalendar();
   renderBuildings();
 }
@@ -334,6 +336,7 @@ async function loadEmployees() {
 
   renderEmployeeSelect();
   renderEmployeeList();
+  updateSummary();  // ⭐ FIX #1 (race): gọi lại khi employees đã load xong
 }
 
 function renderEmployeeSelect() {
