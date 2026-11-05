@@ -38,6 +38,31 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
+/* ⭐ Helper đọc ngày đang xem khu vực — picker là source of truth */
+function getAreasViewDate() {
+  const $dp = $('#areasViewDate');
+  if ($dp && $dp.value) return $dp.value;
+  return state.areasViewDate || toDateStr(new Date());
+}
+
+async function reloadAreasForDate(dateStr) {
+  if (!dateStr) dateStr = toDateStr(new Date());
+  state.areasViewDate = dateStr;
+
+  const $dp = $('#areasViewDate');
+  if ($dp && $dp.value !== dateStr) $dp.value = dateStr;
+
+  dbg('info', '🔄 Xem khu vực ngày: ' + dateStr);
+
+  try {
+    const b = await import('./buildings.js');
+    await b.loadDayAssignments(dateStr);
+    b.renderBuildings();
+  } catch (err) {
+    console.warn('[reloadAreas] failed:', err);
+  }
+}
+
 function bindEvents() {
   $('#loginBtn').addEventListener('click', showLoginScreen);
   $('#guestLoginBtn').addEventListener('click', showLoginScreen);
@@ -127,12 +152,7 @@ function bindEvents() {
       await loadAttendanceForMonth(true);
       renderCalendar();
       exitSelectionMode();
-
-      import('./buildings.js').then(b => {
-        b.loadDayAssignments(state.areasViewDate)
-          .then(() => b.renderBuildings())
-          .catch(() => {});
-      }).catch(() => {});
+      reloadAreasForDate(getAreasViewDate());
     });
   }
 
@@ -168,19 +188,29 @@ function bindEvents() {
   /* ⭐ Bind date picker xem ngày cũ */
   const $areasViewDate = $('#areasViewDate');
   if ($areasViewDate) {
-    // Set mặc định hôm nay nếu chưa có
-    $areasViewDate.value = state.areasViewDate || toDateStr(new Date());
+    if (!$areasViewDate.value) {
+      $areasViewDate.value = state.areasViewDate || toDateStr(new Date());
+    }
     state.areasViewDate = $areasViewDate.value;
 
-    $areasViewDate.addEventListener('change', async (e) => {
-      const newDate = e.target.value;
+    const handleDateChange = async () => {
+      const newDate = $areasViewDate.value;
       if (!newDate) return;
-      state.areasViewDate = newDate;
-      dbg('info', 'Xem khu vực ngày: ' + newDate);
+      if (state.areasViewDate === newDate) return;
+      await reloadAreasForDate(newDate);
+    };
 
-      const b = await import('./buildings.js');
-      await b.loadDayAssignments(newDate);
-      b.renderBuildings();
+    $areasViewDate.addEventListener('change', handleDateChange);
+    $areasViewDate.addEventListener('input', handleDateChange);
+  }
+
+  /* ⭐ Nút "Hôm nay" */
+  const $areasTodayBtn = $('#areasTodayBtn');
+  if ($areasTodayBtn) {
+    $areasTodayBtn.addEventListener('click', async () => {
+      const today = toDateStr(new Date());
+      if (state.areasViewDate === today) return;
+      await reloadAreasForDate(today);
     });
   }
 
