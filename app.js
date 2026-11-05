@@ -1,4 +1,4 @@
-// app.js — Main entry: import modules, bind events, khởi động
+// app.js — Main entry
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast, toDateStr,
@@ -14,7 +14,7 @@ import {
 } from './employees.js';
 
 import {
-  loadBuildings, loadTodayAssignments, renderBuildings,
+  loadBuildings, loadDayAssignments, loadTodayAssignments, renderBuildings,
   saveBuilding, saveFloors,
   openSpecialAreaModal, saveSpecialArea,
 } from './buildings.js';
@@ -38,9 +38,7 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-/* ============ BIND EVENTS ============ */
 function bindEvents() {
-  /* --- Login / Logout / Guest --- */
   $('#loginBtn').addEventListener('click', showLoginScreen);
   $('#guestLoginBtn').addEventListener('click', showLoginScreen);
   $('#cancelLoginBtn').addEventListener('click', showGuestView);
@@ -73,14 +71,11 @@ function bindEvents() {
     await onLoggedIn(data.user);
   });
 
-  /* --- Debug button --- */
   const debugBtn = $('#debugBtn');
   if (debugBtn) debugBtn.addEventListener('click', toggleDebug);
 
-  /* --- Tabs --- */
   $$('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
-  /* --- Employee select --- */
   $('#employeeSelect').addEventListener('change', async (e) => {
     state.selectedEmployeeId = e.target.value;
     if (state.selectionMode) exitSelectionMode();
@@ -88,11 +83,9 @@ function bindEvents() {
     renderCalendar();
   });
 
-  /* --- Month nav --- */
   $('#prevMonth').addEventListener('click', () => changeMonth(-1));
   $('#nextMonth').addEventListener('click', () => changeMonth(1));
 
-  /* --- Quick attendance (today) --- */
   $('#todayAttendanceBtn').addEventListener('click', () => {
     if (!state.isAdmin) return;
     if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
@@ -100,7 +93,6 @@ function bindEvents() {
     openAttendanceModal(todayStr);
   });
 
-  /* --- Selection mode --- */
   $('#selectionToggleBtn').addEventListener('click', toggleSelectionMode);
   $('#cancelSelectionBtn').addEventListener('click', exitSelectionMode);
   $('#applySelectionBtn').addEventListener('click', () => {
@@ -109,7 +101,6 @@ function bindEvents() {
     openAttendanceModal(dates[0], dates);
   });
 
-  /* ⭐ Xoá chấm công hàng loạt */
   const $delSelBtn = $('#deleteSelectionBtn');
   if ($delSelBtn) {
     $delSelBtn.addEventListener('click', async () => {
@@ -138,12 +129,13 @@ function bindEvents() {
       exitSelectionMode();
 
       import('./buildings.js').then(b => {
-        b.loadTodayAssignments().then(() => b.renderBuildings()).catch(() => {});
+        b.loadDayAssignments(state.areasViewDate)
+          .then(() => b.renderBuildings())
+          .catch(() => {});
       }).catch(() => {});
     });
   }
 
-  /* --- Bulk copy modal --- */
   $('#bulkCopyBtn').addEventListener('click', () => {
     const today = new Date();
     const yesterday = new Date();
@@ -158,7 +150,6 @@ function bindEvents() {
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
 
-  /* --- Areas filters --- */
   const areasSearchEl = $('#areasSearch');
   if (areasSearchEl) {
     areasSearchEl.addEventListener('input', (e) => {
@@ -174,7 +165,25 @@ function bindEvents() {
     });
   }
 
-  /* ⭐ 3 nút tạo khu vực */
+  /* ⭐ Bind date picker xem ngày cũ */
+  const $areasViewDate = $('#areasViewDate');
+  if ($areasViewDate) {
+    // Set mặc định hôm nay nếu chưa có
+    $areasViewDate.value = state.areasViewDate || toDateStr(new Date());
+    state.areasViewDate = $areasViewDate.value;
+
+    $areasViewDate.addEventListener('change', async (e) => {
+      const newDate = e.target.value;
+      if (!newDate) return;
+      state.areasViewDate = newDate;
+      dbg('info', 'Xem khu vực ngày: ' + newDate);
+
+      const b = await import('./buildings.js');
+      await b.loadDayAssignments(newDate);
+      b.renderBuildings();
+    });
+  }
+
   const $createBuildingBtn = document.querySelector('[data-create="building"]');
   if ($createBuildingBtn) {
     $createBuildingBtn.addEventListener('click', () => openModal('buildingModal'));
@@ -194,7 +203,6 @@ function bindEvents() {
     });
   }
 
-  /* --- Export --- */
   $('#exportExcelBtn').addEventListener('click', () => {
     if (state.exportModule) state.exportModule.openExportModal();
   });
@@ -217,7 +225,6 @@ function bindEvents() {
     if (state.exportModule) state.exportModule.onMonthChanged().catch(err => console.error(err));
   });
 
-  /* --- Salary --- */
   $('#salaryMonth').addEventListener('change', () => {
     if (state.salaryModule) state.salaryModule.onMonthChanged();
   });
@@ -236,7 +243,6 @@ function bindEvents() {
     }
   });
 
-  /* --- Excel --- */
   const excelMonthEl = $('#excelMonth');
   if (excelMonthEl) excelMonthEl.addEventListener('change', onExcelMonthChanged);
 
@@ -259,7 +265,6 @@ function bindEvents() {
     });
   }
 
-  /* --- Attendance modal --- */
   $('#attendanceModal').addEventListener('click', (e) => {
     if (e.target.id === 'attendanceModal') closeModal('attendanceModal');
   });
@@ -272,7 +277,6 @@ function bindEvents() {
   }));
   $('#supOtHours').addEventListener('input', updatePreview);
 
-  /* ⭐ Bind Tăng ca CN */
   const $sundayCheck = $('#sundayOtCheck');
   if ($sundayCheck) {
     $sundayCheck.addEventListener('change', () => {
@@ -285,7 +289,6 @@ function bindEvents() {
     $sundayHours.addEventListener('input', updatePreview);
   }
 
-  /* ⭐ Add main/ot area */
   $('#addMainAreaBtn').addEventListener('click', () => {
     state.modalAreas.push({ type: 'building', building_id: '', floor_id: '', hours: null });
     renderMainAreaPicker();
@@ -298,13 +301,11 @@ function bindEvents() {
   });
   $('#saveAttendanceBtn').addEventListener('click', saveAttendance);
 
-  /* --- Building modal --- */
   $('#buildingModal').addEventListener('click', (e) => {
     if (e.target.id === 'buildingModal') closeModal('buildingModal');
   });
   $('#saveBuildingBtn').addEventListener('click', saveBuilding);
 
-  /* ⭐ Special Area modal */
   const $specialModal = $('#specialAreaModal');
   if ($specialModal) {
     $specialModal.addEventListener('click', (e) => {
@@ -312,17 +313,13 @@ function bindEvents() {
     });
   }
   const $saveSpecialBtn = $('#saveSpecialAreaBtn');
-  if ($saveSpecialBtn) {
-    $saveSpecialBtn.addEventListener('click', saveSpecialArea);
-  }
+  if ($saveSpecialBtn) $saveSpecialBtn.addEventListener('click', saveSpecialArea);
 
-  /* --- Floor modal --- */
   $('#floorModal').addEventListener('click', (e) => {
     if (e.target.id === 'floorModal') closeModal('floorModal');
   });
   $('#saveFloorsBtn').addEventListener('click', saveFloors);
 
-  /* --- Employee create modal --- */
   $('#addEmployeeBtn').addEventListener('click', () => {
     $('#empUsername').value = '';
     $('#empPassword').value = '';
@@ -336,13 +333,11 @@ function bindEvents() {
   });
   $('#saveEmployeeBtn').addEventListener('click', createEmployee);
 
-  /* --- Employee edit modal --- */
   $('#editEmployeeModal').addEventListener('click', (e) => {
     if (e.target.id === 'editEmployeeModal') closeModal('editEmployeeModal');
   });
   $('#saveEditEmpBtn').addEventListener('click', saveEditEmployee);
 
-  /* --- Phone input numeric-only --- */
   ['#empPhone', '#editEmpPhone'].forEach(id => {
     const el = $(id);
     if (el) {
@@ -352,11 +347,9 @@ function bindEvents() {
     }
   });
 
-  /* --- data-close buttons --- */
   $$('[data-close]').forEach(btn =>
     btn.addEventListener('click', () => closeModal(btn.dataset.close)));
 
-  /* --- Auth state change --- */
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session && state.user) {
       invalidateAttendanceCache();
@@ -366,7 +359,6 @@ function bindEvents() {
   });
 }
 
-/* ============ DOM READY ============ */
 document.addEventListener('DOMContentLoaded', async () => {
   dbg('ok', '🚀 App khởi động');
 
