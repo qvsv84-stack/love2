@@ -1,4 +1,4 @@
-// buildings.js — Quản lý toà nhà, tầng, phân công khu vực
+// buildings.js — Quản lý toà nhà, tầng, phân công khu vực + Ngoại cảnh + Tăng ca CN
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast,
@@ -36,15 +36,45 @@ export async function loadTodayAssignments() {
   if (error) {
     console.error(error);
     state.floorAssignments = {};
+    state.externalAssignments = [];
+    state.sundayOtAssignments = [];
     return;
   }
 
   const mainUsersByFloor = {};
   const otAutoUsersByFloor = {};
 
+  // ⭐ MỚI: Tách external + sunday_ot
+  const externalAssignments = [];
+  const sundayOtAssignments = [];
+
   for (const a of data) {
+    // Check ngoại cảnh
+    if (Array.isArray(a.areas)) {
+      const ext = a.areas.find(x => x.type === 'external');
+      if (ext) {
+        externalAssignments.push({
+          employee_id: a.employee_id,
+          hours: Number(ext.hours || a.total_hours || 0),
+        });
+      }
+    }
+
+    // Check tăng ca CN
+    if (Array.isArray(a.ot_areas)) {
+      const sun = a.ot_areas.find(x => x.type === 'sunday_ot');
+      if (sun) {
+        sundayOtAssignments.push({
+          employee_id: a.employee_id,
+          hours: Number(sun.hours || a.ot_hours || 0),
+        });
+      }
+    }
+
+    // Đếm user theo floor (chỉ area có floor_id thật, bỏ external)
     if (a.mode === 'default' && Array.isArray(a.areas)) {
       for (const area of a.areas) {
+        if (area.type === 'external') continue;
         const fid = area.floor_id;
         if (!fid) continue;
         if (!mainUsersByFloor[fid]) mainUsersByFloor[fid] = new Set();
@@ -53,6 +83,7 @@ export async function loadTodayAssignments() {
     }
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
+        if (area.type === 'sunday_ot') continue;
         const fid = area.floor_id;
         if (!fid) continue;
         const h = area.hours;
@@ -72,6 +103,7 @@ export async function loadTodayAssignments() {
 
     if (a.mode === 'default' && Array.isArray(a.areas)) {
       for (const area of a.areas) {
+        if (area.type === 'external') continue;
         const fid = area.floor_id;
         if (!fid) continue;
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
@@ -86,6 +118,7 @@ export async function loadTodayAssignments() {
       }
     } else if (a.mode === 'manual' && Array.isArray(a.areas)) {
       for (const area of a.areas) {
+        if (area.type === 'external') continue;
         const fid = area.floor_id;
         if (!fid) continue;
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
@@ -97,6 +130,7 @@ export async function loadTodayAssignments() {
 
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
+        if (area.type === 'sunday_ot') continue;
         const fid = area.floor_id;
         if (!fid) continue;
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
@@ -157,6 +191,8 @@ export async function loadTodayAssignments() {
   }
 
   state.floorAssignments = map;
+  state.externalAssignments = externalAssignments;
+  state.sundayOtAssignments = sundayOtAssignments;
 
   const hint = $('#areasHint');
   if (hint) {
@@ -170,7 +206,11 @@ export function renderBuildings() {
   const $sum = $('#areasSummary');
   if (!wrap) return;
 
-  if (!state.buildings.length) {
+  // Đảm bảo 2 mảng tồn tại
+  if (!Array.isArray(state.externalAssignments)) state.externalAssignments = [];
+  if (!Array.isArray(state.sundayOtAssignments)) state.sundayOtAssignments = [];
+
+  if (!state.buildings.length && !state.externalAssignments.length && !state.sundayOtAssignments.length) {
     wrap.innerHTML = '<p class="hint">Chưa có toà nhà nào. Nhấn "+ Thêm tòa nhà".</p>';
     if ($sum) $sum.style.display = 'none';
     return;
@@ -197,6 +237,7 @@ export function renderBuildings() {
   const nvEmployees = allActive.filter(e => e.role === 'employee');
   const nvEmpIds = new Set(nvEmployees.map(e => e.id));
 
+  // Đếm NV đi làm hôm nay (floor + external + sunday_ot, không trùng)
   const workingNVIds = new Set();
   for (const fid in state.floorAssignments) {
     const assigns = state.floorAssignments[fid] || [];
@@ -204,9 +245,16 @@ export function renderBuildings() {
       if (nvEmpIds.has(a.employee_id)) workingNVIds.add(a.employee_id);
     }
   }
+  for (const item of state.externalAssignments) {
+    if (nvEmpIds.has(item.employee_id)) workingNVIds.add(item.employee_id);
+  }
+  for (const item of state.sundayOtAssignments) {
+    if (nvEmpIds.has(item.employee_id)) workingNVIds.add(item.employee_id);
+  }
   const totalNV = nvEmployees.length;
   const workingNVCount = workingNVIds.size;
 
+  // Đếm tầng có người
   const floorsWithPeople = new Set();
   for (const b of state.buildings) {
     const floors = state.floors.filter(f => f.building_id === b.id);
@@ -240,7 +288,60 @@ export function renderBuildings() {
     `;
   }
 
-  wrap.innerHTML = state.buildings.map(b => {
+  /* ⭐ Render card Ngoại cảnh (nếu có người) */
+  const externalVisible = state.externalAssignments.filter(x => filteredEmpIds.has(x.employee_id));
+  const externalHtml = externalVisible.length > 0 ? `
+    <div class="building-card" style="border-color:#a7f3d0;background:linear-gradient(135deg,#f0fdf4,#dcfce7)">
+      <h3 style="color:#15803d">🌳 Ngoại cảnh (ngoài toà nhà)
+        <span class="floor-count" style="background:#dcfce7;color:#16a34a">${externalVisible.length} người</span>
+      </h3>
+      <div class="building-floors">
+        ${externalVisible.map(item => {
+          const emp = state.employees.find(e => e.id === item.employee_id);
+          if (!emp) return '';
+          const name = emp.full_name || emp.username || '';
+          return `
+            <div class="floor-assignee" style="padding:6px 0">
+              <div class="assignee-avatar" style="background:linear-gradient(135deg,#16a34a,#15803d)">${name.charAt(0).toUpperCase()}</div>
+              <div class="assignee-info">
+                <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
+                ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
+              </div>
+              <span style="margin-left:auto;font-weight:700;color:#16a34a;font-size:13px">${formatHours(item.hours)}</span>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  /* ⭐ Render card Tăng ca CN (nếu có người) */
+  const sundayOtVisible = state.sundayOtAssignments.filter(x => filteredEmpIds.has(x.employee_id));
+  const sundayOtHtml = sundayOtVisible.length > 0 ? `
+    <div class="building-card" style="border-color:#fed7aa;background:linear-gradient(135deg,#fff7ed,#fed7aa)">
+      <h3 style="color:#c2410c">📅 Tăng ca CN (bao trùm)
+        <span class="floor-count" style="background:#fed7aa;color:#c2410c">${sundayOtVisible.length} người</span>
+      </h3>
+      <div class="building-floors">
+        ${sundayOtVisible.map(item => {
+          const emp = state.employees.find(e => e.id === item.employee_id);
+          if (!emp) return '';
+          const name = emp.full_name || emp.username || '';
+          return `
+            <div class="floor-assignee" style="padding:6px 0">
+              <div class="assignee-avatar" style="background:linear-gradient(135deg,#ea580c,#c2410c)">${name.charAt(0).toUpperCase()}</div>
+              <div class="assignee-info">
+                <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
+                ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
+              </div>
+              <span style="margin-left:auto;font-weight:700;color:#c2410c;font-size:13px">${formatHours(item.hours)}</span>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  /* Render building cards */
+  const buildingsHtml = state.buildings.map(b => {
     const floors = state.floors.filter(f => f.building_id === b.id)
       .sort((a, c) => a.floor_number - c.floor_number);
 
@@ -293,6 +394,9 @@ export function renderBuildings() {
       </div>`;
   }).join('');
 
+  wrap.innerHTML = externalHtml + sundayOtHtml + buildingsHtml;
+
+  /* Bind events */
   wrap.querySelectorAll('[data-setup]').forEach(btn =>
     btn.addEventListener('click', () => openFloorSetup(btn.dataset.setup)));
   wrap.querySelectorAll('[data-delete]').forEach(btn =>
