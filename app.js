@@ -540,13 +540,39 @@ async function copyPhoneNumber() {
   }
 }
 
-/* ⭐ Mở Zalo theo SĐT — https://zalo.me/{phone} mở app nếu cài, fallback web */
+/* ⭐ Mở Zalo — ưu tiên deep link để tránh lỗi zalo.me/{sđt} báo trang không tồn tại */
 function openZalo() {
   const phone = state.phoneActionNumber;
   if (!phone) return;
-  // Zalo hỗ trợ cả local (0912345678) lẫn quốc tế (84912345678) → giữ nguyên
-  const url = 'https://zalo.me/' + encodeURIComponent(phone);
-  window.open(url, '_blank', 'noopener');
+
+  const deepLink = `zalo://conversation?phone=${phone}`;
+  const webFallback = `https://zalo.me/${phone}`;
+
+  // Đánh dấu để biết app có mở không
+  let appOpened = false;
+  const onVisibilityChange = () => {
+    if (document.hidden) {
+      appOpened = true;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    }
+  };
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  // Thử mở app Zalo trước (deep link — mobile có app sẽ nhảy thẳng vào chat)
+  try {
+    window.location.href = deepLink;
+  } catch (err) {
+    // Một số trình duyệt chặn — bỏ qua, fallback sẽ lo
+  }
+
+  // Sau 1.5s nếu tab vẫn active (app chưa mở) → fallback web
+  setTimeout(() => {
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    if (!appOpened && !document.hidden) {
+      window.open(webFallback, '_blank', 'noopener');
+    }
+  }, 1500);
+
   closeModal('phoneActionModal');
 }
 
