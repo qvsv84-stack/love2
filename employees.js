@@ -1,0 +1,339 @@
+// employees.js — Quản lý nhân viên: load, render, tạo, sửa, xoá, đổi role, toggle status
+import { supabase } from './supabase.js';
+import {
+  state, $, $$, toast,
+  ROLE_LABELS, sortEmployees, roleLabelOf,
+  openModal, closeModal,
+} from './core.js';
+import { showPhoneAction } from './phone.js';
+
+/* ============ LOAD ============ */
+export async function loadPublicEmployees() {
+  const { data, error } = await supabase
+    .from('profiles_public').select('*').order('full_name');
+  if (error) { console.error(error); return; }
+  state.employees = sortEmployees(data || []);
+
+  if (state.employees.length && !state.selectedEmployeeId) {
+    state.selectedEmployeeId = state.employees[0].id;
+  }
+  if (state.selectedEmployeeId && !state.employees.find(e => e.id === state.selectedEmployeeId)) {
+    state.selectedEmployeeId = state.employees[0]?.id ?? null;
+  }
+
+  renderEmployeeSelect();
+  const attendance = await import('./attendance.js');
+  attendance.updateSummary();
+}
+
+export async function loadEmployees() {
+  if (!state.user) return loadPublicEmployees();
+
+  const { data, error } = await supabase.from('profiles').select('*').order('full_name');
+  if (error) { console.error(error); toast('Không tải được nhân viên'); return; }
+  state.employees = sortEmployees(data || []);
+
+  if (state.selectedEmployeeId && !state.employees.find(e => e.id === state.selectedEmployeeId)) {
+    state.selectedEmployeeId = state.user?.id || (state.employees[0]?.id ?? null);
+  }
+
+  renderEmployeeSelect();
+  renderEmployeeList();
+  const attendance = await import('./attendance.js');
+  attendance.updateSummary();
+}
+
+/* ============ RENDER ============ */
+export function renderEmployeeSelect() {
+  const sel = $('#employeeSelect');
+  if (!sel) return;
+  sel.innerHTML = state.employees.map(e => {
+    const name = e.full_name || e.username || e.email || 'N/A';
+    return `<option value="${e.id}">${name}</option>`;
+  }).join('');
+  if (state.selectedEmployeeId) sel.value = state.selectedEmployeeId;
+}
+
+export function renderEmployeeList() {
+  const wrap = $('#employeesList');
+  if (!wrap) return;
+  if (!state.employees.length) {
+    wrap.innerHTML = '<p class="hint">Chưa có nhân viên.</p>';
+    return;
+  }
+
+  wrap.innerHTML = state.employees.map(e => {
+    const name = e.full_name || e.username || e.email || 'N/A';
+    const initial = name.trim().charAt(0).toUpperCase();
+    const isActive = e.status !== 'inactive';
+    const statusText = isActive ? 'Đang làm' : 'Đã vô hiệu';
+    const roleLabel = roleLabelOf(e);
+    const isSelf = e.id === state.user?.id;
+    const canManage = state.isAdmin && !isSelf;
+    const canEdit = state.isAdmin;
+
+    let phoneHtml = '';
+    if (e.phone) {
+      phoneHtml = ` - <a class="phone-link" data-phone="${e.phone}" href="javascript:void(0)">${e.phone}</a>`;
+    } else if (canEdit) {
+      phoneHtml = ` - <a class="phone-link phone-link-add" data-emp-edit="${e.id}" href="javascript:void(0)">+ Thêm SĐT</a>`;
+    }
+
+    const roleSelect = canManage ? `
+      <select class="role-select" data-emp-role="${e.id}" data-current="${e.role}">
+        <option value="admin" ${e.role === 'admin' ? 'selected' : ''}>${ROLE_LABELS.admin}</option>
+        <option value="temporary" ${e.role === 'temporary' ? 'selected' : ''}>${ROLE_LABELS.temporary}</option>
+        <option value="employee" ${e.role === 'employee' ? 'selected' : ''}>${ROLE_LABELS.employee}</option>
+        <option value="external" ${e.role === 'external' ? 'selected' : ''}>${ROLE_LABELS.external}</option>
+      </select>` : '';
+
+    let actionsHtml = '';
+    if (canEdit) {
+      const toggleBtn = canManage ? `
+        <button class="btn-icon-sm" data-emp-toggle="${e.id}" data-current="${isActive ? 'active' : 'inactive'}"
+          style="background:${isActive ? '#fef3c7;color:#b45309' : '#dcfce7;color:#16a34a'}"
+          title="${isActive ? 'Vô hiệu hoá' : 'Kích hoạt lại'}">
+          ${isActive ? '⏸' : '▶'}
+        </button>` : '';
+      const deleteBtn = canManage ? `
+        <button class="btn-icon-sm" data-emp-delete="${e.id}" data-name="${name.replace(/"/g, '&quot;')}"
+          style="background:#fee2e2;color:#e74c3c" title="Xoá vĩnh viễn">🗑</button>` : '';
+
+      actionsHtml = `
+        <div class="emp-actions">
+          ${toggleBtn}
+          <button class="btn-icon-sm" data-emp-edit="${e.id}"
+            style="background:var(--ocean-100);color:var(--ocean-700)" title="Sửa thông tin">✏️</button>
+          ${deleteBtn}
+        </div>`;
+    }
+
+    return `
+      <div class="employee-card" style="${!isActive ? 'opacity:0.75' : ''}">
+        <div class="avatar" style="${!isActive ? 'filter:grayscale(1)' : ''}">${initial}</div>
+        <div class="emp-info">
+          <div class="emp-fullname">${name}${isSelf ? ' <span style="font-size:11px;color:var(--text-muted)">(bạn)</span>' : ''}${phoneHtml}</div>
+          <div class="emp-pos">${roleLabel}${e.username ? ' · @' + e.username : ''}</div>
+          <span class="emp-status status-${isActive ? 'active' : 'inactive'}">${statusText}</span>
+          ${roleSelect}
+        </div>
+        ${actionsHtml}
+      </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('[data-emp-toggle]').forEach(btn => {
+    btn.addEventListener('click', () =>
+      toggleEmployeeStatus(btn.dataset.empToggle, btn.dataset.current));
+  });
+  wrap.querySelectorAll('[data-emp-delete]').forEach(btn => {
+    btn.addEventListener('click', () =>
+      deleteEmployee(btn.dataset.empDelete, btn.dataset.name));
+  });
+  wrap.querySelectorAll('[data-emp-role]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      changeEmployeeRole(sel.dataset.empRole, sel.value, sel.dataset.current);
+    });
+  });
+  wrap.querySelectorAll('[data-phone]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      showPhoneAction(el.dataset.phone);
+    });
+  });
+  wrap.querySelectorAll('[data-emp-edit]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      openEditEmployeeModal(el.dataset.empEdit);
+    });
+  });
+}
+
+/* ============ EDIT MODAL ============ */
+export function openEditEmployeeModal(userId) {
+  const emp = state.employees.find(e => e.id === userId);
+  if (!emp) return;
+  state.editingEmployeeId = userId;
+
+  $('#editEmpTitle').textContent = `Sửa: ${emp.full_name || emp.username || emp.email || 'N/A'}`;
+  $('#editEmpUsername').value = emp.username || emp.email || '—';
+  $('#editEmpFullName').value = emp.full_name || '';
+  $('#editEmpPhone').value = emp.phone || '';
+  $('#editEmpPassword').value = '';
+  $('#editEmpError').textContent = '';
+  openModal('editEmployeeModal');
+}
+
+export async function saveEditEmployee() {
+  if (!state.isAdmin) return;
+  if (!state.editingEmployeeId) return;
+
+  const full_name = $('#editEmpFullName').value.trim();
+  const phone = $('#editEmpPhone').value.trim();
+  const password = $('#editEmpPassword').value.trim();
+  const errEl = $('#editEmpError');
+  errEl.textContent = '';
+
+  if (full_name.length < 2) { errEl.textContent = 'Tên hiển thị quá ngắn'; return; }
+  if (phone && !/^[0-9]{1,10}$/.test(phone)) {
+    errEl.textContent = 'Số điện thoại chỉ được chứa số, tối đa 10 ký tự';
+    return;
+  }
+  if (password && password.length < 6) {
+    errEl.textContent = 'Mật khẩu tối thiểu 6 ký tự (hoặc để trống)';
+    return;
+  }
+
+  const btn = $('#saveEditEmpBtn');
+  btn.disabled = true; btn.textContent = 'Đang lưu...';
+
+  const { error } = await supabase.rpc('admin_update_employee', {
+    p_user_id: state.editingEmployeeId,
+    p_full_name: full_name,
+    p_phone: phone || null,
+    p_password: password || null,
+  });
+
+  btn.disabled = false; btn.textContent = 'Lưu';
+  if (error) {
+    errEl.textContent = (error.message || 'Lưu thất bại').replace(/^ERROR:\s*/i, '');
+    return;
+  }
+
+  toast('Đã cập nhật nhân viên ✓');
+  closeModal('editEmployeeModal');
+  if (state.salaryModule) state.salaryModule.invalidateCache();
+  await loadEmployees();
+
+  const buildings = await import('./buildings.js');
+  if (state.isAdmin) buildings.renderBuildings();
+
+  if (state.selectedEmployeeId === state.editingEmployeeId) {
+    const attendance = await import('./attendance.js');
+    attendance.updateSummary();
+  }
+}
+
+/* ============ CREATE ============ */
+export async function createEmployee() {
+  if (!state.isAdmin) { toast('Chỉ Giám sát được tạo nhân viên'); return; }
+  const username = $('#empUsername').value.trim().toLowerCase();
+  const password = $('#empPassword').value;
+  const full_name = $('#empFullName').value.trim();
+  const phone = $('#empPhone').value.trim();
+  const errEl = $('#empCreateError');
+  errEl.textContent = '';
+
+  if (!username) { errEl.textContent = 'Nhập tên đăng nhập'; return; }
+  if (password.length < 6) { errEl.textContent = 'Mật khẩu tối thiểu 6 ký tự'; return; }
+  if (full_name.length < 2) { errEl.textContent = 'Tên hiển thị quá ngắn'; return; }
+  if (phone && !/^[0-9]{1,10}$/.test(phone)) {
+    errEl.textContent = 'Số điện thoại chỉ được chứa số, tối đa 10 ký tự';
+    return;
+  }
+
+  const btn = $('#saveEmployeeBtn');
+  btn.disabled = true; btn.textContent = 'Đang tạo...';
+
+  const { error } = await supabase.rpc('admin_create_employee', {
+    p_username: username,
+    p_password: password,
+    p_full_name: full_name,
+    p_phone: phone || null,
+  });
+
+  btn.disabled = false; btn.textContent = 'Tạo';
+  if (error) {
+    errEl.textContent = (error.message || 'Tạo thất bại').replace(/^ERROR:\s*/i, '');
+    return;
+  }
+  toast('Đã tạo nhân viên ✓');
+  closeModal('employeeModal');
+  if (state.salaryModule) state.salaryModule.invalidateCache();
+  await loadEmployees();
+}
+
+/* ============ ROLE / STATUS / DELETE ============ */
+export async function changeEmployeeRole(userId, newRole, currentRole) {
+  if (!state.isAdmin) return;
+  if (newRole === currentRole) return;
+
+  const emp = state.employees.find(e => e.id === userId);
+  const empName = emp?.full_name || emp?.username || 'nhân viên này';
+
+  const msg = newRole === 'admin'
+    ? `Đổi "${empName}" thành Giám sát?\n\nHọ sẽ có TOÀN QUYỀN quản lý:\n• Xem lịch của mọi người\n• Chấm công\n• Tạo/xoá nhân viên\n• Quản lý toà nhà`
+    : `Đổi "${empName}" thành ${ROLE_LABELS[newRole]}?`;
+
+  if (!confirm(msg)) {
+    const sel = document.querySelector(`[data-emp-role="${userId}"]`);
+    if (sel) sel.value = currentRole;
+    return;
+  }
+
+  const { error } = await supabase.rpc('admin_set_user_role', {
+    p_user_id: userId, p_role: newRole,
+  });
+
+  if (error) {
+    toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, ''));
+    const sel = document.querySelector(`[data-emp-role="${userId}"]`);
+    if (sel) sel.value = currentRole;
+    return;
+  }
+
+  toast(`Đã đổi thành ${ROLE_LABELS[newRole]} ✓`);
+  if (state.salaryModule) state.salaryModule.invalidateCache();
+  await loadEmployees();
+
+  if (state.selectedEmployeeId === userId) {
+    const attendance = await import('./attendance.js');
+    attendance.updateSummary();
+  }
+}
+
+export async function toggleEmployeeStatus(userId, currentStatus) {
+  if (!state.isAdmin) return;
+  const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+  const msg = newStatus === 'inactive'
+    ? 'Vô hiệu hoá nhân viên này?\n\nHọ sẽ không đăng nhập được nữa.'
+    : 'Kích hoạt lại nhân viên này?';
+  if (!confirm(msg)) return;
+
+  const { error } = await supabase.rpc('admin_set_user_status', {
+    p_user_id: userId, p_status: newStatus,
+  });
+  if (error) { toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, '')); return; }
+  toast(newStatus === 'inactive' ? '⏸ Đã vô hiệu hoá' : '▶ Đã kích hoạt');
+  if (state.salaryModule) state.salaryModule.invalidateCache();
+  await loadEmployees();
+}
+
+export async function deleteEmployee(userId, name) {
+  if (!state.isAdmin) return;
+  const ok = confirm(
+    `Xoá vĩnh viễn "${name}"?\n\n` +
+    `• Tài khoản đăng nhập sẽ bị xoá\n` +
+    `• Toàn bộ lịch sử chấm công sẽ bị xoá\n` +
+    `• Không thể hoàn tác`
+  );
+  if (!ok) return;
+
+  const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userId });
+  if (error) { toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, '')); return; }
+  toast('🗑 Đã xoá nhân viên');
+
+  const { invalidateAttendanceCache } = await import('./core.js');
+  invalidateAttendanceCache();
+  if (state.salaryModule) state.salaryModule.invalidateCache();
+
+  await loadEmployees();
+
+  const buildings = await import('./buildings.js');
+  const attendance = await import('./attendance.js');
+  await attendance.loadAttendanceForMonth();
+  await buildings.loadTodayAssignments();
+  attendance.renderCalendar();
+  buildings.renderBuildings();
+}
