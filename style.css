@@ -812,7 +812,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   flex-shrink: 0;
 }
 
-/* ============ EXCEL TAB — MATRIX 2 BLOCK ============ */
+/* ============ EXCEL TAB ============ */
 .excel-help {
   font-size: 12px;
   color: var(--ocean-700);
@@ -863,7 +863,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   box-shadow: var(--shadow);
 }
 
-/* Matrix table — compact, fit 15 ngày portrait */
 .excel-matrix {
   width: 100%;
   border-collapse: collapse;
@@ -927,7 +926,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: var(--ocean-200);
 }
 
-/* Row NC — trắng */
 .excel-matrix tr.row-nc td {
   background: white;
   color: var(--text);
@@ -948,7 +946,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-weight: 400;
 }
 
-/* Row OT — vàng nhạt */
 .excel-matrix tr.row-ot td {
   background: #fffaf0;
   color: #b45309;
@@ -967,7 +964,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border-bottom: none;
 }
 
-/* Container ẩn render PNG — full 31 ngày */
 #excelCaptureArea .excel-capture-title {
   font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
   font-size: 20px;
@@ -1119,25 +1115,67 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .radio:has(input:checked) { background: var(--ocean-100); border-color: var(--ocean-500); }
 .radio input { accent-color: var(--ocean-500); width: 18px; height: 18px; }
 
-/* ============ Area picker ============ */
+/* ============ Area picker (rewrite cho mix nhiều loại) ============ */
 .area-picker { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
-.area-entry { display: flex; gap: 8px; align-items: center; }
-.area-entry select {
-  flex: 1; padding: 10px 12px; font-size: 14px;
-  border: 1.5px solid var(--border); border-radius: 9px;
-  background: var(--ocean-50); font-family: inherit;
+.area-entry {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--ocean-50);
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.area-entry .area-type {
+  flex: 0 0 140px;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--ocean-700);
+}
+.area-entry .area-building,
+.area-entry .area-floor {
+  flex: 1 1 120px;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  font-family: inherit;
   min-width: 0;
 }
-.area-entry .remove-area {
-  background: #fef2f2; color: var(--danger); border: none;
-  width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
-  font-size: 16px; flex-shrink: 0;
-}
 .area-entry .area-hours-input {
-  flex: 0 0 68px; padding: 10px 8px; font-size: 14px;
-  border: 1.5px solid var(--border); border-radius: 9px;
-  background: var(--ocean-50); font-family: inherit;
-  text-align: center; min-width: 0;
+  flex: 0 0 80px;
+  padding: 8px 8px;
+  font-size: 13px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  font-family: inherit;
+  text-align: center;
+}
+.area-entry .area-hours-input.area-hours-full {
+  flex: 1 1 auto;
+  text-align: left;
+}
+.area-entry .remove-area {
+  flex: 0 0 34px;
+  height: 34px;
+  background: #fef2f2;
+  color: var(--danger);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+}
+@media (max-width: 400px) {
+  .area-entry .area-type { flex: 1 1 100%; }
 }
 
 /* ============ Preview ============ */
@@ -1177,6 +1215,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
+/* ============ Debug log styles ============ */
+.dbg-line { padding: 3px 0; border-bottom: 1px solid #2c2c2e; display: flex; gap: 6px; line-height: 1.4; }
+.dbg-time { color: #8e8e93; flex-shrink: 0; }
+.dbg-msg { flex: 1; word-break: break-all; }
+.dbg-info { color: #64d2ff; }
+.dbg-ok { color: #32d74b; }
+.dbg-warn { color: #ffd60a; }
+.dbg-error { color: #ff453a; }
+
 /* ============ Responsive ============ */
 @media (max-width: 400px) {
   .tab-btn { font-size: 11px; padding: 10px 3px; }
@@ -1192,8 +1239,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 @media (max-width: 380px) {
   .stat-label { font-size: 9px; }
   .stat-value { font-size: 12px; }
-  .area-entry select { font-size: 13px; padding: 9px 8px; }
-  .area-entry .area-hours-input { flex: 0 0 56px; font-size: 13px; padding: 9px 4px; }
   .selection-bar-inner #selectionCount { font-size: 13px; }
   .selection-bar-inner .btn-primary { padding: 9px 14px; font-size: 13px; }
   .selection-bar-inner .btn-secondary { padding: 9px 10px; font-size: 12px; }
@@ -1211,7 +1256,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .assignee-avatar { width: 22px; height: 22px; font-size: 10px; }
   .floor-assignee { font-size: 12px; gap: 6px; }
 
-  /* Excel matrix nhỏ hơn */
   .excel-matrix { font-size: 10px; }
   .excel-matrix thead th { font-size: 9px; padding: 4px 1px; height: 24px; }
   .excel-matrix thead th.th-name { width: 80px; font-size: 9px; }
