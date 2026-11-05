@@ -1,4 +1,4 @@
-// buildings.js — Quản lý toà nhà, tầng, phân công khu vực + Ngoại cảnh + Tăng ca CN
+// buildings.js — Quản lý toà nhà, tầng, khu vực đặc biệt (Ngoại cảnh/Ca đêm/Tuỳ chỉnh) + Tăng ca CN
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast,
@@ -37,6 +37,8 @@ export async function loadTodayAssignments() {
     console.error(error);
     state.floorAssignments = {};
     state.externalAssignments = [];
+    state.nightAssignments = [];
+    state.customAssignments = [];
     state.sundayOtAssignments = [];
     return;
   }
@@ -44,56 +46,99 @@ export async function loadTodayAssignments() {
   const mainUsersByFloor = {};
   const otAutoUsersByFloor = {};
 
-  // ⭐ MỚI: Tách external + sunday_ot
+  // ⭐ 4 mảng track riêng
   const externalAssignments = [];
+  const nightAssignments = [];
+  const customAssignments = [];
   const sundayOtAssignments = [];
 
   for (const a of data) {
-    // Check ngoại cảnh
+    // Phân tích areas (main)
     if (Array.isArray(a.areas)) {
-      const ext = a.areas.find(x => x.type === 'external');
-      if (ext) {
-        externalAssignments.push({
-          employee_id: a.employee_id,
-          hours: Number(ext.hours || a.total_hours || 0),
-        });
-      }
-    }
-
-    // Check tăng ca CN
-    if (Array.isArray(a.ot_areas)) {
-      const sun = a.ot_areas.find(x => x.type === 'sunday_ot');
-      if (sun) {
-        sundayOtAssignments.push({
-          employee_id: a.employee_id,
-          hours: Number(sun.hours || a.ot_hours || 0),
-        });
-      }
-    }
-
-    // Đếm user theo floor (chỉ area có floor_id thật, bỏ external)
-    if (a.mode === 'default' && Array.isArray(a.areas)) {
       for (const area of a.areas) {
-        if (area.type === 'external') continue;
-        const fid = area.floor_id;
-        if (!fid) continue;
-        if (!mainUsersByFloor[fid]) mainUsersByFloor[fid] = new Set();
-        mainUsersByFloor[fid].add(a.employee_id);
+        if (area.type === 'external') {
+          externalAssignments.push({
+            employee_id: a.employee_id,
+            hours: Number(area.hours || 0),
+          });
+        } else if (area.type === 'night') {
+          nightAssignments.push({
+            employee_id: a.employee_id,
+            hours: Number(area.hours || 0),
+          });
+        } else if (area.type === 'custom') {
+          customAssignments.push({
+            employee_id: a.employee_id,
+            hours: Number(area.hours || 0),
+          });
+        } else if (area.building_id && area.floor_id) {
+          // Building bình thường → đếm cho share
+          if (a.mode === 'default' || a.mode === 'manual') {
+            const fid = area.floor_id;
+            if (!mainUsersByFloor[fid]) mainUsersByFloor[fid] = new Set();
+            mainUsersByFloor[fid].add(a.employee_id);
+          }
+        }
       }
     }
+
+    // Phân tích ot_areas
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
-        if (area.type === 'sunday_ot') continue;
-        const fid = area.floor_id;
-        if (!fid) continue;
-        const h = area.hours;
-        if (h != null && h !== '' && !isNaN(Number(h))) continue;
-        if (!otAutoUsersByFloor[fid]) otAutoUsersByFloor[fid] = new Set();
-        otAutoUsersByFloor[fid].add(a.employee_id);
+        if (area.type === 'sunday_ot') {
+          sundayOtAssignments.push({
+            employee_id: a.employee_id,
+            hours: Number(area.hours || 0),
+          });
+        } else if (area.type === 'external') {
+          externalAssignments.push({
+            employee_id: a.employee_id,
+            hours: Number(area.hours || 0),
+            isOt: true,
+          });
+        } else if (area.type === 'night') {
+          nightAssignments.push({
+            employee_id: a.employee_id,
+            hours: Number(area.hours || 0),
+            isOt: true,
+          });
+        } else if (area.type === 'custom') {
+          customAssignments.push({
+            employee_id: a.employee_id,
+            hours: Number(area.hours || 0),
+            isOt: true,
+          });
+        } else if (area.building_id && area.floor_id) {
+          const fid = area.floor_id;
+          const h = area.hours;
+          if (h != null && h !== '' && !isNaN(Number(h))) continue;
+          if (!otAutoUsersByFloor[fid]) otAutoUsersByFloor[fid] = new Set();
+          otAutoUsersByFloor[fid].add(a.employee_id);
+        }
       }
     }
   }
 
+  // ⭐ Gộp entries cùng employee_id trong mỗi mảng
+  const merge = (arr) => {
+    const map = {};
+    for (const item of arr) {
+      const k = item.employee_id;
+      if (!map[k]) {
+        map[k] = { employee_id: k, hours: 0, hasOt: false };
+      }
+      map[k].hours += item.hours;
+      if (item.isOt) map[k].hasOt = true;
+    }
+    return Object.values(map);
+  };
+
+  state.externalAssignments = merge(externalAssignments);
+  state.nightAssignments = merge(nightAssignments);
+  state.customAssignments = merge(customAssignments);
+  state.sundayOtAssignments = merge(sundayOtAssignments);
+
+  // Build floorAssignments (chỉ building bình thường)
   const map = {};
 
   for (const a of data) {
@@ -101,11 +146,11 @@ export async function loadTodayAssignments() {
     let mainRawTotal = 0;
     let otRawTotal = 0;
 
-    if (a.mode === 'default' && Array.isArray(a.areas)) {
+    if ((a.mode === 'default' || a.mode === 'manual') && Array.isArray(a.areas)) {
       for (const area of a.areas) {
-        if (area.type === 'external') continue;
+        if (area.type && area.type !== 'building') continue;
+        if (!area.building_id || !area.floor_id) continue;
         const fid = area.floor_id;
-        if (!fid) continue;
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
 
         const floor = state.floors.find(x => x.id === fid);
@@ -116,23 +161,13 @@ export async function loadTodayAssignments() {
         perFloor[fid].main += raw;
         mainRawTotal += raw;
       }
-    } else if (a.mode === 'manual' && Array.isArray(a.areas)) {
-      for (const area of a.areas) {
-        if (area.type === 'external') continue;
-        const fid = area.floor_id;
-        if (!fid) continue;
-        if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
-        const raw = Number(area.hours || 0);
-        perFloor[fid].main += raw;
-        mainRawTotal += raw;
-      }
     }
 
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
-        if (area.type === 'sunday_ot') continue;
+        if (area.type && area.type !== 'building') continue;
+        if (!area.building_id || !area.floor_id) continue;
         const fid = area.floor_id;
-        if (!fid) continue;
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
 
         const h = area.hours;
@@ -163,15 +198,6 @@ export async function loadTodayAssignments() {
       for (const fid in perFloor) {
         perFloor[fid].ot = perFloor[fid].ot * (otFromDB / otRawTotal);
       }
-    } else if (otFromDB > 0 && mainRawTotal > 0) {
-      let maxFid = null, maxMain = 0;
-      for (const fid in perFloor) {
-        if (perFloor[fid].main > maxMain) {
-          maxMain = perFloor[fid].main;
-          maxFid = fid;
-        }
-      }
-      if (maxFid) perFloor[maxFid].ot = otFromDB;
     }
 
     for (const [fid, h] of Object.entries(perFloor)) {
@@ -191,13 +217,48 @@ export async function loadTodayAssignments() {
   }
 
   state.floorAssignments = map;
-  state.externalAssignments = externalAssignments;
-  state.sundayOtAssignments = sundayOtAssignments;
 
   const hint = $('#areasHint');
   if (hint) {
     hint.textContent = `📅 Đang hiển thị nhân viên được phân công hôm nay (${formatDateVN(todayStr)})`;
   }
+}
+
+/* ============ HELPER: render 1 card đặc biệt ============ */
+function renderSpecialCard(opts) {
+  const {
+    emoji, title, subtitle, items, colorStart, colorEnd, borderColor, avatarGrad,
+    filteredEmpIds, formatHoursFn,
+  } = opts;
+
+  const visible = items.filter(x => filteredEmpIds.has(x.employee_id));
+  if (!visible.length) return '';
+
+  return `
+    <div class="building-card" style="border-color:${borderColor};background:linear-gradient(135deg,${colorStart},${colorEnd})">
+      <h3 style="color:${avatarGrad.split(',')[1].replace(')', '')}">${emoji} ${title}
+        <span class="floor-count" style="background:${colorEnd};color:${avatarGrad.split(',')[1].replace(')', '')}">${visible.length} người</span>
+      </h3>
+      <div class="building-floors">
+        ${visible.map(item => {
+          const emp = state.employees.find(e => e.id === item.employee_id);
+          if (!emp) return '';
+          const name = emp.full_name || emp.username || '';
+          return `
+            <div class="floor-assignee" style="padding:6px 0">
+              <div class="assignee-avatar" style="background:linear-gradient(135deg,${avatarGrad})">${name.charAt(0).toUpperCase()}</div>
+              <div class="assignee-info">
+                <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
+                ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
+              </div>
+              <span style="margin-left:auto;font-weight:700;color:${avatarGrad.split(',')[1].replace(')', '')};font-size:13px">
+                ${formatHoursFn(item.hours)}${item.hasOt ? ' ⚡' : ''}
+              </span>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
 }
 
 /* ============ RENDER ============ */
@@ -206,11 +267,19 @@ export function renderBuildings() {
   const $sum = $('#areasSummary');
   if (!wrap) return;
 
-  // Đảm bảo 2 mảng tồn tại
+  // Đảm bảo các mảng tồn tại
   if (!Array.isArray(state.externalAssignments)) state.externalAssignments = [];
+  if (!Array.isArray(state.nightAssignments)) state.nightAssignments = [];
+  if (!Array.isArray(state.customAssignments)) state.customAssignments = [];
   if (!Array.isArray(state.sundayOtAssignments)) state.sundayOtAssignments = [];
 
-  if (!state.buildings.length && !state.externalAssignments.length && !state.sundayOtAssignments.length) {
+  const hasAnySpecial =
+    state.externalAssignments.length ||
+    state.nightAssignments.length ||
+    state.customAssignments.length ||
+    state.sundayOtAssignments.length;
+
+  if (!state.buildings.length && !hasAnySpecial) {
     wrap.innerHTML = '<p class="hint">Chưa có toà nhà nào. Nhấn "+ Thêm tòa nhà".</p>';
     if ($sum) $sum.style.display = 'none';
     return;
@@ -237,7 +306,7 @@ export function renderBuildings() {
   const nvEmployees = allActive.filter(e => e.role === 'employee');
   const nvEmpIds = new Set(nvEmployees.map(e => e.id));
 
-  // Đếm NV đi làm hôm nay (floor + external + sunday_ot, không trùng)
+  // Đếm NV đi làm hôm nay (gồm cả building + 4 loại đặc biệt)
   const workingNVIds = new Set();
   for (const fid in state.floorAssignments) {
     const assigns = state.floorAssignments[fid] || [];
@@ -245,16 +314,15 @@ export function renderBuildings() {
       if (nvEmpIds.has(a.employee_id)) workingNVIds.add(a.employee_id);
     }
   }
-  for (const item of state.externalAssignments) {
-    if (nvEmpIds.has(item.employee_id)) workingNVIds.add(item.employee_id);
-  }
-  for (const item of state.sundayOtAssignments) {
-    if (nvEmpIds.has(item.employee_id)) workingNVIds.add(item.employee_id);
+  for (const arr of [state.externalAssignments, state.nightAssignments, state.customAssignments, state.sundayOtAssignments]) {
+    for (const item of arr) {
+      if (nvEmpIds.has(item.employee_id)) workingNVIds.add(item.employee_id);
+    }
   }
   const totalNV = nvEmployees.length;
   const workingNVCount = workingNVIds.size;
 
-  // Đếm tầng có người
+  // Đếm tầng có người (chỉ building)
   const floorsWithPeople = new Set();
   for (const b of state.buildings) {
     const floors = state.floors.filter(f => f.building_id === b.id);
@@ -288,59 +356,44 @@ export function renderBuildings() {
     `;
   }
 
-  /* ⭐ Render card Ngoại cảnh (nếu có người) */
-  const externalVisible = state.externalAssignments.filter(x => filteredEmpIds.has(x.employee_id));
-  const externalHtml = externalVisible.length > 0 ? `
-    <div class="building-card" style="border-color:#a7f3d0;background:linear-gradient(135deg,#f0fdf4,#dcfce7)">
-      <h3 style="color:#15803d">🌳 Ngoại cảnh (ngoài toà nhà)
-        <span class="floor-count" style="background:#dcfce7;color:#16a34a">${externalVisible.length} người</span>
-      </h3>
-      <div class="building-floors">
-        ${externalVisible.map(item => {
-          const emp = state.employees.find(e => e.id === item.employee_id);
-          if (!emp) return '';
-          const name = emp.full_name || emp.username || '';
-          return `
-            <div class="floor-assignee" style="padding:6px 0">
-              <div class="assignee-avatar" style="background:linear-gradient(135deg,#16a34a,#15803d)">${name.charAt(0).toUpperCase()}</div>
-              <div class="assignee-info">
-                <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
-                ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
-              </div>
-              <span style="margin-left:auto;font-weight:700;color:#16a34a;font-size:13px">${formatHours(item.hours)}</span>
-            </div>`;
-        }).join('')}
-      </div>
-    </div>
-  ` : '';
+  /* ⭐ 4 card đặc biệt */
+  const externalHtml = renderSpecialCard({
+    emoji: '🌳',
+    title: 'Ngoại cảnh',
+    items: state.externalAssignments,
+    colorStart: '#f0fdf4', colorEnd: '#dcfce7', borderColor: '#a7f3d0',
+    avatarGrad: '#16a34a,#15803d',
+    filteredEmpIds, formatHoursFn: formatHours,
+  });
 
-  /* ⭐ Render card Tăng ca CN (nếu có người) */
-  const sundayOtVisible = state.sundayOtAssignments.filter(x => filteredEmpIds.has(x.employee_id));
-  const sundayOtHtml = sundayOtVisible.length > 0 ? `
-    <div class="building-card" style="border-color:#fed7aa;background:linear-gradient(135deg,#fff7ed,#fed7aa)">
-      <h3 style="color:#c2410c">📅 Tăng ca CN (bao trùm)
-        <span class="floor-count" style="background:#fed7aa;color:#c2410c">${sundayOtVisible.length} người</span>
-      </h3>
-      <div class="building-floors">
-        ${sundayOtVisible.map(item => {
-          const emp = state.employees.find(e => e.id === item.employee_id);
-          if (!emp) return '';
-          const name = emp.full_name || emp.username || '';
-          return `
-            <div class="floor-assignee" style="padding:6px 0">
-              <div class="assignee-avatar" style="background:linear-gradient(135deg,#ea580c,#c2410c)">${name.charAt(0).toUpperCase()}</div>
-              <div class="assignee-info">
-                <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
-                ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
-              </div>
-              <span style="margin-left:auto;font-weight:700;color:#c2410c;font-size:13px">${formatHours(item.hours)}</span>
-            </div>`;
-        }).join('')}
-      </div>
-    </div>
-  ` : '';
+  const nightHtml = renderSpecialCard({
+    emoji: '🌙',
+    title: 'Ca đêm',
+    items: state.nightAssignments,
+    colorStart: '#eef2ff', colorEnd: '#e0e7ff', borderColor: '#c7d2fe',
+    avatarGrad: '#6366f1,#4338ca',
+    filteredEmpIds, formatHoursFn: formatHours,
+  });
 
-  /* Render building cards */
+  const customHtml = renderSpecialCard({
+    emoji: '🎯',
+    title: 'Tuỳ chỉnh',
+    items: state.customAssignments,
+    colorStart: '#f8fafc', colorEnd: '#f1f5f9', borderColor: '#cbd5e1',
+    avatarGrad: '#64748b,#475569',
+    filteredEmpIds, formatHoursFn: formatHours,
+  });
+
+  const sundayOtHtml = renderSpecialCard({
+    emoji: '📅',
+    title: 'Tăng ca CN',
+    items: state.sundayOtAssignments,
+    colorStart: '#fff7ed', colorEnd: '#fed7aa', borderColor: '#fdba74',
+    avatarGrad: '#ea580c,#c2410c',
+    filteredEmpIds, formatHoursFn: formatHours,
+  });
+
+  /* Building cards thường */
   const buildingsHtml = state.buildings.map(b => {
     const floors = state.floors.filter(f => f.building_id === b.id)
       .sort((a, c) => a.floor_number - c.floor_number);
@@ -394,9 +447,9 @@ export function renderBuildings() {
       </div>`;
   }).join('');
 
-  wrap.innerHTML = externalHtml + sundayOtHtml + buildingsHtml;
+  wrap.innerHTML = externalHtml + nightHtml + customHtml + sundayOtHtml + buildingsHtml;
 
-  /* Bind events */
+  // Bind events
   wrap.querySelectorAll('[data-setup]').forEach(btn =>
     btn.addEventListener('click', () => openFloorSetup(btn.dataset.setup)));
   wrap.querySelectorAll('[data-delete]').forEach(btn =>
