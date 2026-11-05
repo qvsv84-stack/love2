@@ -169,7 +169,6 @@ async function getPreviousAttendance(employeeId, beforeDate) {
   return data?.[0] || null;
 }
 
-/* ⭐ Get default hours cho entry (dùng để tính pool + summary) */
 function getEntryDefaultHours(entry) {
   if (entry.type === 'building') {
     if (!entry.floor_id) return 0;
@@ -181,7 +180,7 @@ function getEntryDefaultHours(entry) {
   return sp ? Number(sp.default_hours || 0) : 0;
 }
 
-/* ⭐ Pool: đếm số người cùng khu vực + giờ max */
+/* ⭐ Pool: đếm số người + giờ max + TÊN những người làm cùng */
 function getPoolForEntry(entry) {
   const selfId = state.selectedEmployeeId;
   const entryType = entry.type || 'building';
@@ -190,6 +189,7 @@ function getPoolForEntry(entry) {
   const defaultHours = getEntryDefaultHours(entry);
 
   const empIds = new Set();
+  const others = [];
   let maxHours = defaultHours > 0 ? defaultHours : 0;
 
   const resolveHours = (h) => {
@@ -206,7 +206,12 @@ function getPoolForEntry(entry) {
           const aType = a.type || 'building';
           if (aType !== entryType) continue;
           if (entryType === 'building' && a.floor_id !== floorId) continue;
-          empIds.add(att.employee_id);
+
+          if (!empIds.has(att.employee_id)) {
+            empIds.add(att.employee_id);
+            const emp = state.employees.find(e => e.id === att.employee_id);
+            others.push(emp?.full_name || emp?.username || 'NV khác');
+          }
           const resolved = resolveHours(a.hours);
           if (resolved > maxHours) maxHours = resolved;
         }
@@ -220,10 +225,17 @@ function getPoolForEntry(entry) {
   const selfResolved = entryHours != null ? entryHours : defaultHours;
   if (selfResolved > maxHours) maxHours = selfResolved;
 
-  return { count: empIds.size, maxHours: maxHours > 0 ? maxHours : defaultHours, defaultHours };
+  return { count: empIds.size, maxHours: maxHours > 0 ? maxHours : defaultHours, defaultHours, others };
 }
 
-/* ⭐ Tính giờ THỰC của 1 entry (khớp với SQL trigger) */
+/* ⭐ Format chú thích "(làm cùng A, B, C + N người)" */
+function formatSharedNote(others) {
+  if (!others || others.length === 0) return '';
+  const first3 = others.slice(0, 3).join(', ');
+  const more = others.length > 3 ? ` +${others.length - 3} người` : '';
+  return `làm cùng ${first3}${more}`;
+}
+
 function calcEntryActualHours(entry) {
   const entryHours = (entry.hours != null && entry.hours > 0) ? Number(entry.hours) : null;
 
@@ -249,8 +261,11 @@ function updateEntryHints() {
     if (!valid) { el.style.display = 'none'; return; }
 
     const h = calcEntryActualHours(entry);
+    const pool = getPoolForEntry(entry);
+    const sharedNote = formatSharedNote(pool.others);
+
     if (h > 0) {
-      el.textContent = `→ Sẽ cộng ${formatHours(h)}`;
+      el.innerHTML = `→ Sẽ cộng <strong>${formatHours(h)}</strong>${sharedNote ? ` <span style="color:var(--text-muted);font-weight:500">(${sharedNote})</span>` : ''}`;
       el.style.display = 'block';
     } else {
       el.style.display = 'none';
@@ -258,7 +273,7 @@ function updateEntryHints() {
   });
 }
 
-/* ⭐ BUILD SUMMARY HTML */
+/* ⭐ Build summary HTML — thêm chú thích "(làm cùng X, Y)" */
 function buildSummaryHTML(template) {
   if (!template) return '';
 
@@ -271,55 +286,54 @@ function buildSummaryHTML(template) {
 
   const lines = [];
 
-  // Areas (main)
+  const buildLine = (emoji, label, entry) => {
+    const h = calcEntryActualHours(entry);
+    const pool = getPoolForEntry(entry);
+    const note = formatSharedNote(pool.others);
+    const noteHTML = note ? ` <span class="summary-shared">(${note})</span>` : '';
+    return `<div class="summary-line-item">${emoji} ${label} — <strong>${formatHours(h)}</strong>${noteHTML}</div>`;
+  };
+
   if (Array.isArray(template.areas) && template.areas.length > 0) {
     for (const a of template.areas) {
       if (a.type === 'external') {
-        const h = calcEntryActualHours(a);
-        lines.push(`🌳 Ngoại cảnh — ${formatHours(h)}`);
+        lines.push(buildLine('🌳', 'Ngoại cảnh', a));
       } else if (a.type === 'night') {
-        const h = calcEntryActualHours(a);
-        lines.push(`🌙 Ca đêm — ${formatHours(h)}`);
+        lines.push(buildLine('🌙', 'Ca đêm', a));
       } else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
         const f = state.floors.find(x => x.id === a.floor_id);
         const bName = b?.name || '?';
         const fName = f ? floorLabel(f.floor_number) : '?';
-        const h = calcEntryActualHours(a);
-        lines.push(`🏢 ${bName} — ${fName} — ${formatHours(h)}`);
+        lines.push(buildLine('🏢', `${bName} — ${fName}`, a));
       }
     }
   }
 
-  // Manual mode (supervisor hoặc khi không có areas)
   if (template.mode === 'manual' && Number(template.manual_hours) > 0 && (!template.areas || template.areas.length === 0)) {
-    lines.push(`⏱️ Giờ công — ${formatHours(template.manual_hours)}`);
+    lines.push(`<div class="summary-line-item">⏱️ Giờ công — <strong>${formatHours(template.manual_hours)}</strong></div>`);
   }
 
-  // OT areas
   if (Array.isArray(template.ot_areas) && template.ot_areas.length > 0) {
     for (const a of template.ot_areas) {
       if (a.type === 'sunday_ot') {
-        lines.push(`📅 Tăng ca CN — ${formatHours(a.hours)}`);
+        lines.push(`<div class="summary-line-item">📅 Tăng ca CN — <strong>${formatHours(a.hours)}</strong></div>`);
       } else if (a.type === 'external') {
-        const h = calcEntryActualHours(a);
-        lines.push(`🌳 Ngoại cảnh (OT) — ${formatHours(h)}`);
+        lines.push(buildLine('🌳', 'Ngoại cảnh (OT)', a));
       } else if (a.type === 'night') {
-        const h = calcEntryActualHours(a);
-        lines.push(`🌙 Ca đêm (OT) — ${formatHours(h)}`);
+        lines.push(buildLine('🌙', 'Ca đêm (OT)', a));
       } else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
         const f = state.floors.find(x => x.id === a.floor_id);
         const bName = b?.name || '?';
         const fName = f ? floorLabel(f.floor_number) : '?';
-        const h = calcEntryActualHours(a);
-        lines.push(`🏢 ${bName} — ${fName} (OT) — ${formatHours(h)}`);
+        lines.push(buildLine('🏢', `${bName} — ${fName} (OT)`, a));
       }
     }
   }
 
   const linesHTML = lines.length > 0
-    ? lines.map(l => `<div class="summary-line-item">${l}</div>`).join('')
+    ? lines.join('')
     : `<div class="summary-line-item" style="color:var(--text-muted);font-style:italic;font-weight:400">Chưa có khu vực</div>`;
 
   const totalMain = Number(template.total_hours || 0);
@@ -335,7 +349,6 @@ function buildSummaryHTML(template) {
   `;
 }
 
-/* ⭐ Chuyển sang SUMMARY mode */
 function showSummaryView(template) {
   state.editingTemplate = template;
 
@@ -354,7 +367,6 @@ function showSummaryView(template) {
   const $bn = $('#batchNote'); if ($bn) $bn.style.display = 'none';
 }
 
-/* ⭐ Chuyển sang EDITOR mode */
 function showEditorView() {
   const $sv = $('#attSummaryView'); if ($sv) $sv.style.display = 'none';
   const $ev = $('#attEditorView'); if ($ev) $ev.style.display = 'block';
@@ -367,7 +379,6 @@ function showEditorView() {
   const $cancel = $('#attCancelBtn'); if ($cancel) $cancel.textContent = 'Huỷ';
 }
 
-/* ⭐ Sunday toggle: chỉ hiện Chủ nhật (hoặc nếu có data Sunday OT cũ) */
 function applySundayToggle(dateStr, batchDates) {
   const $sundayToggle = $('#sundayOtToggle');
   if (!$sundayToggle) return;
@@ -434,7 +445,6 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
     if (prev) { template = prev; source = 'previous'; prevDate = prev.date; }
   }
 
-  // Build editor state từ template
   if (targetIsSupervisor) openSupervisorModeContent(template);
   else openEmployeeModeContent(template);
 
@@ -442,14 +452,12 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   showBatchNote(batchDates);
   applySundayToggle(dateStr, batchDates);
 
-  // ⭐ Quyết định view: summary nếu có data cũ
   if (!batchDates && template && source === 'existing') {
     showSummaryView(template);
   } else {
     showEditorView();
   }
 
-  // Bind nút Sửa (overwrite để tránh duplicate)
   const $edit = $('#attEditBtn');
   if ($edit) {
     $edit.onclick = () => {
@@ -951,7 +959,6 @@ export async function saveAttendance() {
     buildings.loadTodayAssignments().then(() => buildings.renderBuildings()).catch(err => console.warn(err));
   }).catch(err => console.warn(err));
 
-  // ⭐ Single-day save → collapse to summary (không đóng modal)
   if (dates.length === 1 && !wasSelection) {
     state.dayAssignments = await loadDayAssignments(dates[0]);
     const saved = state.attendance.find(a => a.date === dates[0]);
