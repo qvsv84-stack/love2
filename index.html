@@ -20,21 +20,17 @@
   <!-- ⭐ SCRIPT DIỆT CACHE VÀ SERVICE WORKER CŨ -->
   <script>
     (function() {
-      // 1. Unregister tất cả Service Worker
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
           for (let registration of registrations) {
             registration.unregister();
-            console.log('[Cache] Đã xoá Service Worker cũ');
           }
         });
       }
-      // 2. Xoá toàn bộ Cache Storage
       if ('caches' in window) {
         caches.keys().then(function(names) {
           for (let name of names) {
             caches.delete(name);
-            console.log('[Cache] Đã xoá cache:', name);
           }
         });
       }
@@ -43,14 +39,6 @@
 
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
-
-  <!-- ⭐ Ép tải file JS mới nhất bằng cách thêm ?v=time -->
-  <script>
-    document.write('<link rel="modulepreload" href="/supabase.js?v=' + Date.now() + '" />');
-    document.write('<link rel="modulepreload" href="/core.js?v=' + Date.now() + '" />');
-    document.write('<link rel="modulepreload" href="/attendance.js?v=' + Date.now() + '" />');
-    document.write('<link rel="modulepreload" href="/app.js?v=' + Date.now() + '" />');
-  </script>
 
   <style>
     .dbg-line { padding: 3px 0; border-bottom: 1px solid #2c2c2e; display: flex; gap: 6px; line-height: 1.4; }
@@ -956,16 +944,11 @@
   })();
   </script>
 
-  <script type="module">
-    // ⭐ Ép load app.js bản mới nhất bằng timestamp
-    const script = document.createElement('script');
-    script.type = 'module';
-    script.src = './app.js?v=' + Date.now();
-    document.body.appendChild(script);
-  </script>
+  <!-- ⭐ TẢI APP.JS TĨNH TRỰC TIẾP -->
+  <script type="module" src="./app.js?v=3"></script>
 
   <script type="module">
-    import { APP_VERSION, checkForUpdate } from './version.js?v=' + Date.now();
+    import { APP_VERSION, checkForUpdate } from './version.js';
     console.log('[App] running v' + APP_VERSION);
 
     setTimeout(async () => {
