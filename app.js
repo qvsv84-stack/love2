@@ -109,6 +109,40 @@ function bindEvents() {
     openAttendanceModal(dates[0], dates);
   });
 
+  /* ⭐ Xoá chấm công hàng loạt */
+  const $delSelBtn = $('#deleteSelectionBtn');
+  if ($delSelBtn) {
+    $delSelBtn.addEventListener('click', async () => {
+      if (!state.isAdmin) { toast('Chỉ Giám sát được xoá'); return; }
+      if (!state.selectedEmployeeId) { toast('Chọn nhân viên'); return; }
+      if (state.selectedDates.size === 0) return;
+
+      const dates = [...state.selectedDates].sort();
+      const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
+      const empName = emp?.full_name || emp?.username || 'nhân viên';
+
+      const ok = confirm(`Xoá chấm công của "${empName}" cho ${dates.length} ngày?\n\nKhông thể hoàn tác.`);
+      if (!ok) return;
+
+      const { error } = await supabase.from('attendance').delete()
+        .eq('employee_id', state.selectedEmployeeId)
+        .in('date', dates);
+
+      if (error) { toast('Xoá thất bại: ' + error.message); return; }
+
+      toast(`Đã xoá ${dates.length} ngày ✓`);
+      invalidateAttendanceCache(state.selectedEmployeeId);
+      if (state.salaryModule) state.salaryModule.invalidateCache();
+      await loadAttendanceForMonth(true);
+      renderCalendar();
+      exitSelectionMode();
+
+      import('./buildings.js').then(b => {
+        b.loadTodayAssignments().then(() => b.renderBuildings()).catch(() => {});
+      }).catch(() => {});
+    });
+  }
+
   /* --- Bulk copy modal --- */
   $('#bulkCopyBtn').addEventListener('click', () => {
     const today = new Date();
@@ -140,7 +174,7 @@ function bindEvents() {
     });
   }
 
-  /* ⭐ 3 nút tạo khu vực: toà nhà / ngoại cảnh / ca đêm */
+  /* ⭐ 3 nút tạo khu vực */
   const $createBuildingBtn = document.querySelector('[data-create="building"]');
   if ($createBuildingBtn) {
     $createBuildingBtn.addEventListener('click', () => openModal('buildingModal'));
@@ -251,7 +285,7 @@ function bindEvents() {
     $sundayHours.addEventListener('input', updatePreview);
   }
 
-  /* ⭐ Add main/ot area — default building */
+  /* ⭐ Add main/ot area */
   $('#addMainAreaBtn').addEventListener('click', () => {
     state.modalAreas.push({ type: 'building', building_id: '', floor_id: '', hours: null });
     renderMainAreaPicker();
@@ -270,7 +304,7 @@ function bindEvents() {
   });
   $('#saveBuildingBtn').addEventListener('click', saveBuilding);
 
-  /* ⭐ Special Area modal (dùng chung cho ngoại cảnh + ca đêm) */
+  /* ⭐ Special Area modal */
   const $specialModal = $('#specialAreaModal');
   if ($specialModal) {
     $specialModal.addEventListener('click', (e) => {
