@@ -202,11 +202,18 @@
             <select id="employeeSelect" class="select-input"></select>
           </div>
 
-          <!-- ⭐⭐⭐ SUMMARY CARD MỚI — 2 section: Tổng tháng + Hôm nay -->
+          <!-- ⭐⭐⭐ SUMMARY CARD: 2 section + PHONE ROW -->
           <div class="summary-card" id="summaryCard" style="display:none">
             <div class="summary-line">
               <span class="emp-name" id="sumName">—</span>
               <span class="emp-role" id="sumRole">—</span>
+            </div>
+
+            <!-- ⭐ PHONE ROW — tap mở modal Gọi/Zalo/Copy -->
+            <div id="sumPhoneRow" style="margin-top:6px;display:none">
+              <button id="sumPhoneBtn" type="button" style="display:inline-flex;align-items:center;gap:6px;background:var(--ocean-100);color:var(--ocean-700);border:none;padding:6px 12px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">
+                📞 <span id="sumPhoneText">—</span>
+              </button>
             </div>
 
             <!-- Section 1: Tổng tháng -->
@@ -520,11 +527,13 @@
       </div>
     </div>
 
+    <!-- ⭐ PHONE ACTION MODAL: Gọi / Zalo / Copy -->
     <div id="phoneActionModal" class="modal-overlay center" style="display:none">
       <div class="modal" style="max-width: 340px;">
         <div class="modal-header"><h3 id="phoneActionNumber">—</h3><button class="btn-close" data-close="phoneActionModal">✕</button></div>
         <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
-          <button id="phoneCallBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px">📞 Gọi</button>
+          <button id="phoneCallBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px">📞 Gọi điện</button>
+          <button id="phoneZaloBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#0068ff;color:#fff">💬 Mở Zalo</button>
           <button id="phoneCopyBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">📋 Sao chép số</button>
         </div>
       </div>
