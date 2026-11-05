@@ -169,6 +169,228 @@ async function getPreviousAttendance(employeeId, beforeDate) {
   return data?.[0] || null;
 }
 
+/* ⭐ Get default hours cho entry (dùng để tính pool + summary) */
+function getEntryDefaultHours(entry) {
+  if (entry.type === 'building') {
+    if (!entry.floor_id) return 0;
+    const f = state.floors.find(x => x.id === entry.floor_id);
+    return f ? Number(f.default_hours || 0) : 0;
+  }
+  if (!state.specialAreas) return 0;
+  const sp = state.specialAreas[entry.type];
+  return sp ? Number(sp.default_hours || 0) : 0;
+}
+
+/* ⭐ Pool: đếm số người cùng khu vực + giờ max */
+function getPoolForEntry(entry) {
+  const selfId = state.selectedEmployeeId;
+  const entryType = entry.type || 'building';
+  const floorId = entry.floor_id;
+  const entryHours = (entry.hours != null && entry.hours > 0) ? Number(entry.hours) : null;
+  const defaultHours = getEntryDefaultHours(entry);
+
+  const empIds = new Set();
+  let maxHours = defaultHours > 0 ? defaultHours : 0;
+
+  const resolveHours = (h) => {
+    const v = (h != null && h !== '' && !isNaN(Number(h)) && Number(h) > 0) ? Number(h) : defaultHours;
+    return v;
+  };
+
+  if (Array.isArray(state.dayAssignments)) {
+    for (const att of state.dayAssignments) {
+      if (att.employee_id === selfId) continue;
+      const check = (arr) => {
+        if (!Array.isArray(arr)) return;
+        for (const a of arr) {
+          const aType = a.type || 'building';
+          if (aType !== entryType) continue;
+          if (entryType === 'building' && a.floor_id !== floorId) continue;
+          empIds.add(att.employee_id);
+          const resolved = resolveHours(a.hours);
+          if (resolved > maxHours) maxHours = resolved;
+        }
+      };
+      check(att.areas);
+      check(att.ot_areas);
+    }
+  }
+
+  empIds.add(selfId);
+  const selfResolved = entryHours != null ? entryHours : defaultHours;
+  if (selfResolved > maxHours) maxHours = selfResolved;
+
+  return { count: empIds.size, maxHours: maxHours > 0 ? maxHours : defaultHours, defaultHours };
+}
+
+/* ⭐ Tính giờ THỰC của 1 entry (khớp với SQL trigger) */
+function calcEntryActualHours(entry) {
+  const entryHours = (entry.hours != null && entry.hours > 0) ? Number(entry.hours) : null;
+
+  if (state.batchDates && state.batchDates.length > 0) {
+    return entryHours != null ? entryHours : getEntryDefaultHours(entry);
+  }
+
+  const pool = getPoolForEntry(entry);
+  if (pool.count > 1) return pool.maxHours / pool.count;
+  return entryHours != null ? entryHours : pool.defaultHours;
+}
+
+function updateEntryHints() {
+  document.querySelectorAll('.area-entry-hint').forEach(el => {
+    const idx = Number(el.dataset.idx);
+    const wrapType = el.dataset.wrapType;
+    const arr = wrapType === 'otAreaPicker' ? state.modalOtAreas : state.modalAreas;
+    const entry = arr[idx];
+
+    if (!entry) { el.style.display = 'none'; return; }
+
+    const valid = entry.type === 'building' ? (entry.building_id && entry.floor_id) : true;
+    if (!valid) { el.style.display = 'none'; return; }
+
+    const h = calcEntryActualHours(entry);
+    if (h > 0) {
+      el.textContent = `→ Sẽ cộng ${formatHours(h)}`;
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+    }
+  });
+}
+
+/* ⭐ BUILD SUMMARY HTML */
+function buildSummaryHTML(template) {
+  if (!template) return '';
+
+  if (template.mode === 'leave') {
+    return `<div class="summary-status leave">🏖️ Phép — không tính công</div>`;
+  }
+  if (template.is_off || template.mode === 'off') {
+    return `<div class="summary-status off">🚫 OFF — nghỉ</div>`;
+  }
+
+  const lines = [];
+
+  // Areas (main)
+  if (Array.isArray(template.areas) && template.areas.length > 0) {
+    for (const a of template.areas) {
+      if (a.type === 'external') {
+        const h = calcEntryActualHours(a);
+        lines.push(`🌳 Ngoại cảnh — ${formatHours(h)}`);
+      } else if (a.type === 'night') {
+        const h = calcEntryActualHours(a);
+        lines.push(`🌙 Ca đêm — ${formatHours(h)}`);
+      } else if (a.building_id && a.floor_id) {
+        const b = state.buildings.find(x => x.id === a.building_id);
+        const f = state.floors.find(x => x.id === a.floor_id);
+        const bName = b?.name || '?';
+        const fName = f ? floorLabel(f.floor_number) : '?';
+        const h = calcEntryActualHours(a);
+        lines.push(`🏢 ${bName} — ${fName} — ${formatHours(h)}`);
+      }
+    }
+  }
+
+  // Manual mode (supervisor hoặc khi không có areas)
+  if (template.mode === 'manual' && Number(template.manual_hours) > 0 && (!template.areas || template.areas.length === 0)) {
+    lines.push(`⏱️ Giờ công — ${formatHours(template.manual_hours)}`);
+  }
+
+  // OT areas
+  if (Array.isArray(template.ot_areas) && template.ot_areas.length > 0) {
+    for (const a of template.ot_areas) {
+      if (a.type === 'sunday_ot') {
+        lines.push(`📅 Tăng ca CN — ${formatHours(a.hours)}`);
+      } else if (a.type === 'external') {
+        const h = calcEntryActualHours(a);
+        lines.push(`🌳 Ngoại cảnh (OT) — ${formatHours(h)}`);
+      } else if (a.type === 'night') {
+        const h = calcEntryActualHours(a);
+        lines.push(`🌙 Ca đêm (OT) — ${formatHours(h)}`);
+      } else if (a.building_id && a.floor_id) {
+        const b = state.buildings.find(x => x.id === a.building_id);
+        const f = state.floors.find(x => x.id === a.floor_id);
+        const bName = b?.name || '?';
+        const fName = f ? floorLabel(f.floor_number) : '?';
+        const h = calcEntryActualHours(a);
+        lines.push(`🏢 ${bName} — ${fName} (OT) — ${formatHours(h)}`);
+      }
+    }
+  }
+
+  const linesHTML = lines.length > 0
+    ? lines.map(l => `<div class="summary-line-item">${l}</div>`).join('')
+    : `<div class="summary-line-item" style="color:var(--text-muted);font-style:italic;font-weight:400">Chưa có khu vực</div>`;
+
+  const totalMain = Number(template.total_hours || 0);
+  const totalOT = Number(template.ot_hours || 0);
+
+  return `
+    <div class="summary-lines">${linesHTML}</div>
+    <div class="summary-totals">
+      <div><span>Công</span><strong>${formatHours(totalMain)}</strong></div>
+      <div><span>Tăng ca</span><strong>${formatHours(totalOT)}</strong></div>
+      <div><span>Tổng</span><strong style="color:var(--ocean-700)">${formatHours(totalMain + totalOT)}</strong></div>
+    </div>
+  `;
+}
+
+/* ⭐ Chuyển sang SUMMARY mode */
+function showSummaryView(template) {
+  state.editingTemplate = template;
+
+  const $c = $('#attSummaryContent');
+  if ($c) $c.innerHTML = buildSummaryHTML(template);
+
+  const $sv = $('#attSummaryView'); if ($sv) $sv.style.display = 'block';
+  const $ev = $('#attEditorView'); if ($ev) $ev.style.display = 'none';
+  const $sticky = $('#attPreviewSticky'); if ($sticky) $sticky.style.display = 'none';
+
+  const $save = $('#saveAttendanceBtn'); if ($save) $save.style.display = 'none';
+  const $edit = $('#attEditBtn'); if ($edit) $edit.style.display = 'block';
+  const $cancel = $('#attCancelBtn'); if ($cancel) $cancel.textContent = 'Đóng';
+
+  const $pn = $('#prefillNote'); if ($pn) $pn.style.display = 'none';
+  const $bn = $('#batchNote'); if ($bn) $bn.style.display = 'none';
+}
+
+/* ⭐ Chuyển sang EDITOR mode */
+function showEditorView() {
+  const $sv = $('#attSummaryView'); if ($sv) $sv.style.display = 'none';
+  const $ev = $('#attEditorView'); if ($ev) $ev.style.display = 'block';
+
+  const $sticky = $('#attPreviewSticky');
+  if ($sticky) $sticky.style.display = state.isSupervisorMode ? 'none' : 'flex';
+
+  const $save = $('#saveAttendanceBtn'); if ($save) $save.style.display = 'block';
+  const $edit = $('#attEditBtn'); if ($edit) $edit.style.display = 'none';
+  const $cancel = $('#attCancelBtn'); if ($cancel) $cancel.textContent = 'Huỷ';
+}
+
+/* ⭐ Sunday toggle: chỉ hiện Chủ nhật (hoặc nếu có data Sunday OT cũ) */
+function applySundayToggle(dateStr, batchDates) {
+  const $sundayToggle = $('#sundayOtToggle');
+  if (!$sundayToggle) return;
+
+  let isSunday = false;
+  if (!batchDates && dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    isSunday = d.getDay() === 0;
+  }
+
+  const hasSavedSundayOt = isSundayOtChecked();
+
+  $sundayToggle.style.display = (isSunday || hasSavedSundayOt) ? 'flex' : 'none';
+
+  if (!isSunday && !hasSavedSundayOt) {
+    const $check = $('#sundayOtCheck');
+    if ($check) $check.checked = false;
+    const $hours = $('#sundayOtHours');
+    if ($hours) $hours.value = '';
+    toggleSundayOtSection(false);
+  }
+}
+
 export async function openAttendanceModal(dateStr, batchDates = null) {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
@@ -197,9 +419,6 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   $('#supervisorModeSection').style.display = targetIsSupervisor ? 'block' : 'none';
   $('#employeeModeSection').style.display = targetIsSupervisor ? 'none' : 'block';
 
-  const $sticky = $('#attPreviewSticky');
-  if ($sticky) $sticky.style.display = targetIsSupervisor ? 'none' : 'flex';
-
   let template = null, source = 'none', prevDate = null;
 
   if (!batchDates) {
@@ -215,28 +434,32 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
     if (prev) { template = prev; source = 'previous'; prevDate = prev.date; }
   }
 
-  showPrefillNote(source, prevDate);
-  showBatchNote(batchDates);
-
+  // Build editor state từ template
   if (targetIsSupervisor) openSupervisorModeContent(template);
   else openEmployeeModeContent(template);
 
-  // ⭐ Chỉ hiện Tăng ca CN vào Chủ nhật
-  const $sundayToggle = $('#sundayOtToggle');
-  if ($sundayToggle) {
-    let isSunday = false;
-    if (!batchDates && dateStr) {
-      const d = new Date(dateStr + 'T00:00:00');
-      isSunday = d.getDay() === 0;
-    }
-    $sundayToggle.style.display = isSunday ? 'flex' : 'none';
-    if (!isSunday) {
-      const $check = $('#sundayOtCheck');
-      if ($check) $check.checked = false;
-      const $hours = $('#sundayOtHours');
-      if ($hours) $hours.value = '';
-      toggleSundayOtSection(false);
-    }
+  showPrefillNote(source, prevDate);
+  showBatchNote(batchDates);
+  applySundayToggle(dateStr, batchDates);
+
+  // ⭐ Quyết định view: summary nếu có data cũ
+  if (!batchDates && template && source === 'existing') {
+    showSummaryView(template);
+  } else {
+    showEditorView();
+  }
+
+  // Bind nút Sửa (overwrite để tránh duplicate)
+  const $edit = $('#attEditBtn');
+  if ($edit) {
+    $edit.onclick = () => {
+      const tpl = state.editingTemplate;
+      if (state.isSupervisorMode) openSupervisorModeContent(tpl);
+      else openEmployeeModeContent(tpl);
+      applySundayToggle(state.editingDate, state.batchDates);
+      showEditorView();
+      updatePreview();
+    };
   }
 
   updatePreview();
@@ -346,93 +569,6 @@ function openEmployeeModeContent(template) {
   toggleModeSections(mode);
   $('#manualHours').value = template?.manual_hours ?? '';
   toggleSundayOtSection(isSundayOt);
-}
-
-/* ⭐ Helpers tính preview khớp SQL trigger */
-function getEntryDefaultHours(entry) {
-  if (entry.type === 'building') {
-    if (!entry.floor_id) return 0;
-    const f = state.floors.find(x => x.id === entry.floor_id);
-    return f ? Number(f.default_hours || 0) : 0;
-  }
-  if (!state.specialAreas) return 0;
-  const sp = state.specialAreas[entry.type];
-  return sp ? Number(sp.default_hours || 0) : 0;
-}
-
-function getPoolForEntry(entry) {
-  const selfId = state.selectedEmployeeId;
-  const entryType = entry.type || 'building';
-  const floorId = entry.floor_id;
-  const entryHours = (entry.hours != null && entry.hours > 0) ? Number(entry.hours) : null;
-  const defaultHours = getEntryDefaultHours(entry);
-
-  const empIds = new Set();
-  let maxHours = defaultHours > 0 ? defaultHours : 0;
-
-  const resolveHours = (h) => {
-    const v = (h != null && h !== '' && !isNaN(Number(h)) && Number(h) > 0) ? Number(h) : defaultHours;
-    return v;
-  };
-
-  if (Array.isArray(state.dayAssignments)) {
-    for (const att of state.dayAssignments) {
-      if (att.employee_id === selfId) continue;
-      const check = (arr) => {
-        if (!Array.isArray(arr)) return;
-        for (const a of arr) {
-          const aType = a.type || 'building';
-          if (aType !== entryType) continue;
-          if (entryType === 'building' && a.floor_id !== floorId) continue;
-          empIds.add(att.employee_id);
-          const resolved = resolveHours(a.hours);
-          if (resolved > maxHours) maxHours = resolved;
-        }
-      };
-      check(att.areas);
-      check(att.ot_areas);
-    }
-  }
-
-  empIds.add(selfId);
-  const selfResolved = entryHours != null ? entryHours : defaultHours;
-  if (selfResolved > maxHours) maxHours = selfResolved;
-
-  return { count: empIds.size, maxHours: maxHours > 0 ? maxHours : defaultHours, defaultHours };
-}
-
-function calcEntryActualHours(entry) {
-  const entryHours = (entry.hours != null && entry.hours > 0) ? Number(entry.hours) : null;
-
-  if (state.batchDates && state.batchDates.length > 0) {
-    return entryHours != null ? entryHours : getEntryDefaultHours(entry);
-  }
-
-  const pool = getPoolForEntry(entry);
-  if (pool.count > 1) return pool.maxHours / pool.count;
-  return entryHours != null ? entryHours : pool.defaultHours;
-}
-
-function updateEntryHints() {
-  document.querySelectorAll('.area-entry-hint').forEach(el => {
-    const idx = Number(el.dataset.idx);
-    const wrapType = el.dataset.wrapType;
-    const arr = wrapType === 'otAreaPicker' ? state.modalOtAreas : state.modalAreas;
-    const entry = arr[idx];
-
-    if (!entry) { el.style.display = 'none'; return; }
-
-    const valid = entry.type === 'building' ? (entry.building_id && entry.floor_id) : true;
-    if (!valid) { el.style.display = 'none'; return; }
-
-    const h = calcEntryActualHours(entry);
-    if (h > 0) {
-      el.textContent = `→ Sẽ cộng ${formatHours(h)}`;
-      el.style.display = 'block';
-    } else {
-      el.style.display = 'none';
-    }
-  });
 }
 
 function renderAreaPickerInto(wrapId, areasState, isOt) {
@@ -800,7 +936,6 @@ export async function saveAttendance() {
   if (error) { toast('Lưu thất bại: ' + error.message); return; }
 
   toast(`Đã lưu ${dates.length} ngày ✓`);
-  closeModal('attendanceModal');
 
   const wasSelection = state.selectionMode;
   state.batchDates = null;
@@ -815,6 +950,18 @@ export async function saveAttendance() {
   import('./buildings.js').then(buildings => {
     buildings.loadTodayAssignments().then(() => buildings.renderBuildings()).catch(err => console.warn(err));
   }).catch(err => console.warn(err));
+
+  // ⭐ Single-day save → collapse to summary (không đóng modal)
+  if (dates.length === 1 && !wasSelection) {
+    state.dayAssignments = await loadDayAssignments(dates[0]);
+    const saved = state.attendance.find(a => a.date === dates[0]);
+    if (saved) {
+      showSummaryView(saved);
+      return;
+    }
+  }
+
+  closeModal('attendanceModal');
 }
 
 export function toggleSelectionMode() {
@@ -901,7 +1048,6 @@ export function renderCalendar() {
   }
 }
 
-/* ⭐ Double-tap thay long press */
 function attachDoubleTap(el, cb) {
   let lastTap = 0;
   let tapTimer = null;
@@ -912,7 +1058,6 @@ function attachDoubleTap(el, cb) {
     const timeSinceLastTap = now - lastTap;
 
     if (timeSinceLastTap < DOUBLE_TAP_DELAY && timeSinceLastTap > 0) {
-      // ⭐ Double tap detected
       if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; }
       lastTap = 0;
 
@@ -928,7 +1073,6 @@ function attachDoubleTap(el, cb) {
     }
 
     lastTap = now;
-    // Optional: visual feedback cho first tap
     el.classList.add('pressing');
     if (tapTimer) clearTimeout(tapTimer);
     tapTimer = setTimeout(() => {
