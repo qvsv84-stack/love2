@@ -55,75 +55,107 @@
       background: linear-gradient(135deg, #6366f1, #4338ca);
     }
 
-    /* Nút ✕ đóng panel xem ngày */
-    .dpp-close-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      width: 30px; height: 30px;
-      border-radius: 8px;
-      cursor: pointer;
-      display: inline-flex;
+    /* ⭐ Floating close button — chỉ hiện khi fullpage */
+    .dpp-close-btn-float {
+      position: fixed;
+      top: max(10px, env(safe-area-inset-top, 0px));
+      right: max(10px, env(safe-area-inset-right, 0px));
+      z-index: 10001;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      display: none;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 17px;
       font-family: inherit;
+      cursor: pointer;
       padding: 0;
-      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
-    .dpp-close-btn:active { background: var(--border); }
+    .dpp-close-btn-float:active { background: rgba(0, 0, 0, 0.75); }
+    body.dpp-fullpage .dpp-close-btn-float { display: flex; }
 
-    /* ⭐ SPLIT VIEW — chỉ áp dụng khi #tab-calendar đang active */
-    #tab-calendar.active.split-view {
-      position: fixed !important;
-      inset: 0;
-      z-index: 100;
-      display: flex !important;
-      flex-direction: column;
-      background: var(--bg, #fff);
-      overflow: hidden;
-      padding: 0 !important;
-      padding-top: max(6px, env(safe-area-inset-top)) !important;
-      padding-bottom: max(6px, env(safe-area-inset-bottom)) !important;
-      box-sizing: border-box;
-    }
+    /* ⭐⭐ FULLPAGE MODE — che toàn bộ, giống mở tab mới */
+    body.dpp-fullpage { overflow: hidden !important; }
 
-    #tab-calendar.split-view > #guestBanner,
-    #tab-calendar.split-view > .employee-panel,
-    #tab-calendar.split-view > #quickAttendanceRow,
-    #tab-calendar.split-view > #calendarActions,
-    #tab-calendar.split-view > #exportActionRow,
-    #tab-calendar.split-view > .calendar-legend,
-    #tab-calendar.split-view > #calendarHint {
+    body.dpp-fullpage .app-header,
+    body.dpp-fullpage .tabs {
       display: none !important;
     }
 
-    #tab-calendar.split-view > .month-nav {
-      flex-shrink: 0;
-      margin: 2px 12px 6px;
+    body.dpp-fullpage #mainScreen {
+      position: fixed !important;
+      inset: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+      background: var(--bg, #fff) !important;
+      z-index: 9999 !important;
+      display: block !important;
     }
-    #tab-calendar.split-view > .month-nav h2 {
+
+    body.dpp-fullpage #mainScreen > .tab-content:not(#tab-calendar) {
+      display: none !important;
+    }
+
+    body.dpp-fullpage #tab-calendar {
+      position: absolute !important;
+      inset: 0 !important;
+      display: flex !important;
+      flex-direction: column;
+      padding:
+        max(10px, env(safe-area-inset-top, 0px))
+        max(12px, env(safe-area-inset-right, 0px))
+        max(10px, env(safe-area-inset-bottom, 0px))
+        max(12px, env(safe-area-inset-left, 0px)) !important;
+      box-sizing: border-box;
+      overflow: hidden;
+      background: var(--bg, #fff);
+      margin: 0 !important;
+    }
+
+    body.dpp-fullpage #tab-calendar > #guestBanner,
+    body.dpp-fullpage #tab-calendar > .employee-panel,
+    body.dpp-fullpage #tab-calendar > #quickAttendanceRow,
+    body.dpp-fullpage #tab-calendar > #calendarActions,
+    body.dpp-fullpage #tab-calendar > #exportActionRow,
+    body.dpp-fullpage #tab-calendar > .calendar-legend,
+    body.dpp-fullpage #tab-calendar > #calendarHint {
+      display: none !important;
+    }
+
+    body.dpp-fullpage #tab-calendar > .month-nav {
+      flex-shrink: 0;
+      margin: 0 0 6px;
+      padding-right: 50px;   /* chừa chỗ cho nút X floating */
+    }
+    body.dpp-fullpage #tab-calendar > .month-nav h2 {
       font-size: 16px;
     }
 
-    #tab-calendar.split-view > .calendar-wrap {
+    body.dpp-fullpage #tab-calendar > .calendar-wrap {
       flex: 1 1 50%;
       min-height: 0;
       overflow-y: auto;
       overflow-x: hidden;
-      margin: 0 12px;
-      padding-bottom: 8px;
+      margin: 0;
+      padding: 0 0 8px;
       -webkit-overflow-scrolling: touch;
       border-bottom: 2px solid var(--ocean-500, #0ea5b7);
     }
 
-    #tab-calendar.split-view > #dayPreviewPanel {
+    body.dpp-fullpage #tab-calendar > #dayPreviewPanel {
       flex: 1 1 50%;
       min-height: 0;
       overflow-y: auto;
       overflow-x: hidden;
       margin: 0 !important;
-      padding: 8px 12px;
+      padding: 8px 0;
       border-radius: 0 !important;
       -webkit-overflow-scrolling: touch;
     }
@@ -281,17 +313,17 @@
         </div>
         <p class="hint" id="calendarHint" style="display:none">💡 Nhấp vào một ngày để xem chi tiết · Nút ✏️ Sửa để chấm công</p>
 
-        <!-- DAY PREVIEW PANEL — thêm nút ✕ đóng -->
+        <!-- DAY PREVIEW PANEL — header chỉ có date + edit; X floating riêng -->
         <div id="dayPreviewPanel" class="day-preview-panel" style="display:none">
           <div class="dpp-header">
             <span class="dpp-date" id="dppDate">📅 —</span>
-            <div style="display:flex;gap:6px;align-items:center">
-              <button class="dpp-edit-btn" id="dppEditBtn" style="display:none">✏️ Sửa</button>
-              <button class="dpp-close-btn" id="dppCloseBtn" title="Đóng" type="button">✕</button>
-            </div>
+            <button class="dpp-edit-btn" id="dppEditBtn" style="display:none">✏️ Sửa</button>
           </div>
           <div class="dpp-body" id="dppBody"></div>
         </div>
+
+        <!-- ⭐ NÚT X FLOATING — chỉ hiện khi fullpage -->
+        <button id="dppCloseBtn" class="dpp-close-btn-float" title="Đóng" type="button">✕</button>
       </section>
 
       <section id="tab-areas" class="tab-content">
