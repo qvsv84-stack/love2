@@ -17,7 +17,6 @@ function ensureSpecialState() {
   }
 }
 
-/* ============ LOAD ============ */
 export async function loadAttendanceForMonth(forceRefresh = false) {
   if (!state.selectedEmployeeId) { state.attendance = []; return; }
   const y = state.currentMonth.getFullYear();
@@ -56,9 +55,7 @@ async function loadDayAssignments(dateStr) {
       .neq('is_off', true);
     if (error) { console.error(error); return []; }
     return data || [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 function getConflictsForFloor(floorId, excludeEmpId) {
@@ -80,7 +77,6 @@ function getConflictsForFloor(floorId, excludeEmpId) {
   });
 }
 
-/* ============ SUMMARY ============ */
 export function updateSummary() {
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
 
@@ -107,10 +103,7 @@ export function updateSummary() {
   if ($phoneRow && $phoneBtn && $phoneText) {
     if (empPhone) {
       $phoneText.textContent = empPhone;
-      $phoneBtn.onclick = (ev) => {
-        ev.preventDefault();
-        showPhoneAction(empPhone);
-      };
+      $phoneBtn.onclick = (ev) => { ev.preventDefault(); showPhoneAction(empPhone); };
       $phoneRow.style.display = 'block';
     } else {
       $phoneRow.style.display = 'none';
@@ -122,28 +115,18 @@ export function updateSummary() {
   const mo = state.currentMonth.getMonth() + 1;
   $('#sumMonthLabel').textContent = `${pad(mo)}/${y}`;
 
-  let work = 0, ot = 0;
-  let workDays = 0;
-  let leaveDays = 0;
-  let todayWork = 0, todayOT = 0;
-
+  let work = 0, ot = 0, workDays = 0, leaveDays = 0, todayWork = 0, todayOT = 0;
   const todayDate = new Date();
   const todayStr = toDateStr(todayDate);
 
   for (const a of state.attendance) {
     if (a.mode === 'leave') { leaveDays++; continue; }
     if (a.is_off) continue;
-
     const h = Number(a.total_hours || 0);
     const o = Number(a.ot_hours || 0);
     if (h > 0 || o > 0) workDays++;
-    work += h;
-    ot += o;
-
-    if (a.date === todayStr) {
-      todayWork += h;
-      todayOT += o;
-    }
+    work += h; ot += o;
+    if (a.date === todayStr) { todayWork += h; todayOT += o; }
   }
 
   $('#sumDays').textContent = workDays;
@@ -153,7 +136,6 @@ export function updateSummary() {
 
   const isViewingCurrentMonth =
     y === todayDate.getFullYear() && (mo - 1) === todayDate.getMonth();
-
   const $today = $('#sumTodaySection');
   if ($today) {
     if (isViewingCurrentMonth) {
@@ -167,11 +149,9 @@ export function updateSummary() {
   }
 }
 
-/* ============ PREFILL ============ */
 async function getPreviousAttendance(employeeId, beforeDate) {
   const { data, error } = await supabase
-    .from('attendance')
-    .select('*')
+    .from('attendance').select('*')
     .eq('employee_id', employeeId)
     .lt('date', beforeDate)
     .order('date', { ascending: false })
@@ -180,17 +160,20 @@ async function getPreviousAttendance(employeeId, beforeDate) {
   return data?.[0] || null;
 }
 
-/* ============ OPEN MODAL ============ */
 export async function openAttendanceModal(dateStr, batchDates = null) {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
 
   ensureSpecialState();
-
   state.editingDate = dateStr;
   state.batchDates = batchDates;
 
-  // ⭐ Load day assignments để check conflict
+  // Refresh floors để preview dùng giờ mới nhất
+  try {
+    const buildings = await import('./buildings.js');
+    await buildings.loadBuildings();
+  } catch (err) { console.warn('[openAttendanceModal] refresh buildings failed:', err); }
+
   if (!batchDates) {
     state.dayAssignments = await loadDayAssignments(dateStr);
   } else {
@@ -211,30 +194,19 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   const $sticky = $('#attPreviewSticky');
   if ($sticky) $sticky.style.display = targetIsSupervisor ? 'none' : 'flex';
 
-  let template = null;
-  let source = 'none';
-  let prevDate = null;
+  let template = null, source = 'none', prevDate = null;
 
   if (!batchDates) {
     template = state.attendance.find(a => a.date === dateStr) || null;
-    if (template) {
-      source = 'existing';
-    } else {
+    if (template) { source = 'existing'; }
+    else {
       const prev = await getPreviousAttendance(state.selectedEmployeeId, dateStr);
-      if (prev) {
-        template = prev;
-        source = 'previous';
-        prevDate = prev.date;
-      }
+      if (prev) { template = prev; source = 'previous'; prevDate = prev.date; }
     }
   } else {
     const earliest = [...batchDates].sort()[0];
     const prev = await getPreviousAttendance(state.selectedEmployeeId, earliest);
-    if (prev) {
-      template = prev;
-      source = 'previous';
-      prevDate = prev.date;
-    }
+    if (prev) { template = prev; source = 'previous'; prevDate = prev.date; }
   }
 
   showPrefillNote(source, prevDate);
@@ -252,9 +224,7 @@ function showPrefillNote(source, prevDate) {
   if (source === 'previous' && prevDate) {
     el.textContent = `📋 Đã điền sẵn theo ngày ${formatDateVN(prevDate)} — sửa lại nếu cần`;
     el.style.display = 'block';
-  } else {
-    el.style.display = 'none';
-  }
+  } else { el.style.display = 'none'; }
 }
 
 function showBatchNote(batchDates) {
@@ -265,21 +235,17 @@ function showBatchNote(batchDates) {
     const more = sorted.length > 5 ? ` ... +${sorted.length - 5} ngày` : '';
     el.textContent = `📅 Sẽ áp dụng cho ${sorted.length} ngày: ${list}${more}`;
     el.style.display = 'block';
-  } else {
-    el.style.display = 'none';
-  }
+  } else { el.style.display = 'none'; }
 }
 
 function openSupervisorModeContent(template) {
-  let mode = 'default';
-  let otH = 0;
+  let mode = 'default', otH = 0;
   if (template) {
     if (template.mode === 'leave') mode = 'leave';
     else if (template.is_off || template.mode === 'off') mode = 'off';
     else if (Number(template.ot_hours) > 0) mode = 'ot';
     otH = Number(template.ot_hours || 0);
   }
-
   $$('input[name="supMode"]').forEach(r => r.checked = r.value === mode);
   $('#supOtHours').value = otH > 0 ? otH : '';
   toggleSupOtGroup(mode);
@@ -287,7 +253,6 @@ function openSupervisorModeContent(template) {
 
 function openEmployeeModeContent(template) {
   ensureSpecialState();
-
   const validFloorIds = new Set(state.floors.map(f => f.id));
   const validBuildingIds = new Set(state.buildings.map(b => b.id));
 
@@ -314,12 +279,8 @@ function openEmployeeModeContent(template) {
     state.modalAreas = [{ type: 'building', building_id: '', floor_id: '', hours: null }];
   }
 
-  const isSundayOt = template &&
-    Array.isArray(template.ot_areas) &&
-    template.ot_areas.some(a => a.type === 'sunday_ot');
-  const sundayOtHours = isSundayOt
-    ? Number(template.ot_areas.find(a => a.type === 'sunday_ot')?.hours || 0)
-    : 0;
+  const isSundayOt = template && Array.isArray(template.ot_areas) && template.ot_areas.some(a => a.type === 'sunday_ot');
+  const sundayOtHours = isSundayOt ? Number(template.ot_areas.find(a => a.type === 'sunday_ot')?.hours || 0) : 0;
 
   const $sundayCheck = $('#sundayOtCheck');
   const $sundayHours = $('#sundayOtHours');
@@ -360,11 +321,9 @@ function openEmployeeModeContent(template) {
   $$('input[name="attMode"]').forEach(r => r.checked = r.value === mode);
   toggleModeSections(mode);
   $('#manualHours').value = template?.manual_hours ?? '';
-
   toggleSundayOtSection(isSundayOt);
 }
 
-/* ============ AREA PICKER ============ */
 function renderAreaPickerInto(wrapId, areasState, isOt) {
   const rerender = () => renderAreaPickerInto(wrapId, areasState, isOt);
   const wrap = $('#' + wrapId);
@@ -379,7 +338,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
 
   wrap.innerHTML = areasState.map((entry, idx) => {
     const type = entry.type || 'building';
-
     const hasExternal = !!state.specialAreas.external;
     const hasNight = !!state.specialAreas.night;
 
@@ -403,16 +361,14 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         </option>`
       ).join('');
 
-      let hoursInput = '';
-      if (isOt) {
-        const floor = entry.floor_id ? state.floors.find(x => x.id === entry.floor_id) : null;
-        const displayVal = entry.hours != null ? entry.hours : '';
-        const placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
-        hoursInput = `<input type="number" class="area-hours-input" data-hours-idx="${idx}"
-          step="0.5" min="0" max="24" value="${displayVal}" placeholder="${placeholder}" title="Để trống = chia sẻ tự động" />`;
-      }
+      // ⭐ Luôn hiện input giờ cho toà nhà (cả main và OT)
+      const floor = entry.floor_id ? state.floors.find(x => x.id === entry.floor_id) : null;
+      const displayVal = entry.hours != null ? entry.hours : '';
+      const placeholder = floor ? formatHours(floor.default_hours) : 'Tự động';
+      const titleHint = isOt ? 'Để trống = chia sẻ tự động' : 'Để trống = tự chia sẻ theo tầng';
+      const hoursInput = `<input type="number" class="area-hours-input" data-hours-idx="${idx}"
+        step="0.5" min="0" max="24" value="${displayVal}" placeholder="${placeholder}" title="${titleHint}" />`;
 
-      // ⭐ Conflict check
       if (entry.floor_id) {
         const conflicts = getConflictsForFloor(entry.floor_id, state.selectedEmployeeId);
         if (conflicts.length > 0) {
@@ -479,6 +435,7 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       bSel.addEventListener('change', () => {
         areasState[idx].building_id = bSel.value;
         areasState[idx].floor_id = '';
+        areasState[idx].hours = null;
         rerender();
         updatePreview();
       });
@@ -487,14 +444,7 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
     if (fSel) {
       fSel.addEventListener('change', () => {
         areasState[idx].floor_id = fSel.value;
-        if (isOt) {
-          areasState[idx].hours = null;
-          if (hInput) {
-            const floor = state.floors.find(x => x.id === fSel.value);
-            hInput.value = '';
-            hInput.placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
-          }
-        }
+        areasState[idx].hours = null;
         rerender();
         updatePreview();
       });
@@ -527,7 +477,6 @@ export function renderOtAreaPicker() {
   renderAreaPickerInto('otAreaPicker', state.modalOtAreas, true);
 }
 
-/* ============ MODE TOGGLES ============ */
 export function toggleModeSections(mode) {
   const m = $('#manualHoursGroup'); if (m) m.style.display = mode === 'manual' ? 'block' : 'none';
   const a = $('#mainAreaSection'); if (a) a.style.display = mode === 'default' ? 'block' : 'none';
@@ -545,33 +494,15 @@ export function toggleSupOtGroup(mode) {
   const g = $('#supOtGroup'); if (g) g.style.display = mode === 'ot' ? 'block' : 'none';
 }
 
-function getSelectedMode() {
-  return document.querySelector('input[name="attMode"]:checked')?.value || 'default';
-}
+function getSelectedMode() { return document.querySelector('input[name="attMode"]:checked')?.value || 'default'; }
+function getSelectedSupMode() { return document.querySelector('input[name="supMode"]:checked')?.value || 'default'; }
+function isSundayOtChecked() { const $c = $('#sundayOtCheck'); return !!($c && $c.checked); }
+function getSundayOtHours() { const $h = $('#sundayOtHours'); return $h ? Number($h.value || 0) : 0; }
 
-function getSelectedSupMode() {
-  return document.querySelector('input[name="supMode"]:checked')?.value || 'default';
-}
-
-function isSundayOtChecked() {
-  const $c = $('#sundayOtCheck');
-  return !!($c && $c.checked);
-}
-
-function getSundayOtHours() {
-  const $h = $('#sundayOtHours');
-  return $h ? Number($h.value || 0) : 0;
-}
-
-/* ============ HOURS CALC ============ */
 function entryHours(entry) {
   if (!entry) return 0;
-  if (entry.type === 'external' || entry.type === 'night') {
-    return Number(entry.hours || 0);
-  }
-  if (entry.hours != null && !isNaN(entry.hours) && entry.hours > 0) {
-    return Number(entry.hours);
-  }
+  if (entry.type === 'external' || entry.type === 'night') return Number(entry.hours || 0);
+  if (entry.hours != null && !isNaN(entry.hours) && entry.hours > 0) return Number(entry.hours);
   if (entry.floor_id) {
     const f = state.floors.find(x => x.id === entry.floor_id);
     if (f) return Number(f.default_hours || 0);
@@ -583,29 +514,18 @@ function computeMainHoursRaw() {
   const mode = getSelectedMode();
   if (mode === 'off' || mode === 'leave') return 0;
   if (mode === 'manual') return Number($('#manualHours').value || 0);
-
   let h = 0;
-  for (const entry of state.modalAreas) {
-    h += entryHours(entry);
-  }
+  for (const entry of state.modalAreas) h += entryHours(entry);
   return h;
 }
 
-function computeMainHours() {
-  return Math.min(computeMainHoursRaw(), DAILY_MAIN_CAP);
-}
-
-function computeOverflow() {
-  return Math.max(0, computeMainHoursRaw() - DAILY_MAIN_CAP);
-}
+function computeMainHours() { return Math.min(computeMainHoursRaw(), DAILY_MAIN_CAP); }
+function computeOverflow() { return Math.max(0, computeMainHoursRaw() - DAILY_MAIN_CAP); }
 
 function computeOtHoursRaw() {
   if (isSundayOtChecked()) return getSundayOtHours();
-
   let h = 0;
-  for (const entry of state.modalOtAreas) {
-    h += entryHours(entry);
-  }
+  for (const entry of state.modalOtAreas) h += entryHours(entry);
   return h;
 }
 
@@ -614,12 +534,10 @@ function computeOtHours() {
   return computeOtHoursRaw() + computeOverflow();
 }
 
-/* ============ PREVIEW ============ */
 export function updatePreview() {
   if (state.isSupervisorMode) {
     const mode = getSelectedSupMode();
-    const isOff = mode === 'off';
-    const isLeave = mode === 'leave';
+    const isOff = mode === 'off', isLeave = mode === 'leave';
     const mainH = (isOff || isLeave) ? 0 : SUPERVISOR_HOURS;
     const otH = mode === 'ot' ? Number($('#supOtHours').value || 0) : 0;
     const $mp = $('#supMainPreview'); if ($mp) $mp.textContent = isLeave ? 'PHÉP' : (isOff ? 'OFF' : formatHours(SUPERVISOR_HOURS));
@@ -641,26 +559,14 @@ export function updatePreview() {
   }
 }
 
-/* ============ PAYLOAD ============ */
 function buildSupervisorPayload() {
   const mode = getSelectedSupMode();
-  const isOff = mode === 'off';
-  const isLeave = mode === 'leave';
+  const isOff = mode === 'off', isLeave = mode === 'leave';
   const otH = mode === 'ot' ? Number($('#supOtHours').value || 0) : 0;
-
-  if (mode === 'ot' && otH <= 0) {
-    toast('Nhập số giờ tăng ca (> 0)');
-    return null;
-  }
-
+  if (mode === 'ot' && otH <= 0) { toast('Nhập số giờ tăng ca (> 0)'); return null; }
   if (isLeave) {
-    return {
-      employee_id: state.selectedEmployeeId,
-      total_hours: 0, ot_hours: 0, is_off: false,
-      mode: 'leave', manual_hours: null, areas: [], ot_areas: [],
-    };
+    return { employee_id: state.selectedEmployeeId, total_hours: 0, ot_hours: 0, is_off: false, mode: 'leave', manual_hours: null, areas: [], ot_areas: [] };
   }
-
   return {
     employee_id: state.selectedEmployeeId,
     total_hours: isOff ? 0 : SUPERVISOR_HOURS,
@@ -681,37 +587,21 @@ function serializeArea(entry) {
       hours: entry.hours != null ? Number(entry.hours) : null,
     };
   }
-  return {
-    type: entry.type,
-    hours: Number(entry.hours || 0),
-  };
+  return { type: entry.type, hours: Number(entry.hours || 0) };
 }
 
 function buildEmployeePayload() {
   const mode = getSelectedMode();
 
   if (mode === 'leave') {
-    return {
-      employee_id: state.selectedEmployeeId,
-      total_hours: 0, ot_hours: 0, is_off: false,
-      mode: 'leave', manual_hours: null, areas: [], ot_areas: [],
-    };
+    return { employee_id: state.selectedEmployeeId, total_hours: 0, ot_hours: 0, is_off: false, mode: 'leave', manual_hours: null, areas: [], ot_areas: [] };
   }
-
   if (mode === 'off') {
-    return {
-      employee_id: state.selectedEmployeeId,
-      total_hours: 0, ot_hours: 0, is_off: true,
-      mode: 'off', manual_hours: null, areas: [], ot_areas: [],
-    };
+    return { employee_id: state.selectedEmployeeId, total_hours: 0, ot_hours: 0, is_off: true, mode: 'off', manual_hours: null, areas: [], ot_areas: [] };
   }
-
   if (mode === 'manual') {
     const mh = Number($('#manualHours').value || 0);
-    if (mh <= 0) {
-      toast('Nhập số giờ công (> 0)');
-      return null;
-    }
+    if (mh <= 0) { toast('Nhập số giờ công (> 0)'); return null; }
     const otH = computeOtHours();
     return {
       employee_id: state.selectedEmployeeId,
@@ -723,9 +613,7 @@ function buildEmployeePayload() {
       areas: [],
       ot_areas: isSundayOtChecked()
         ? [{ type: 'sunday_ot', hours: getSundayOtHours() }]
-        : state.modalOtAreas
-          .filter(a => entryHours(a) > 0)
-          .map(a => serializeArea(a)),
+        : state.modalOtAreas.filter(a => entryHours(a) > 0).map(a => serializeArea(a)),
     };
   }
 
@@ -734,10 +622,7 @@ function buildEmployeePayload() {
     return entryHours(a) > 0;
   });
 
-  if (!validAreas.length) {
-    toast('Chọn ít nhất 1 khu vực hoặc nhập giờ');
-    return null;
-  }
+  if (!validAreas.length) { toast('Chọn ít nhất 1 khu vực hoặc nhập giờ'); return null; }
 
   let totalMain = 0;
   for (const entry of validAreas) totalMain += entryHours(entry);
@@ -748,14 +633,10 @@ function buildEmployeePayload() {
     const sh = getSundayOtHours();
     if (sh > 0) otAreas = [{ type: 'sunday_ot', hours: sh }];
   } else {
-    otAreas = state.modalOtAreas
-      .filter(a => entryHours(a) > 0)
-      .map(a => serializeArea(a));
+    otAreas = state.modalOtAreas.filter(a => entryHours(a) > 0).map(a => serializeArea(a));
   }
 
-  const totalOt = isSundayOtChecked()
-    ? getSundayOtHours()
-    : otAreas.reduce((s, a) => s + Number(a.hours || 0), 0);
+  const totalOt = isSundayOtChecked() ? getSundayOtHours() : otAreas.reduce((s, a) => s + Number(a.hours || 0), 0);
 
   return {
     employee_id: state.selectedEmployeeId,
@@ -769,41 +650,26 @@ function buildEmployeePayload() {
   };
 }
 
-/* ============ SAVE ============ */
 export async function saveAttendance() {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) return;
 
-  const basePayload = state.isSupervisorMode
-    ? buildSupervisorPayload()
-    : buildEmployeePayload();
+  const basePayload = state.isSupervisorMode ? buildSupervisorPayload() : buildEmployeePayload();
   if (!basePayload) return;
 
-  const dates = state.batchDates && state.batchDates.length > 0
-    ? [...state.batchDates]
-    : [state.editingDate];
+  const dates = state.batchDates && state.batchDates.length > 0 ? [...state.batchDates] : [state.editingDate];
 
   if (dates.length > 1) {
-    const { data } = await supabase
-      .from('attendance')
-      .select('date')
-      .eq('employee_id', state.selectedEmployeeId)
-      .in('date', dates);
-
+    const { data } = await supabase.from('attendance').select('date').eq('employee_id', state.selectedEmployeeId).in('date', dates);
     if (data && data.length > 0) {
-      const ok = confirm(
-        `${data.length}/${dates.length} ngày đã có dữ liệu sẽ bị GHI ĐÈ.\n\nTiếp tục?`
-      );
+      const ok = confirm(`${data.length}/${dates.length} ngày đã có dữ liệu sẽ bị GHI ĐÈ.\n\nTiếp tục?`);
       if (!ok) return;
     }
   }
 
   const payloads = dates.map(date => ({ ...basePayload, date }));
 
-  const { error } = await supabase
-    .from('attendance')
-    .upsert(payloads, { onConflict: 'employee_id,date' });
-
+  const { error } = await supabase.from('attendance').upsert(payloads, { onConflict: 'employee_id,date' });
   if (error) { toast('Lưu thất bại: ' + error.message); return; }
 
   toast(`Đã lưu ${dates.length} ngày ✓`);
@@ -811,7 +677,6 @@ export async function saveAttendance() {
 
   const wasSelection = state.selectionMode;
   state.batchDates = null;
-
   if (wasSelection) exitSelectionMode();
 
   invalidateAttendanceCache(state.selectedEmployeeId);
@@ -820,20 +685,16 @@ export async function saveAttendance() {
   await loadAttendanceForMonth(true);
   renderCalendar();
 
-  import('./buildings.js')
-    .then(buildings => {
-      buildings.loadTodayAssignments()
-        .then(() => buildings.renderBuildings())
-        .catch(err => console.warn('[saveAttendance] refresh areas failed:', err));
-    })
-    .catch(err => console.warn('[saveAttendance] import buildings failed:', err));
+  import('./buildings.js').then(buildings => {
+    buildings.loadTodayAssignments()
+      .then(() => buildings.renderBuildings())
+      .catch(err => console.warn('[saveAttendance] refresh areas failed:', err));
+  }).catch(err => console.warn('[saveAttendance] import buildings failed:', err));
 }
 
-/* ============ SELECTION MODE ============ */
 export function toggleSelectionMode() {
-  if (state.selectionMode) {
-    exitSelectionMode();
-  } else {
+  if (state.selectionMode) exitSelectionMode();
+  else {
     state.selectionMode = true;
     state.selectedDates.clear();
     const bar = $('#selectionBar'); if (bar) bar.style.display = 'block';
@@ -854,11 +715,8 @@ export function exitSelectionMode() {
 }
 
 export function toggleDateSelection(dateStr) {
-  if (state.selectedDates.has(dateStr)) {
-    state.selectedDates.delete(dateStr);
-  } else {
-    state.selectedDates.add(dateStr);
-  }
+  if (state.selectedDates.has(dateStr)) state.selectedDates.delete(dateStr);
+  else state.selectedDates.add(dateStr);
   updateSelectionCount();
   renderCalendar();
 }
@@ -869,7 +727,6 @@ export function updateSelectionCount() {
   const a = $('#applySelectionBtn'); if (a) a.disabled = n === 0;
 }
 
-/* ============ CALENDAR ============ */
 export function renderCalendar() {
   const y = state.currentMonth.getFullYear();
   const m = state.currentMonth.getMonth();
@@ -891,15 +748,11 @@ export function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${y}-${pad(m + 1)}-${pad(d)}`;
     const att = attMap[dateStr];
-    let cls = 'cal-day'; let sub = '';
+    let cls = 'cal-day', sub = '';
     if (att) {
-      if (att.mode === 'leave') {
-        cls += ' leave-day';
-        sub = 'P';
-      } else if (att.is_off) {
-        cls += ' off-day';
-        sub = 'OFF';
-      } else {
+      if (att.mode === 'leave') { cls += ' leave-day'; sub = 'P'; }
+      else if (att.is_off) { cls += ' off-day'; sub = 'OFF'; }
+      else {
         cls += ' has-data';
         const totalH = Number(att.total_hours || 0) + Number(att.ot_hours || 0);
         sub = totalH > 0 ? formatHours(totalH) : '';
@@ -915,9 +768,8 @@ export function renderCalendar() {
   grid.innerHTML = html;
 
   if (state.selectionMode) {
-    grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
-      el.addEventListener('click', () => toggleDateSelection(el.dataset.date));
-    });
+    grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
+      el.addEventListener('click', () => toggleDateSelection(el.dataset.date)));
   } else if (state.isAdmin) {
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
       attachLongPress(el, () => openAttendanceModal(el.dataset.date)));
@@ -925,17 +777,14 @@ export function renderCalendar() {
 }
 
 function attachLongPress(el, cb) {
-  let timer = null; let moved = false;
+  let timer = null, moved = false;
   const DURATION = 550;
   const start = () => {
     moved = false;
-    timer = setTimeout(() => {
-      if (!moved) { if (navigator.vibrate) navigator.vibrate(30); cb(); }
-    }, DURATION);
+    timer = setTimeout(() => { if (!moved) { if (navigator.vibrate) navigator.vibrate(30); cb(); } }, DURATION);
   };
   const cancel = () => { clearTimeout(timer); timer = null; };
   const move = () => { moved = true; cancel(); };
-
   el.addEventListener('touchstart', start, { passive: true });
   el.addEventListener('touchend', cancel);
   el.addEventListener('touchmove', move, { passive: true });
@@ -946,7 +795,6 @@ function attachLongPress(el, cb) {
   el.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
-/* ============ SWITCH TAB ============ */
 export function switchTab(name) {
   $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $$('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
@@ -960,28 +808,19 @@ export function switchTab(name) {
     $('#salarySort').value = state.salarySort || 'hours_desc';
     state.salaryModule.loadSalaryForMonth(false);
   }
-
   if (name === 'areas' && state.isAdmin) {
-    import('./buildings.js')
-      .then(b => {
-        b.loadTodayAssignments()
-          .then(() => b.renderBuildings())
-          .catch(err => console.warn('[switchTab areas] failed:', err));
-      })
-      .catch(err => console.warn('[switchTab areas] import failed:', err));
+    import('./buildings.js').then(b => {
+      b.loadTodayAssignments().then(() => b.renderBuildings()).catch(err => console.warn('[switchTab areas] failed:', err));
+    }).catch(err => console.warn('[switchTab areas] import failed:', err));
   }
-
   if (name === 'excel' && state.isAdmin) {
     const y = state.excelMonth.getFullYear();
     const m = state.excelMonth.getMonth() + 1;
     $('#excelMonth').value = `${y}-${String(m).padStart(2, '0')}`;
-    import('./excel.js')
-      .then(e => e.loadExcelData())
-      .catch(err => console.warn('[switchTab excel] failed:', err));
+    import('./excel.js').then(e => e.loadExcelData()).catch(err => console.warn('[switchTab excel] failed:', err));
   }
 }
 
-/* ============ CHANGE MONTH ============ */
 export async function changeMonth(delta) {
   const d = new Date(state.currentMonth);
   d.setMonth(d.getMonth() + delta);
