@@ -182,10 +182,11 @@ function buildDayPreviewBody(att, emp) {
   }
 
   const lines = [];
-  let sumMain = 0, sumOT = 0;
+  let rawMain = 0;   // ⭐ tổng công RAW (chưa cap)
+  let sumOT = 0;     // tổng OT từ ot_areas
 
   const addLine = (emoji, label, h, isOT, others) => {
-    if (isOT) sumOT += h; else sumMain += h;
+    if (isOT) sumOT += h; else rawMain += h;
     const note = formatSharedNote(others);
     const noteHTML = note
       ? `<span style="color:var(--text-muted);font-weight:500;font-size:11px"> (${note})</span>`
@@ -212,7 +213,7 @@ function buildDayPreviewBody(att, emp) {
   if (att.mode === 'manual' && Number(att.manual_hours) > 0 &&
       (!att.areas || att.areas.length === 0)) {
     const h = Number(att.manual_hours);
-    sumMain += h;
+    rawMain += h;
     lines.push(
       `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
         `<span>⏱️ Giờ công</span><strong>${formatHours(h)}</strong></div>`
@@ -239,12 +240,25 @@ function buildDayPreviewBody(att, emp) {
     }
   }
 
+  // ⭐ Cap công ở DAILY_MAIN_CAP (8h), phần vượt chuyển OT
+  const sumMain = Math.min(rawMain, DAILY_MAIN_CAP);
+  const overflow = Math.max(0, rawMain - DAILY_MAIN_CAP);
+  const finalOT = sumOT + overflow;
+
+  // Thêm line thông báo nếu có vượt
+  const overflowLine = overflow > 0
+    ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--border);color:var(--warning);font-weight:600">` +
+        `<span>⚡ Vượt ${formatHours(DAILY_MAIN_CAP)}/ngày → chuyển OT</span>` +
+        `<strong>+${formatHours(overflow)}</strong>` +
+      `</div>`
+    : '';
+
   return (
-    (lines.length ? `<div>${lines.join('')}</div>` : '') +
+    (lines.length ? `<div>${lines.join('')}${overflowLine}</div>` : '') +
     `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px">` +
       `<span style="color:var(--text-muted)">Công: <strong style="color:var(--text)">${formatHours(sumMain)}</strong></span>` +
-      `<span style="color:var(--text-muted)">OT: <strong style="color:var(--warning)">${formatHours(sumOT)}</strong></span>` +
-      `<span style="color:var(--text-muted);margin-left:auto">Tổng: <strong style="color:var(--ocean-700)">${formatHours(sumMain + sumOT)}</strong></span>` +
+      `<span style="color:var(--text-muted)">OT: <strong style="color:var(--warning)">${formatHours(finalOT)}</strong></span>` +
+      `<span style="color:var(--text-muted);margin-left:auto">Tổng: <strong style="color:var(--ocean-700)">${formatHours(sumMain + finalOT)}</strong></span>` +
     `</div>`
   );
 }
