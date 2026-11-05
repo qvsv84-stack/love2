@@ -1,0 +1,28 @@
+{
+  "name": "Giám Sát Chấm Công - ĐH XH&NV",
+  "short_name": "Chấm Công",
+  "description": "Hệ thống giám sát chấm công Trường ĐH KHXH&NV",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5fbfc",
+  "theme_color": "#0ea5b7",
+  "lang": "vi",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230ea5b7'/%3E%3Ctext x='96' y='120' font-size='96' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3EĐH%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230ea5b7'/%3E%3Ctext x='256' y='320' font-size='256' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3EĐH%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
