@@ -1,4 +1,4 @@
-// buildings.js — Toà nhà, tầng, và 2 khu vực đặc biệt (Ngoại cảnh + Ca đêm)
+// buildings.js — Toà nhà, tầng, và 2 khu vực đặc biệt (Ngoại cảnh + Ca đêm) + collapsible
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast,
@@ -7,7 +7,6 @@ import {
 } from './core.js';
 import { showPhoneAction } from './phone.js';
 
-/* Đảm bảo state có specialAreas */
 function ensureState() {
   if (!state.specialAreas) {
     state.specialAreas = { external: null, night: null };
@@ -15,6 +14,10 @@ function ensureState() {
   if (!Array.isArray(state.externalAssignments)) state.externalAssignments = [];
   if (!Array.isArray(state.nightAssignments)) state.nightAssignments = [];
   if (!Array.isArray(state.sundayOtAssignments)) state.sundayOtAssignments = [];
+  // ⭐ Set các building đang expand
+  if (!(state.expandedBuildings instanceof Set)) {
+    state.expandedBuildings = new Set();
+  }
 }
 
 /* ============ LOAD ============ */
@@ -34,7 +37,6 @@ export async function loadBuildings() {
     state.floors = [];
   }
 
-  // ⭐ Load special_areas (external + night)
   const { data: special, error: e2 } = await supabase
     .from('special_areas').select('*');
   if (!e2 && special) {
@@ -81,7 +83,6 @@ export async function loadTodayAssignments() {
   };
 
   for (const a of data) {
-    // Phân tích areas (main)
     if (Array.isArray(a.areas)) {
       for (const area of a.areas) {
         if (area.type === 'external') {
@@ -96,7 +97,6 @@ export async function loadTodayAssignments() {
       }
     }
 
-    // Phân tích ot_areas
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
         if (area.type === 'sunday_ot') {
@@ -116,7 +116,6 @@ export async function loadTodayAssignments() {
     }
   }
 
-  // Build floor assignments (chỉ building)
   const map = {};
 
   for (const a of data) {
@@ -213,7 +212,6 @@ export function renderBuildings() {
   const $sum = $('#areasSummary');
   if (!wrap) return;
 
-  // Cập nhật label 3 nút tạo
   updateCreateButtons();
 
   const hasAny =
@@ -251,7 +249,6 @@ export function renderBuildings() {
   const nvEmployees = allActive.filter(e => e.role === 'employee');
   const nvEmpIds = new Set(nvEmployees.map(e => e.id));
 
-  // Đếm NV đi làm hôm nay
   const workingNVIds = new Set();
   for (const fid in state.floorAssignments) {
     const assigns = state.floorAssignments[fid] || [];
@@ -267,7 +264,6 @@ export function renderBuildings() {
   const totalNV = nvEmployees.length;
   const workingNVCount = workingNVIds.size;
 
-  // Đếm tầng có người
   const floorsWithPeople = new Set();
   for (const b of state.buildings) {
     const floors = state.floors.filter(f => f.building_id === b.id);
@@ -301,7 +297,7 @@ export function renderBuildings() {
     `;
   }
 
-  // ⭐ CARD NGOẠI CẢNH
+  // Special cards
   const externalHtml = renderSpecialCard({
     type: 'external',
     record: state.specialAreas.external,
@@ -316,7 +312,6 @@ export function renderBuildings() {
     filteredEmpIds,
   });
 
-  // ⭐ CARD CA ĐÊM
   const nightHtml = renderSpecialCard({
     type: 'night',
     record: state.specialAreas.night,
@@ -331,7 +326,6 @@ export function renderBuildings() {
     filteredEmpIds,
   });
 
-  // Card tăng ca CN
   const sundayOtHtml = state.sundayOtAssignments.length > 0
     ? renderSimpleCard({
         emoji: '📅',
@@ -346,12 +340,23 @@ export function renderBuildings() {
       })
     : '';
 
-  // Building cards
+  // ⭐ Buildings — collapsible
+  const expanded = state.expandedBuildings;
   const buildingsHtml = state.buildings.map(b => {
     const floors = state.floors.filter(f => f.building_id === b.id)
       .sort((a, c) => a.floor_number - c.floor_number);
 
-    const floorRows = floors.map(f => {
+    const isExpanded = expanded.has(b.id);
+
+    // Đếm số người hôm nay toàn building
+    let peopleCount = 0;
+    for (const f of floors) {
+      const assigns = state.floorAssignments[f.id] || [];
+      const visible = assigns.filter(a => filteredEmpIds.has(a.employee_id));
+      peopleCount += visible.length;
+    }
+
+    const floorRows = isExpanded ? floors.map(f => {
       const assigns = state.floorAssignments[f.id] || [];
       const visible = assigns.filter(a => filteredEmpIds.has(a.employee_id));
 
@@ -387,22 +392,48 @@ export function renderBuildings() {
           </div>
           ${assigneesHtml}
         </div>`;
-    }).join('') || '<p class="hint" style="margin:0">Chưa setup tầng</p>';
+    }).join('') : '';
 
     return `
       <div class="building-card" data-id="${b.id}">
-        <h3>${b.name} <span class="floor-count">${floors.length} mặt bằng</span></h3>
-        <div class="building-floors">${floorRows}</div>
-        <div class="building-actions">
-          <button class="btn-small" data-setup="${b.id}">⚙️ Setup giờ tầng</button>
-          <button class="btn-small" data-delete="${b.id}" style="background:#fee2e2;color:#e74c3c">🗑 Xoá</button>
+        <div class="building-header" data-toggle-building="${b.id}">
+          <div class="building-header-left">
+            <span class="building-chevron">${isExpanded ? '▼' : '▶'}</span>
+            <span class="building-name">${b.name}</span>
+          </div>
+          <div class="building-header-right">
+            ${peopleCount > 0 ? `<span class="building-people">${peopleCount} người</span>` : ''}
+            <span class="building-count">${floors.length} tầng</span>
+          </div>
         </div>
+        ${isExpanded ? `<div class="building-body">
+          <div class="building-floors">
+            ${floorRows || '<p class="hint" style="margin:0">Chưa setup tầng</p>'}
+          </div>
+          <div class="building-actions">
+            <button class="btn-small" data-setup="${b.id}">⚙️ Setup giờ tầng</button>
+            <button class="btn-small" data-delete="${b.id}" style="background:#fee2e2;color:#e74c3c">🗑 Xoá</button>
+          </div>
+        </div>` : ''}
       </div>`;
   }).join('');
 
   wrap.innerHTML = externalHtml + nightHtml + sundayOtHtml + buildingsHtml;
 
-  // Bind events
+  // Bind
+  wrap.querySelectorAll('[data-toggle-building]').forEach(el => {
+    el.addEventListener('click', () => {
+      const bid = el.dataset.toggleBuilding;
+      if (!(state.expandedBuildings instanceof Set)) state.expandedBuildings = new Set();
+      if (state.expandedBuildings.has(bid)) {
+        state.expandedBuildings.delete(bid);
+      } else {
+        state.expandedBuildings.add(bid);
+      }
+      renderBuildings();
+    });
+  });
+
   wrap.querySelectorAll('[data-setup]').forEach(btn =>
     btn.addEventListener('click', () => openFloorSetup(btn.dataset.setup)));
   wrap.querySelectorAll('[data-delete]').forEach(btn =>
@@ -429,7 +460,6 @@ export function renderBuildings() {
   });
 }
 
-/* ⭐ Cập nhật text 3 nút tạo */
 function updateCreateButtons() {
   const $ext = $('#createExternalBtn');
   const $night = $('#createNightBtn');
@@ -454,7 +484,6 @@ function updateCreateButtons() {
   }
 }
 
-/* ⭐ Card đặc biệt (external/night) — hiện tên + giờ default + danh sách NV */
 function renderSpecialCard(opts) {
   const {
     type, record, items, emoji, title,
@@ -465,8 +494,8 @@ function renderSpecialCard(opts) {
 
   const visible = items.filter(x => filteredEmpIds.has(x.employee_id));
   const headerRight = visible.length > 0
-    ? `<span class="floor-count" style="background:${colorEnd};color:${accentColor}">${visible.length} người hôm nay</span>`
-    : `<span class="floor-count" style="background:${colorEnd};color:${accentColor}">Chưa có ai hôm nay</span>`;
+    ? `<span class="building-people" style="background:${colorEnd};color:${accentColor}">${visible.length} người hôm nay</span>`
+    : `<span class="building-people" style="background:${colorEnd};color:${accentColor}">Chưa có ai hôm nay</span>`;
 
   const rowsHtml = visible.length > 0
     ? visible.map(item => {
@@ -489,26 +518,29 @@ function renderSpecialCard(opts) {
 
   return `
     <div class="building-card" style="border-color:${borderColor};background:linear-gradient(135deg, ${colorStart}, ${colorEnd})">
-      <h3 style="color:${accentColor}">
-        ${emoji} ${title}
-        ${headerRight}
-      </h3>
-      <div style="font-size:12px;color:${accentColor};margin-bottom:8px;font-weight:600">
+      <div class="building-header" style="background:transparent">
+        <div class="building-header-left">
+          <span class="building-name" style="color:${accentColor}">${emoji} ${title}</span>
+        </div>
+        <div class="building-header-right">${headerRight}</div>
+      </div>
+      <div style="padding:0 16px 14px;color:${accentColor};font-size:12px;font-weight:600">
         📌 Giờ mặc định: ${formatHours(record.default_hours)}
         ${record.name && record.name !== title ? ` · ${record.name}` : ''}
       </div>
-      <div class="building-floors" style="margin-top:8px">
-        ${rowsHtml}
-      </div>
-      <div class="building-actions" style="margin-top:10px">
-        <button class="btn-small" data-special-edit="${type}" style="background:${colorEnd};color:${accentColor}">⚙️ Sửa</button>
-        <button class="btn-small" data-special-delete="${type}" style="background:#fee2e2;color:#e74c3c">🗑 Xoá</button>
+      <div class="building-body">
+        <div class="building-floors" style="margin-top:4px">
+          ${rowsHtml}
+        </div>
+        <div class="building-actions" style="margin-top:10px">
+          <button class="btn-small" data-special-edit="${type}" style="background:${colorEnd};color:${accentColor}">⚙️ Sửa</button>
+          <button class="btn-small" data-special-delete="${type}" style="background:#fee2e2;color:#e74c3c">🗑 Xoá</button>
+        </div>
       </div>
     </div>
   `;
 }
 
-/* Card đơn giản (sunday_ot) */
 function renderSimpleCard(opts) {
   const { emoji, title, items, colorStart, colorEnd, borderColor, accentColor, avatarGrad, filteredEmpIds } = opts;
   const visible = items.filter(x => filteredEmpIds.has(x.employee_id));
@@ -516,24 +548,31 @@ function renderSimpleCard(opts) {
 
   return `
     <div class="building-card" style="border-color:${borderColor};background:linear-gradient(135deg, ${colorStart}, ${colorEnd})">
-      <h3 style="color:${accentColor}">${emoji} ${title}
-        <span class="floor-count" style="background:${colorEnd};color:${accentColor}">${visible.length} người</span>
-      </h3>
-      <div class="building-floors">
-        ${visible.map(item => {
-          const emp = state.employees.find(e => e.id === item.employee_id);
-          if (!emp) return '';
-          const name = emp.full_name || emp.username || '';
-          return `
-            <div class="floor-assignee" style="padding:6px 0">
-              <div class="assignee-avatar" style="background:linear-gradient(135deg, ${avatarGrad})">${name.charAt(0).toUpperCase()}</div>
-              <div class="assignee-info">
-                <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
-                ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
-              </div>
-              <span style="margin-left:auto;font-weight:700;color:${accentColor};font-size:13px">${formatHours(item.hours)}</span>
-            </div>`;
-        }).join('')}
+      <div class="building-header" style="background:transparent">
+        <div class="building-header-left">
+          <span class="building-name" style="color:${accentColor}">${emoji} ${title}</span>
+        </div>
+        <div class="building-header-right">
+          <span class="building-people" style="background:${colorEnd};color:${accentColor}">${visible.length} người</span>
+        </div>
+      </div>
+      <div class="building-body">
+        <div class="building-floors">
+          ${visible.map(item => {
+            const emp = state.employees.find(e => e.id === item.employee_id);
+            if (!emp) return '';
+            const name = emp.full_name || emp.username || '';
+            return `
+              <div class="floor-assignee" style="padding:6px 0">
+                <div class="assignee-avatar" style="background:linear-gradient(135deg, ${avatarGrad})">${name.charAt(0).toUpperCase()}</div>
+                <div class="assignee-info">
+                  <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
+                  ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
+                </div>
+                <span style="margin-left:auto;font-weight:700;color:${accentColor};font-size:13px">${formatHours(item.hours)}</span>
+              </div>`;
+          }).join('')}
+        </div>
       </div>
     </div>
   `;
@@ -588,14 +627,12 @@ export async function saveSpecialArea() {
 
   let error;
   if (existing) {
-    // Update
     const res = await supabase
       .from('special_areas')
       .update({ name, default_hours: hours })
       .eq('id', existing.id);
     error = res.error;
   } else {
-    // Insert
     const res = await supabase
       .from('special_areas')
       .insert({ type: _editingSpecialType, name, default_hours: hours });
@@ -668,6 +705,7 @@ export async function deleteBuilding(id) {
   invalidateAttendanceCache();
   if (state.salaryModule) state.salaryModule.invalidateCache();
 
+  state.expandedBuildings?.delete(id);
   await loadBuildings();
   const attendance = await import('./attendance.js');
   await attendance.loadAttendanceForMonth();
