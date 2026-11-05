@@ -165,7 +165,6 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   $('#supervisorModeSection').style.display = targetIsSupervisor ? 'block' : 'none';
   $('#employeeModeSection').style.display = targetIsSupervisor ? 'none' : 'block';
 
-  // ⭐ Toggle sticky preview theo mode
   const $sticky = $('#attPreviewSticky');
   if ($sticky) $sticky.style.display = targetIsSupervisor ? 'none' : 'flex';
 
@@ -676,7 +675,8 @@ function buildEmployeePayload() {
     };
   }
 
-  // default
+  /* ⭐ mode === 'default' — LUÔN dùng mode 'default' (không tự chuyển manual)
+     Trigger SQL sẽ chia sẻ giờ building + cộng external/night/sunday_ot */
   const validAreas = state.modalAreas.filter(a => {
     if (a.type === 'building') return a.building_id && a.floor_id;
     return entryHours(a) > 0;
@@ -687,24 +687,8 @@ function buildEmployeePayload() {
     return null;
   }
 
-  const hasNonBuilding = validAreas.some(a => a.type !== 'building');
-  const hasBuildingWithManualHours = validAreas.some(a =>
-    a.type === 'building' && a.hours != null && a.hours > 0
-  );
-
   let totalMain = 0;
   for (const entry of validAreas) totalMain += entryHours(entry);
-
-  let finalMode;
-  let manualHours = null;
-  if (!hasNonBuilding && !hasBuildingWithManualHours) {
-    finalMode = 'default';
-    manualHours = null;
-  } else {
-    finalMode = 'manual';
-    manualHours = totalMain;
-  }
-
   const mainCapped = Math.min(totalMain, DAILY_MAIN_CAP);
 
   let otAreas = [];
@@ -719,15 +703,15 @@ function buildEmployeePayload() {
 
   const totalOt = isSundayOtChecked()
     ? getSundayOtHours()
-    : otAreas.reduce((s, a) => s + Number(a.hours || 0), 0) + Math.max(0, totalMain - DAILY_MAIN_CAP);
+    : otAreas.reduce((s, a) => s + Number(a.hours || 0), 0);
 
   return {
     employee_id: state.selectedEmployeeId,
     total_hours: mainCapped,
     ot_hours: totalOt,
     is_off: false,
-    mode: finalMode,
-    manual_hours: manualHours,
+    mode: 'default',   // ⭐ LUÔN default — trigger sẽ chia sẻ + cộng OT overflow
+    manual_hours: null,
     areas: validAreas.map(a => serializeArea(a)),
     ot_areas: otAreas,
   };
