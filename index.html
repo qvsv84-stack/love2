@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Giám Sát Chấm Công - ĐH XH&NV</title>
 
-  <!-- ⭐ PRECONNECT — giảm 100-300ms handshake -->
+  <!-- ⭐ PRECONNECT -->
   <link rel="preconnect" href="https://cjswxglxyyqrcfbyyjer.supabase.co" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -96,45 +96,14 @@
     #chatSendBtn:active:not(:disabled) { transform: scale(0.94); }
     #chatSendBtn:disabled { opacity: 0.55 !important; }
 
-    #debugPanel {
-      display: none; flex-direction: column;
-      background: #1c1c1e; color: #e5e5ea;
-      font-family: 'SF Mono', Menlo, monospace;
-      font-size: 11.5px; line-height: 1.5;
-      max-height: 55%; overflow-y: auto;
-      border-top: 1px solid #333;
-    }
-    #debugPanel.active { display: flex; }
-    #debugPanel .dbg-header {
-      padding: 8px 12px; background: #2c2c2e; color: #fff;
-      display: flex; justify-content: space-between; align-items: center;
-      font-weight: 600; position: sticky; top: 0; z-index: 2;
-    }
-    #debugPanel .dbg-actions {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
-      padding: 8px 12px; background: #2c2c2e; position: sticky; top: 32px; z-index: 1;
-    }
-    #debugPanel .dbg-btn {
-      padding: 7px 10px; border-radius: 6px; border: none;
-      background: #007aff; color: #fff; font-size: 11px; font-weight: 600;
-      cursor: pointer; font-family: inherit;
-    }
-    #debugPanel .dbg-btn:active { opacity: 0.7; }
-    #debugPanel .dbg-btn.secondary { background: #48484a; }
-    #debugPanel .dbg-btn.warn { background: #ff9500; }
-    #debugPanel .dbg-btn.danger { background: #ff3b30; }
-    #debugLog { padding: 8px 12px 16px; }
-    #debugLog .log-line {
-      padding: 3px 0; border-bottom: 1px solid #2c2c2e; word-break: break-all;
-      display: flex; gap: 6px;
-    }
-    #debugLog .log-time { color: #8e8e93; flex-shrink: 0; }
-    #debugLog .log-msg { flex: 1; }
-    #debugLog .log-info   { color: #64d2ff; }
-    #debugLog .log-ok     { color: #32d74b; }
-    #debugLog .log-warn   { color: #ffd60a; }
-    #debugLog .log-error  { color: #ff453a; }
-    #debugLog .log-step   { color: #bf5af2; font-weight: 700; margin-top: 6px; border-top: 1px solid #3a3a3c; padding-top: 6px; }
+    /* Debug panel styles */
+    .dbg-line { padding: 3px 0; border-bottom: 1px solid #2c2c2e; display: flex; gap: 6px; line-height: 1.4; }
+    .dbg-time { color: #8e8e93; flex-shrink: 0; }
+    .dbg-msg { flex: 1; word-break: break-all; }
+    .dbg-info { color: #64d2ff; }
+    .dbg-ok { color: #32d74b; }
+    .dbg-warn { color: #ffd60a; }
+    .dbg-error { color: #ff453a; }
   </style>
 </head>
 <body>
@@ -146,6 +115,7 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
         <button id="chatBtn" class="btn-icon" title="Chat AI">💬</button>
+        <button id="debugBtn" class="btn-icon" title="Debug (Ctrl+Shift+D)">🔍</button>
         <button id="loginBtn" class="btn-header-login" style="display:none">Đăng nhập</button>
         <button id="logoutBtn" class="btn-icon" title="Đăng xuất" style="display:none">⎋</button>
       </div>
@@ -202,14 +172,14 @@
             <select id="employeeSelect" class="select-input"></select>
           </div>
 
-          <!-- ⭐⭐⭐ SUMMARY CARD: 2 section + PHONE ROW -->
+          <!-- ⭐ SUMMARY CARD -->
           <div class="summary-card" id="summaryCard" style="display:none">
             <div class="summary-line">
               <span class="emp-name" id="sumName">—</span>
               <span class="emp-role" id="sumRole">—</span>
             </div>
 
-            <!-- ⭐ PHONE ROW — tap mở modal Gọi/Zalo/Copy -->
+            <!-- PHONE ROW -->
             <div id="sumPhoneRow" style="margin-top:6px;display:none">
               <button id="sumPhoneBtn" type="button" style="display:inline-flex;align-items:center;gap:6px;background:var(--ocean-100);color:var(--ocean-700);border:none;padding:6px 12px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">
                 📞 <span id="sumPhoneText">—</span>
@@ -242,7 +212,7 @@
               </div>
             </div>
 
-            <!-- Section 2: Hôm nay (ẩn khi xem tháng khác) -->
+            <!-- Section 2: Hôm nay -->
             <div id="sumTodaySection" style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
               <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;display:flex;align-items:center;gap:4px">
                 <span>📍</span>
@@ -527,7 +497,6 @@
       </div>
     </div>
 
-    <!-- ⭐ PHONE ACTION MODAL: Gọi / Zalo / Copy -->
     <div id="phoneActionModal" class="modal-overlay center" style="display:none">
       <div class="modal" style="max-width: 340px;">
         <div class="modal-header"><h3 id="phoneActionNumber">—</h3><button class="btn-close" data-close="phoneActionModal">✕</button></div>
@@ -592,6 +561,7 @@
       </div>
     </div>
 
+    <!-- ⭐ CHAT AI MODAL -->
     <div id="chatModal" class="modal-overlay" style="display:none">
       <div class="modal" style="max-width:600px">
         <div class="modal-header">
@@ -603,23 +573,6 @@
           </div>
         </div>
         <div id="chatMessages"></div>
-
-        <div id="debugPanel">
-          <div class="dbg-header">
-            <span>🔍 Debug Panel</span>
-            <button id="debugCloseBtn" class="dbg-btn secondary" style="padding:3px 8px;font-size:10px">Đóng</button>
-          </div>
-          <div class="dbg-actions">
-            <button id="dbgRunAll" class="dbg-btn">▶️ Chạy tất cả test</button>
-            <button id="dbgTestOllama" class="dbg-btn warn">⚡ Test Ollama</button>
-            <button id="dbgTestSupabase" class="dbg-btn warn">🗄️ Test Supabase</button>
-            <button id="dbgEnv" class="dbg-btn secondary">🌐 Môi trường</button>
-            <button id="dbgClear" class="dbg-btn secondary">🧹 Xóa log</button>
-            <button id="dbgCopy" class="dbg-btn danger">📋 Copy log</button>
-          </div>
-          <div id="debugLog"></div>
-        </div>
-
         <div>
           <input type="text" id="chatInput" placeholder="Hỏi AI bất cứ điều gì..." autocomplete="off" />
           <button id="chatSendBtn" class="btn-primary">Gửi</button>
@@ -639,53 +592,14 @@
     <div id="toast" class="toast" style="display:none"></div>
   </div>
 
-  <!-- ⭐ ĐÃ XOÁ 3 script nặng (xlsx, html2canvas, supabase UMD) -->
-  <!-- Chúng được lazy-load khi cần trong app.js / export.js / chat IIFE -->
-
+  <!-- ⭐ CHAT AI IIFE — dùng chung Supabase SDK từ module -->
   <script>
   (function() {
     'use strict';
 
-    // ============================================
-    // ⚙️ CẤU HÌNH
-    // ============================================
-    const OLLAMA_URL     = '/api/chat';
-    const OLLAMA_MODEL   = 'gpt-oss:20b';   // ưu tiên; proxy tự fallback nếu fail
-    const MAX_CONTEXT    = 20;
-    // ⭐ Không khai báo SUPABASE_URL/KEY nữa — dùng window.__supabaseUrl/Key từ module
-
-    const debugPanel  = document.getElementById('debugPanel');
-    const debugLog    = document.getElementById('debugLog');
-    let   debugLines  = [];
-
-    function dbg(level, msg) {
-      const t = new Date();
-      const time = t.toTimeString().slice(0,8);
-      const line = '[' + time + '] ' + msg;
-      debugLines.push(line);
-      if (debugLines.length > 500) debugLines.shift();
-
-      const div = document.createElement('div');
-      div.className = 'log-line';
-      div.innerHTML = '<span class="log-time">' + time + '</span><span class="log-msg log-' + level + '">' + escapeHtml(msg) + '</span>';
-      debugLog.appendChild(div);
-      debugLog.scrollTop = debugLog.scrollHeight;
-
-      const fn = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
-      console[fn]('[Chat]', msg);
-    }
-
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
-    window.addEventListener('error', (e) => {
-      dbg('error', '💥 window.error: ' + (e.message || 'unknown') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '?'));
-    });
-    window.addEventListener('unhandledrejection', (e) => {
-      const r = e.reason;
-      dbg('error', '💥 unhandledrejection: ' + (r?.message || r || 'unknown'));
-    });
+    const OLLAMA_URL = '/api/chat';
+    const OLLAMA_MODEL = 'gpt-oss:20b';
+    const MAX_CONTEXT = 20;
 
     const chatModal    = document.getElementById('chatModal');
     const chatMessages = document.getElementById('chatMessages');
@@ -695,49 +609,38 @@
     const chatBtn      = document.getElementById('chatBtn');
     const chatDebugBtn = document.getElementById('chatDebugBtn');
 
-    if (!chatBtn || !chatModal || !chatMessages) {
-      console.error('[Chat] Không tìm thấy element chat');
-      return;
-    }
+    if (!chatBtn || !chatModal || !chatMessages) return;
 
     let chatSupabase = null;
+    let chatUserId = null;
+    let chatHistory = [];
+    let isInitialized = false;
+    let isSending = false;
 
-    /* ⭐ Sử dụng lại client creator từ module supabase.js — không load SDK lần 2 */
     async function initSupabase() {
       try {
-        // Chờ module supabase.js load (nếu chat mở quá sớm)
         if (!window.__supabaseCreateClient) {
           for (let i = 0; i < 30; i++) {
             await new Promise(r => setTimeout(r, 100));
             if (window.__supabaseCreateClient) break;
           }
         }
-        if (!window.__supabaseCreateClient) {
-          dbg('error', '❌ Supabase SDK chưa load (window.__supabaseCreateClient)');
-          return null;
-        }
-        dbg('ok', '✅ Supabase SDK ready');
+        if (!window.__supabaseCreateClient) return null;
         chatSupabase = window.__supabaseCreateClient(
           window.__supabaseUrl,
           window.__supabaseKey,
           { auth: { storageKey: 'chat-anon-session', persistSession: true, autoRefreshToken: true } }
         );
-        dbg('ok', '✅ createClient OK');
         return chatSupabase;
       } catch (err) {
-        dbg('error', '❌ createClient throw: ' + (err?.message || err));
+        console.error('[Chat] createClient:', err);
         return null;
       }
     }
 
-    let chatUserId    = null;
-    let chatHistory   = [];
-    let isInitialized = false;
-    let isSending     = false;
-
     function showEmptyState(msg) {
       chatMessages.innerHTML = '<div class="chat-empty">' +
-        (msg || 'Xin chào! Tôi là trợ lý AI.<br>Hỏi tôi bất cứ điều gì về công việc, chấm công, lịch...') +
+        (msg || 'Xin chào! Tôi là trợ lý AI.<br>Hỏi tôi bất cứ điều gì.') +
         '</div>';
     }
 
@@ -763,87 +666,46 @@
     async function saveMsg(role, content) {
       if (!chatSupabase || !chatUserId) return;
       try {
-        const { error } = await chatSupabase.from('messages').insert({
-          user_id: chatUserId, role, content
-        });
-        if (error) dbg('warn', '⚠️ save insert error: ' + (error.message || JSON.stringify(error)));
-        else dbg('ok', '💾 saved ' + role + ' (' + content.length + ' chars)');
-      } catch (e) {
-        dbg('warn', '⚠️ save throw: ' + (e?.message || e));
-      }
+        await chatSupabase.from('messages').insert({ user_id: chatUserId, role, content });
+      } catch {}
     }
 
     async function initChat() {
       if (isInitialized) return;
       isInitialized = true;
-
-      dbg('step', '=== INIT CHAT ===');
-
       if (!chatSupabase) await initSupabase();
-
       if (!chatSupabase) {
-        showEmptyState('⚠️ Supabase không khởi tạo được.<br>Bấm 🔍 Debug để xem chi tiết.');
+        showEmptyState('⚠️ Supabase không khởi tạo được.');
         return;
       }
-
       try {
-        dbg('info', '→ getSession()...');
-        const { data, error: sessErr } = await chatSupabase.auth.getSession();
-        if (sessErr) dbg('warn', '⚠️ getSession error: ' + sessErr.message);
-
-        if (!data?.session) {
-          dbg('info', '→ signInAnonymously()...');
+        const { data: sess } = await chatSupabase.auth.getSession();
+        if (!sess?.session) {
           const { error } = await chatSupabase.auth.signInAnonymously();
-          if (error) {
-            dbg('error', '❌ signInAnonymously: ' + error.message);
-            throw new Error('Anonymous sign-in thất bại: ' + error.message);
-          }
-          dbg('ok', '✅ Anonymous sign-in OK');
-        } else {
-          dbg('ok', '✅ Đã có session');
+          if (error) throw new Error(error.message);
         }
+        const { data: u } = await chatSupabase.auth.getUser();
+        chatUserId = u?.user?.id || null;
+        if (!chatUserId) { showEmptyState('⚠️ Không có user_id'); return; }
 
-        const { data: userData } = await chatSupabase.auth.getUser();
-        chatUserId = userData?.user?.id || null;
-        dbg('ok', '👤 user_id = ' + (chatUserId || 'null'));
-
-        if (!chatUserId) {
-          showEmptyState('⚠️ Không có user_id sau khi sign-in.');
-          return;
-        }
-
-        dbg('info', '→ Query messages...');
         const { data: rows, error } = await chatSupabase
-          .from('messages')
-          .select('role, content')
-          .order('created_at', { ascending: true })
-          .limit(100);
-
-        if (error) {
-          dbg('error', '❌ Query messages: ' + error.message + ' (code=' + error.code + ')');
-          showEmptyState('⚠️ Không đọc được bảng messages.<br>Kiểm tra RLS/SQL. Bấm 🔍 Debug.');
-          return;
-        }
-
-        dbg('ok', '✅ Loaded ' + (rows?.length || 0) + ' messages');
+          .from('messages').select('role, content')
+          .order('created_at', { ascending: true }).limit(100);
+        if (error) { showEmptyState('⚠️ Lỗi đọc messages: ' + error.message); return; }
 
         if (rows && rows.length) {
           chatHistory = rows.filter(r => r.role === 'user' || r.role === 'assistant');
           chatHistory.forEach(r => renderMsg(r.content, r.role));
           scrollBottom();
-        } else {
-          showEmptyState();
-        }
+        } else showEmptyState();
       } catch (err) {
-        dbg('error', '❌ initChat: ' + (err?.message || err));
-        showEmptyState('⚠️ Lỗi khởi tạo chat.<br>' + (err?.message || '') + '<br>Bấm 🔍 Debug.');
+        showEmptyState('⚠️ Lỗi: ' + err.message);
       }
     }
 
     async function sendMessage() {
       const text = chatInput.value.trim();
       if (!text || isSending) return;
-
       renderMsg(text, 'user');
       chatInput.value = '';
       chatHistory.push({ role: 'user', content: text });
@@ -853,58 +715,18 @@
       isSending = true;
       chatSendBtn.disabled = true;
       chatSendBtn.textContent = '...';
-
       const typing = createTyping();
       chatMessages.appendChild(typing);
       scrollBottom();
 
-      dbg('step', '=== SEND MESSAGE ===');
-
       try {
         const context = chatHistory.slice(-MAX_CONTEXT);
-        dbg('info', '→ POST ' + OLLAMA_URL);
-        dbg('info', '   model=' + OLLAMA_MODEL + ' | msgs=' + context.length);
-
-        const t0 = performance.now();
         const response = await fetch(OLLAMA_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: OLLAMA_MODEL, messages: context, stream: true })
         });
-        const elapsed = Math.round(performance.now() - t0);
-
-        dbg('ok', '✅ response.status = ' + response.status + ' (' + elapsed + 'ms)');
-        dbg('info', '   content-type = ' + (response.headers.get('content-type') || '?'));
-        dbg('info', '   body != null = ' + (response.body != null));
-
-        // === LOG MODEL FALLBACK ===
-        const usedModel = response.headers.get('X-Model-Used');
-        const triedModels = response.headers.get('X-Models-Tried');
-        if (usedModel) dbg('ok', '🤖 Model đang dùng: ' + usedModel);
-        if (triedModels && triedModels.split(',').length > 1) {
-          dbg('warn', '   Đã fallback qua: ' + triedModels);
-        }
-
-        if (!response.ok) {
-          let errText = 'HTTP ' + response.status;
-          try {
-            const errBody = await response.text();
-            dbg('error', '📄 error body: ' + errBody.slice(0, 300));
-            try {
-              const j = JSON.parse(errBody);
-              if (j?.error) errText += ' — ' + j.error;
-              if (j?.triedModels) dbg('warn', '   Đã thử: ' + j.triedModels.join(', '));
-            } catch (_) { errText += ' — ' + errBody.slice(0, 100); }
-          } catch (_) {}
-
-          if (response.status === 401 || response.status === 403) errText = '🔑 API Key Ollama không hợp lệ.';
-          else if (response.status === 404) errText = '🚫 Endpoint không tồn tại. Kiểm tra file api/chat.js.';
-          else if (response.status === 429) errText = '⏱️ Vượt giới hạn free tier.';
-          else if (response.status === 500) errText = '⚙️ Server proxy lỗi. Kiểm tra Vercel Logs.';
-          else if (response.status === 402) errText = '💳 Hết credit Ollama. Chuyển sang Groq (miễn phí).';
-
-          throw new Error(errText);
-        }
+        if (!response.ok) throw new Error('HTTP ' + response.status);
 
         typing.remove();
         const botDiv = document.createElement('div');
@@ -913,90 +735,35 @@
         scrollBottom();
 
         let fullText = '';
-
-        if (response.body && typeof response.body.getReader === 'function') {
-          dbg('info', '→ Đọc stream...');
-          try {
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-            let chunkCount = 0;
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
-              buffer = lines.pop() || '';
-
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed) continue;
-
-                if (trimmed[0] !== '{') {
-                  dbg('warn', '⏭ skip non-JSON: ' + trimmed.slice(0, 100));
-                  continue;
-                }
-
-                try {
-                  const json = JSON.parse(trimmed);
-                  if (json.error) throw new Error('Ollama: ' + json.error);
-                  const chunk = json?.message?.content;
-                  if (typeof chunk === 'string' && chunk.length) {
-                    fullText += chunk;
-                    botDiv.textContent = fullText;
-                    scrollBottom();
-                    chunkCount++;
-                  }
-                } catch (parseErr) {
-                  dbg('warn', '⏭ parse fail: ' + parseErr.message + ' | ' + trimmed.slice(0, 100));
-                }
-              }
+        if (response.body && response.body.getReader) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+              const t = line.trim();
+              if (!t || t[0] !== '{') continue;
+              try {
+                const j = JSON.parse(t);
+                const chunk = j?.message?.content;
+                if (chunk) { fullText += chunk; botDiv.textContent = fullText; scrollBottom(); }
+              } catch {}
             }
-            dbg('ok', '✅ Stream xong: ' + chunkCount + ' chunks, ' + fullText.length + ' chars');
-          } catch (streamErr) {
-            dbg('error', '❌ Stream error: ' + (streamErr?.message || streamErr));
           }
         }
-
-        if (!fullText) {
-          dbg('warn', '→ Fallback non-stream...');
-          try {
-            const fbRes = await fetch(OLLAMA_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ model: OLLAMA_MODEL, messages: context, stream: false })
-            });
-            dbg('info', '   fallback.status = ' + fbRes.status);
-            if (fbRes.ok) {
-              const fbData = await fbRes.json();
-              dbg('info', '   fallback keys: ' + Object.keys(fbData).join(','));
-              const txt = fbData?.message?.content || fbData?.response || '';
-              if (txt) { fullText = txt; botDiv.textContent = fullText; scrollBottom(); }
-            } else {
-              const errTxt = await fbRes.text();
-              dbg('error', '   fallback error body: ' + errTxt.slice(0, 200));
-            }
-          } catch (fbErr) {
-            dbg('error', '❌ Fallback: ' + (fbErr?.message || fbErr));
-          }
-        }
-
-        if (!fullText) {
-          botDiv.remove();
-          throw new Error('Không nhận được phản hồi từ AI');
-        }
-
+        if (!fullText) { botDiv.remove(); throw new Error('Không có phản hồi'); }
         chatHistory.push({ role: 'assistant', content: fullText });
         saveMsg('assistant', fullText);
         scrollBottom();
-
       } catch (err) {
         typing.remove();
-        renderMsg('❌ ' + (err?.message || 'Lỗi không xác định'), 'error');
+        renderMsg('❌ ' + err.message, 'error');
         scrollBottom();
-        dbg('error', '❌ sendMessage: ' + (err?.message || err));
       } finally {
         isSending = false;
         chatSendBtn.disabled = false;
@@ -1004,176 +771,36 @@
       }
     }
 
-    async function dbgEnvInfo() {
-      dbg('step', '=== ENV INFO ===');
-      dbg('info', '🌐 protocol: ' + location.protocol);
-      dbg('info', '🌐 hostname: ' + (location.hostname || '(empty — file://?)'));
-      dbg('info', '🌐 href: ' + location.href.slice(0, 100));
-      dbg('info', '📱 UA: ' + navigator.userAgent.slice(0, 120));
-      dbg('info', '🔧 Supabase SDK: ' + (window.__supabaseCreateClient ? '✅ loaded (từ module)' : '❌ missing'));
-      dbg('info', '🔗 OLLAMA_URL: ' + OLLAMA_URL + ' (qua proxy Vercel)');
-      dbg('info', '🔑 SUPABASE_URL: ' + (window.__supabaseUrl || '(chưa load)'));
-      dbg('info', '🤖 Model ưu tiên: ' + OLLAMA_MODEL + ' (proxy tự fallback)');
-      dbg('info', '🌍 fetch: ' + (typeof fetch === 'function' ? '✅' : '❌'));
-      dbg('info', '🌍 TextDecoder: ' + (typeof TextDecoder === 'function' ? '✅' : '❌'));
-      dbg('info', '🌍 ReadableStream: ' + (typeof ReadableStream === 'function' ? '✅' : '❌'));
-    }
-
-    async function dbgTestSupabase() {
-      dbg('step', '=== TEST SUPABASE ===');
-      try {
-        if (!chatSupabase) await initSupabase();
-        if (!chatSupabase) { dbg('error', '❌ Không có chatSupabase client'); return; }
-
-        dbg('info', '→ getSession...');
-        const { data: sessData, error: sessErr } = await chatSupabase.auth.getSession();
-        if (sessErr) dbg('error', '❌ getSession: ' + sessErr.message);
-        else dbg('ok', '✅ session: ' + (sessData?.session ? 'có' : 'không'));
-
-        if (!sessData?.session) {
-          dbg('info', '→ signInAnonymously...');
-          const { error } = await chatSupabase.auth.signInAnonymously();
-          if (error) { dbg('error', '❌ signInAnonymously: ' + error.message); return; }
-          dbg('ok', '✅ sign-in anonymous OK');
-        }
-
-        dbg('info', '→ getUser...');
-        const { data: u } = await chatSupabase.auth.getUser();
-        dbg('ok', '✅ user_id: ' + (u?.user?.id || 'null'));
-
-        dbg('info', '→ SELECT messages LIMIT 5...');
-        const { data, error, count } = await chatSupabase
-          .from('messages').select('*', { count: 'exact' }).limit(5);
-        if (error) dbg('error', '❌ SELECT: ' + error.message + ' (code=' + error.code + ', hint=' + (error.hint || '') + ')');
-        else dbg('ok', '✅ SELECT OK — total=' + count + ', sample=' + (data?.length || 0) + ' rows');
-      } catch (err) {
-        dbg('error', '❌ Supabase test: ' + (err?.message || err));
-      }
-    }
-
-    async function dbgTestOllama() {
-      dbg('step', '=== TEST OLLAMA (qua proxy /api/chat) ===');
-      try {
-        dbg('info', '→ POST ' + OLLAMA_URL + ' (stream:false)...');
-        const t0 = performance.now();
-        const res = await fetch(OLLAMA_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: OLLAMA_MODEL,
-            messages: [{ role: 'user', content: 'Say hi in 3 words' }],
-            stream: false
-          })
-        });
-        const elapsed = Math.round(performance.now() - t0);
-        dbg('info', '⏱ status=' + res.status + ' (' + elapsed + 'ms)');
-        dbg('info', '📄 content-type=' + (res.headers.get('content-type') || '?'));
-
-        const usedModel = res.headers.get('X-Model-Used');
-        const triedModels = res.headers.get('X-Models-Tried');
-        if (usedModel) dbg('ok', '🤖 Model đang dùng: ' + usedModel);
-        if (triedModels && triedModels.split(',').length > 1) {
-          dbg('warn', '   Đã fallback qua: ' + triedModels);
-        }
-
-        const raw = await res.text();
-        dbg('info', '📄 body len=' + raw.length + ' | head=' + raw.slice(0, 200));
-
-        if (!res.ok) {
-          dbg('error', '❌ HTTP ' + res.status);
-          if (res.status === 404) dbg('error', '   → File api/chat.js chưa có trên Vercel');
-          if (res.status === 402) dbg('error', '   → Hết credit Ollama. Chuyển Groq.');
-          if (res.status === 500) dbg('error', '   → Vercel function lỗi. Xem Deployments → Logs');
-          return;
-        }
-
-        try {
-          const j = JSON.parse(raw);
-          dbg('ok', '✅ JSON parse OK');
-          dbg('ok', '🤖 reply: ' + (j?.message?.content || j?.response || '(empty)').slice(0, 100));
-        } catch (e) {
-          dbg('warn', '⚠️ Body không phải JSON — proxy trả về HTML?');
-        }
-      } catch (err) {
-        dbg('error', '❌ Ollama test: ' + (err?.message || err));
-      }
-    }
-
-    async function dbgRunAll() {
-      debugLog.innerHTML = '';
-      debugLines = [];
-      await dbgEnvInfo();
-      await dbgTestSupabase();
-      await dbgTestOllama();
-      dbg('ok', '🏁 DONE');
-    }
-
     chatBtn.addEventListener('click', async () => {
       chatModal.style.display = 'flex';
-      chatModal.classList.add('open');
       await initChat();
       setTimeout(() => chatInput.focus(), 100);
     });
-
-    chatDebugBtn.addEventListener('click', () => {
-      debugPanel.classList.toggle('active');
-      if (debugPanel.classList.contains('active') && debugLines.length === 0) {
-        dbg('info', '💡 Bấm "Chạy tất cả test" để kiểm tra toàn bộ');
-      }
-    });
-
-    document.getElementById('debugCloseBtn').addEventListener('click', () => {
-      debugPanel.classList.remove('active');
-    });
-
-    document.getElementById('dbgRunAll').addEventListener('click', dbgRunAll);
-    document.getElementById('dbgTestOllama').addEventListener('click', dbgTestOllama);
-    document.getElementById('dbgTestSupabase').addEventListener('click', dbgTestSupabase);
-    document.getElementById('dbgEnv').addEventListener('click', dbgEnvInfo);
-    document.getElementById('dbgClear').addEventListener('click', () => {
-      debugLog.innerHTML = '';
-      debugLines = [];
-    });
-    document.getElementById('dbgCopy').addEventListener('click', async () => {
-      const txt = debugLines.join('\n');
-      try {
-        await navigator.clipboard.writeText(txt);
-        dbg('ok', '📋 Đã copy ' + debugLines.length + ' dòng vào clipboard');
-      } catch (e) {
-        dbg('warn', '⚠️ Không copy được: ' + e.message);
-      }
-    });
-
     chatSendBtn.addEventListener('click', sendMessage);
     chatInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
-
     chatModal.querySelectorAll('[data-close="chatModal"]').forEach(el => {
-      el.addEventListener('click', () => {
-        chatModal.style.display = 'none';
-        chatModal.classList.remove('open');
-      });
+      el.addEventListener('click', () => { chatModal.style.display = 'none'; });
     });
-
     chatClearBtn.addEventListener('click', async () => {
       if (!confirm('Xoá toàn bộ lịch sử chat?')) return;
       chatMessages.innerHTML = '';
       chatHistory = [];
       showEmptyState();
       if (chatUserId && chatSupabase) {
-        try {
-          await chatSupabase.from('messages').delete().eq('user_id', chatUserId);
-          dbg('ok', '🗑️ Đã xoá lịch sử trên Supabase');
-        } catch (e) { dbg('warn', '⚠️ Xoá fail: ' + e.message); }
+        try { await chatSupabase.from('messages').delete().eq('user_id', chatUserId); } catch {}
       }
     });
-
-    dbg('ok', '💬 Chat module loaded (dùng chung Supabase SDK với module)');
+    if (chatDebugBtn) chatDebugBtn.addEventListener('click', () => {
+      // Chuyển sang debug panel chính
+      const dbgBtn = document.getElementById('debugBtn');
+      if (dbgBtn) dbgBtn.click();
+    });
   })();
   </script>
 
-  <!-- ⭐ TIMEOUT CHỐNG TRẮNG TRANG -->
+  <!-- ⭐ TIMEOUT CHỐNG TRẮNG TRANG — có nút mở Debug -->
   <script>
   (function () {
     let _resolved = false;
@@ -1195,12 +822,31 @@
       loading.innerHTML =
         '<div style="text-align:center;padding:24px;color:#5c7c82;font-family:Be Vietnam Pro,sans-serif">' +
         '<p style="font-size:15px;color:#e74c3c;margin-bottom:12px">⚠️ Tải trang quá lâu</p>' +
-        '<p style="font-size:13px;margin-bottom:16px;line-height:1.5">Có thể do kết nối mạng chậm.<br>Vui lòng thử lại.</p>' +
+        '<p style="font-size:13px;margin-bottom:16px;line-height:1.5">Bấm <strong>🔍 Mở Debug</strong> để xem lỗi chi tiết.<br>Mở Console (F12) để xem thêm.</p>' +
+        '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
+        '<button id="timeoutDebugBtn" ' +
+        'style="padding:11px 20px;background:#e74c3c;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">' +
+        '🔍 Mở Debug</button>' +
         '<button onclick="location.reload()" ' +
-        'style="padding:11px 24px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">' +
+        'style="padding:11px 20px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">' +
         '🔄 Tải lại</button>' +
+        '</div>' +
         '</div>';
-    }, 12000);
+      setTimeout(() => {
+        const dbgBtn = document.getElementById('timeoutDebugBtn');
+        if (dbgBtn) {
+          dbgBtn.addEventListener('click', async () => {
+            try {
+              const mod = await import('./debug.js');
+              mod.openDebug();
+              mod.runAll();
+            } catch (err) {
+              alert('Không load được debug.js: ' + err.message);
+            }
+          });
+        }
+      }, 50);
+    }, 10000);
   })();
   </script>
 
