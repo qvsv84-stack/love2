@@ -191,7 +191,7 @@
           <span class="legend-item"><span class="legend-dot dot-leave"></span>Phép</span>
           <span class="legend-item"><span class="legend-dot dot-today"></span>Hôm nay</span>
         </div>
-        <p class="hint" id="calendarHint" style="display:none">💡 Nhấn giữ (long-press) vào một ngày để chấm công</p>
+        <p class="hint" id="calendarHint" style="display:none">💡 Nhấp 2 lần (double-tap) vào một ngày để chấm công · Sau khi lưu sẽ thu gọn</p>
       </section>
 
       <section id="tab-areas" class="tab-content">
@@ -290,76 +290,82 @@
         <div class="modal-body">
           <p id="prefillNote" class="prefill-note" style="display:none"></p>
 
-          <div id="supervisorModeSection" style="display:none">
-            <div class="att-section">
-              <div class="att-section-title">Chế độ chấm công</div>
-              <div class="seg-control">
-                <label><input type="radio" name="supMode" value="default" checked><span>Mặc định</span></label>
-                <label><input type="radio" name="supMode" value="ot"><span>Tăng ca</span></label>
-                <label><input type="radio" name="supMode" value="off"><span>OFF</span></label>
-                <label><input type="radio" name="supMode" value="leave"><span>Phép</span></label>
-              </div>
-            </div>
-            <div class="att-section" id="supOtGroup" style="display:none">
-              <div class="att-section-title">Số giờ tăng ca</div>
-              <input type="number" id="supOtHours" class="input" step="0.5" min="0" max="12" placeholder="0" />
-            </div>
-            <div class="preview-box" style="flex-direction:column;align-items:stretch;gap:6px;margin-top:12px">
-              <div style="display:flex;justify-content:space-between;align-items:center"><span>Giờ công chính:</span><strong id="supMainPreview">8h</strong></div>
-              <div style="display:flex;justify-content:space-between;align-items:center"><span>Tăng ca:</span><strong id="supOtPreview">0h</strong></div>
-              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--border);padding-top:6px;margin-top:2px"><span>Tổng:</span><strong id="supTotalPreview" style="color:var(--ocean-600);font-size:20px">8h</strong></div>
-            </div>
+          <div id="attSummaryView" style="display:none">
+            <div id="attSummaryContent"></div>
           </div>
 
-          <div id="employeeModeSection">
-            <div class="att-section">
-              <div class="att-section-title">1️⃣ Chế độ</div>
-              <div class="seg-control">
-                <label><input type="radio" name="attMode" value="default" checked><span>Khu vực</span></label>
-                <label><input type="radio" name="attMode" value="manual"><span>Thủ công</span></label>
-                <label><input type="radio" name="attMode" value="off"><span>OFF</span></label>
-                <label><input type="radio" name="attMode" value="leave"><span>Phép</span></label>
-              </div>
-            </div>
-
-            <div class="att-section" id="mainAreaSection">
-              <div class="att-section-title">📍 Khu vực chính</div>
-              <div id="mainAreaPicker" class="area-picker"></div>
-              <button id="addMainAreaBtn" class="btn-add-area">＋ Thêm khu vực</button>
-            </div>
-
-            <div class="att-section" id="manualHoursGroup" style="display:none">
-              <div class="att-section-title">⏱️ Tổng số giờ công</div>
-              <input type="number" id="manualHours" class="input" step="0.5" min="0" max="24" placeholder="VD: 8" />
-            </div>
-
-            <div class="att-section" id="otSection">
-              <div class="att-section-title">🌙 Tăng ca (tuỳ chọn)</div>
-
-              <label class="ot-sunday-toggle" id="sundayOtToggle">
-                <input type="checkbox" id="sundayOtCheck" />
-                <div class="ot-sunday-content">
-                  <div class="ot-sunday-title">📅 Tăng ca Chủ nhật</div>
-                  <div class="ot-sunday-sub">Bao trùm — không chia tầng</div>
+          <div id="attEditorView">
+            <div id="supervisorModeSection" style="display:none">
+              <div class="att-section">
+                <div class="att-section-title">Chế độ chấm công</div>
+                <div class="seg-control">
+                  <label><input type="radio" name="supMode" value="default" checked><span>Mặc định</span></label>
+                  <label><input type="radio" name="supMode" value="ot"><span>Tăng ca</span></label>
+                  <label><input type="radio" name="supMode" value="off"><span>OFF</span></label>
+                  <label><input type="radio" name="supMode" value="leave"><span>Phép</span></label>
                 </div>
-              </label>
-
-              <div id="otNormalSection" style="margin-top:10px">
-                <div id="otAreaPicker" class="area-picker"></div>
-                <button id="addOtAreaBtn" class="btn-add-area">＋ Thêm khu vực tăng ca</button>
               </div>
-
-              <div id="sundayOtGroup" style="display:none;margin-top:10px">
-                <input type="number" id="sundayOtHours" class="input" step="0.5" min="0" max="24" placeholder="Số giờ tăng ca CN" />
+              <div class="att-section" id="supOtGroup" style="display:none">
+                <div class="att-section-title">Số giờ tăng ca</div>
+                <input type="number" id="supOtHours" class="input" step="0.5" min="0" max="12" placeholder="0" />
+              </div>
+              <div class="preview-box" style="flex-direction:column;align-items:stretch;gap:6px;margin-top:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center"><span>Giờ công chính:</span><strong id="supMainPreview">8h</strong></div>
+                <div style="display:flex;justify-content:space-between;align-items:center"><span>Tăng ca:</span><strong id="supOtPreview">0h</strong></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--border);padding-top:6px;margin-top:2px"><span>Tổng:</span><strong id="supTotalPreview" style="color:var(--ocean-600);font-size:20px">8h</strong></div>
               </div>
             </div>
 
-            <p id="shareNote" class="share-note" style="display:none">
-              💡 Chia sẻ giờ tự động nếu nhiều người cùng tầng. Tối đa 8h/ngày — phần vượt chuyển OT.
-            </p>
-          </div>
+            <div id="employeeModeSection">
+              <div class="att-section">
+                <div class="att-section-title">1️⃣ Chế độ</div>
+                <div class="seg-control">
+                  <label><input type="radio" name="attMode" value="default" checked><span>Khu vực</span></label>
+                  <label><input type="radio" name="attMode" value="manual"><span>Thủ công</span></label>
+                  <label><input type="radio" name="attMode" value="off"><span>OFF</span></label>
+                  <label><input type="radio" name="attMode" value="leave"><span>Phép</span></label>
+                </div>
+              </div>
 
-          <p id="batchNote" class="prefill-note" style="display:none;margin-top:12px;margin-bottom:0"></p>
+              <div class="att-section" id="mainAreaSection">
+                <div class="att-section-title">📍 Khu vực chính</div>
+                <div id="mainAreaPicker" class="area-picker"></div>
+                <button id="addMainAreaBtn" class="btn-add-area">＋ Thêm khu vực</button>
+              </div>
+
+              <div class="att-section" id="manualHoursGroup" style="display:none">
+                <div class="att-section-title">⏱️ Tổng số giờ công</div>
+                <input type="number" id="manualHours" class="input" step="0.5" min="0" max="24" placeholder="VD: 8" />
+              </div>
+
+              <div class="att-section" id="otSection">
+                <div class="att-section-title">🌙 Tăng ca (tuỳ chọn)</div>
+
+                <label class="ot-sunday-toggle" id="sundayOtToggle">
+                  <input type="checkbox" id="sundayOtCheck" />
+                  <div class="ot-sunday-content">
+                    <div class="ot-sunday-title">📅 Tăng ca Chủ nhật</div>
+                    <div class="ot-sunday-sub">Bao trùm — không chia tầng</div>
+                  </div>
+                </label>
+
+                <div id="otNormalSection" style="margin-top:10px">
+                  <div id="otAreaPicker" class="area-picker"></div>
+                  <button id="addOtAreaBtn" class="btn-add-area">＋ Thêm khu vực tăng ca</button>
+                </div>
+
+                <div id="sundayOtGroup" style="display:none;margin-top:10px">
+                  <input type="number" id="sundayOtHours" class="input" step="0.5" min="0" max="24" placeholder="Số giờ tăng ca CN" />
+                </div>
+              </div>
+
+              <p id="shareNote" class="share-note" style="display:none">
+                💡 Chia sẻ giờ tự động nếu nhiều người cùng tầng. Tối đa 8h/ngày — phần vượt chuyển OT.
+              </p>
+            </div>
+
+            <p id="batchNote" class="prefill-note" style="display:none;margin-top:12px;margin-bottom:0"></p>
+          </div>
         </div>
 
         <div class="att-preview-sticky" id="attPreviewSticky" style="display:none">
@@ -378,8 +384,9 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn-secondary" data-close="attendanceModal">Huỷ</button>
+          <button class="btn-secondary" data-close="attendanceModal" id="attCancelBtn">Huỷ</button>
           <button id="saveAttendanceBtn" class="btn-primary">Lưu</button>
+          <button id="attEditBtn" class="btn-primary" style="display:none">✏️ Sửa</button>
         </div>
       </div>
     </div>
