@@ -211,10 +211,13 @@
           <h2>🏢 Khu vực phụ trách</h2>
         </div>
 
-        <!-- ⭐ NEW: Date picker xem lại ngày cũ -->
+        <!-- ⭐ Date picker xem lại ngày cũ + nút Hôm nay -->
         <div class="form-group" style="margin-bottom:12px">
           <label>📅 Xem ngày</label>
-          <input type="date" id="areasViewDate" class="input" />
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="date" id="areasViewDate" class="input" style="flex:1;min-width:0" />
+            <button type="button" id="areasTodayBtn" class="btn-secondary" style="padding:12px 14px;font-size:13px;white-space:nowrap;flex-shrink:0">Hôm nay</button>
+          </div>
         </div>
 
         <div class="area-create-buttons">
