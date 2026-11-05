@@ -34,6 +34,7 @@ export const state = {
   floorSetupBuildingId: null,
   selectionMode: false,
   selectedDates: new Set(),
+  selectedViewDate: null,
   editingEmployeeId: null,
   floorAssignments: {},
   externalAssignments: [],
@@ -204,6 +205,7 @@ export async function showGuestView() {
     state.attendance = [];
     state.selectionMode = false;
     state.selectedDates.clear();
+    state.selectedViewDate = null;
     state.batchDates = null;
     state.floorAssignments = {};
 
@@ -227,6 +229,7 @@ export async function showGuestView() {
     $('#calendarHint').style.display = 'none';
     $('#addEmployeeBtn').style.display = 'none';
     $('#selectionBar').style.display = 'none';
+    const $vrow = $('#viewDateRow'); if ($vrow) $vrow.style.display = 'none';
 
     const [employees, buildings, attendance] = await Promise.all([
       import('./employees.js'),
