@@ -32,7 +32,7 @@ export function invalidateDayAssignCache() {
   _dayAssignCache.clear();
 }
 
-/* ⭐ SELECTED VIEW DATE — nhấp là vào fullpage mode */
+/* ⭐ SELECTED VIEW DATE — chỉ set state, KHÔNG tự vào fullpage */
 export function setSelectedViewDate(dateStr) {
   const newVal = dateStr || null;
   if (state.selectedViewDate === newVal) return;
@@ -40,12 +40,17 @@ export function setSelectedViewDate(dateStr) {
   renderCalendar();
 }
 
-function hideDayPreview() {
+/* ⭐ Mở fullpage xem chi tiết (gọi khi ấn nút #viewDetailBtn) */
+export function openDayPreview() {
+  if (!state.selectedViewDate) return;
+  renderDayPreview(state.selectedViewDate);
+}
+
+/* ⭐ Đóng fullpage (giữ selectedViewDate để nút vẫn có thể bấm lại) */
+function closeDayPreview() {
   _previewToken++;
   const $p = $('#dayPreviewPanel');
   if ($p) $p.style.display = 'none';
-
-  // ⭐ Tắt fullpage mode
   document.body.classList.remove('dpp-fullpage');
 }
 
@@ -56,15 +61,15 @@ function renderDayPreview(dateStr) {
   const $body   = $('#dppBody');
   if (!$panel || !$body) return;
 
-  // ⭐ Bật fullpage NGAY (trước async)
+  // ⭐ Bật fullpage
   document.body.classList.add('dpp-fullpage');
 
-  // ⭐ Setup nút X floating
+  // ⭐ Nút X → đóng fullpage (giữ selectedViewDate)
   const $closeBtn = $('#dppCloseBtn');
   if ($closeBtn) {
     $closeBtn.onclick = (e) => {
       e.stopPropagation();
-      setSelectedViewDate(null);
+      closeDayPreview();
     };
   }
 
@@ -111,8 +116,6 @@ function _renderDayPreviewImmediate(dateStr) {
   }
 
   $panel.style.display = 'block';
-
-  // Đảm bảo fullpage vẫn bật
   document.body.classList.add('dpp-fullpage');
 }
 
@@ -1160,7 +1163,6 @@ export async function saveAttendance() {
 
   toast(`Đã lưu ${dates.length} ngày ✓`);
 
-  // ⭐ Invalidate preview cache vì assignments đã thay đổi
   invalidateDayAssignCache();
 
   const wasSelection = state.selectionMode;
@@ -1198,7 +1200,7 @@ export function toggleSelectionMode() {
     state.selectedDates.clear();
 
     state.selectedViewDate = null;
-    hideDayPreview();
+    closeDayPreview();
 
     const bar = $('#selectionBar'); if (bar) bar.style.display = 'block';
     const btn = $('#selectionToggleBtn');
@@ -1280,11 +1282,26 @@ export function renderCalendar() {
       attachCalendarSelect(el, el.dataset.date));
   }
 
-  // ⭐ Sync day preview panel / fullpage mode
-  if (!state.selectionMode && state.selectedViewDate) {
+  // ⭐ Update nút "Xem chi tiết"
+  const $viewBtn = $('#viewDetailBtn');
+  if ($viewBtn) {
+    if (state.selectedViewDate && !state.selectionMode) {
+      $viewBtn.style.display = 'block';
+      $viewBtn.textContent = `👁 Xem chi tiết ngày ${formatDateVN(state.selectedViewDate)}`;
+      $viewBtn.onclick = () => openDayPreview();
+    } else {
+      $viewBtn.style.display = 'none';
+      $viewBtn.onclick = null;
+    }
+  }
+
+  // ⭐ Sync panel nếu đang fullpage
+  const isFullpage = document.body.classList.contains('dpp-fullpage');
+  if (isFullpage && state.selectedViewDate) {
     renderDayPreview(state.selectedViewDate);
-  } else {
-    hideDayPreview();
+  } else if (!isFullpage) {
+    const $p = $('#dayPreviewPanel');
+    if ($p) $p.style.display = 'none';
   }
 }
 
@@ -1304,10 +1321,19 @@ function attachCalendarSelect(el, dateStr) {
 
     try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
 
-    if (state.selectedViewDate === dateStr) {
-      setSelectedViewDate(null);
+    const isFullpage = document.body.classList.contains('dpp-fullpage');
+    if (isFullpage) {
+      // Trong fullpage: click ngày khác → update panel (không toggle)
+      if (state.selectedViewDate !== dateStr) {
+        setSelectedViewDate(dateStr);
+      }
     } else {
-      setSelectedViewDate(dateStr);
+      // Ngoài fullpage: toggle chọn
+      if (state.selectedViewDate === dateStr) {
+        setSelectedViewDate(null);
+      } else {
+        setSelectedViewDate(dateStr);
+      }
     }
   };
 
@@ -1350,7 +1376,7 @@ export async function changeMonth(delta) {
   state.currentMonth = d;
 
   state.selectedViewDate = null;
-  hideDayPreview();
+  closeDayPreview();
 
   await loadAttendanceForMonth();
   renderCalendar();
