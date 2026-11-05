@@ -1,4 +1,4 @@
-// attendance.js — Chấm công với mix building + ngoại cảnh + ca đêm
+// attendance.js — Chấm công mix building + ngoại cảnh + ca đêm
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast, pad, toDateStr, formatDateVN, formatHours,
@@ -8,7 +8,6 @@ import {
 } from './core.js';
 import { showPhoneAction } from './phone.js';
 
-/* Ensure state có specialAreas */
 function ensureSpecialState() {
   if (!state.specialAreas) {
     state.specialAreas = { external: null, night: null };
@@ -166,6 +165,10 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   $('#supervisorModeSection').style.display = targetIsSupervisor ? 'block' : 'none';
   $('#employeeModeSection').style.display = targetIsSupervisor ? 'none' : 'block';
 
+  // ⭐ Toggle sticky preview theo mode
+  const $sticky = $('#attPreviewSticky');
+  if ($sticky) $sticky.style.display = targetIsSupervisor ? 'none' : 'flex';
+
   let template = null;
   let source = 'none';
   let prevDate = null;
@@ -225,7 +228,6 @@ function showBatchNote(batchDates) {
   }
 }
 
-/* ============ MODAL CONTENT ============ */
 function openSupervisorModeContent(template) {
   let mode = 'default';
   let otH = 0;
@@ -250,7 +252,6 @@ function openEmployeeModeContent(template) {
   state.modalAreas = [];
   state.modalOtAreas = [];
 
-  // Parse main areas
   if (template && Array.isArray(template.areas) && template.areas.length) {
     for (const a of template.areas) {
       if (a.type === 'external' || a.type === 'night') {
@@ -271,7 +272,6 @@ function openEmployeeModeContent(template) {
     state.modalAreas = [{ type: 'building', building_id: '', floor_id: '', hours: null }];
   }
 
-  // Sunday OT
   const isSundayOt = template &&
     Array.isArray(template.ot_areas) &&
     template.ot_areas.some(a => a.type === 'sunday_ot');
@@ -284,7 +284,6 @@ function openEmployeeModeContent(template) {
   if ($sundayCheck) $sundayCheck.checked = isSundayOt;
   if ($sundayHours) $sundayHours.value = sundayOtHours > 0 ? sundayOtHours : '';
 
-  // Parse OT areas
   if (template && Array.isArray(template.ot_areas) && template.ot_areas.length) {
     for (const a of template.ot_areas) {
       if (a.type === 'sunday_ot') continue;
@@ -306,14 +305,11 @@ function openEmployeeModeContent(template) {
   renderMainAreaPicker();
   renderOtAreaPicker();
 
-  // ⭐ FIX: phân biệt 2 loại 'manual'
   let mode = 'default';
   if (template) {
     if (template.mode === 'leave') mode = 'leave';
     else if (template.is_off || template.mode === 'off') mode = 'off';
     else if (template.mode === 'manual') {
-      // - Có areas → do mix nhiều khu vực (building + ngoại cảnh/ca đêm) → UI hiển thị 'default'
-      // - Không có areas → user thật sự chọn "Thủ công (nhập tổng giờ)" → UI hiển thị 'manual'
       const hasAreas = Array.isArray(template.areas) && template.areas.length > 0;
       mode = hasAreas ? 'default' : 'manual';
     }
@@ -326,7 +322,7 @@ function openEmployeeModeContent(template) {
   toggleSundayOtSection(isSundayOt);
 }
 
-/* ============ AREA PICKER — 3 loại ============ */
+/* ============ AREA PICKER ============ */
 function renderAreaPickerInto(wrapId, areasState, isOt) {
   const rerender = () => renderAreaPickerInto(wrapId, areasState, isOt);
   const wrap = $('#' + wrapId);
@@ -633,14 +629,13 @@ function serializeArea(entry) {
     };
   }
   return {
-    type: entry.type, // external | night
+    type: entry.type,
     hours: Number(entry.hours || 0),
   };
 }
 
 function buildEmployeePayload() {
   const mode = getSelectedMode();
-  const isInactive = mode === 'off' || mode === 'leave';
 
   if (mode === 'leave') {
     return {
@@ -681,7 +676,7 @@ function buildEmployeePayload() {
     };
   }
 
-  // mode === 'default'
+  // default
   const validAreas = state.modalAreas.filter(a => {
     if (a.type === 'building') return a.building_id && a.floor_id;
     return entryHours(a) > 0;
