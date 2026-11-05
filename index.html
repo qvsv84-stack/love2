@@ -199,6 +199,15 @@
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
 
+        <!-- ⭐ GIỮ NGUYÊN TRONG DOM, CHỈ ẨN BẰNG display:none -->
+        <div class="calendar-legend" style="display:none">
+          <span class="legend-item"><span class="legend-dot dot-work"></span>Đi làm</span>
+          <span class="legend-item"><span class="legend-dot dot-off"></span>OFF</span>
+          <span class="legend-item"><span class="legend-dot dot-leave"></span>Phép</span>
+          <span class="legend-item"><span class="legend-dot dot-today"></span>Hôm nay</span>
+        </div>
+        <p class="hint" id="calendarHint" style="display:none">💡 Nhấp vào một ngày để xem chi tiết · Nút ✏️ Sửa để chấm công</p>
+
         <!-- ⭐ DAY PREVIEW PANEL — phía dưới lịch -->
         <div id="dayPreviewPanel" class="day-preview-panel" style="display:none">
           <div class="dpp-header">
