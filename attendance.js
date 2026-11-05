@@ -1,4 +1,4 @@
-// attendance.js — Chấm công, calendar, selection mode, summary, tab switching
+// attendance.js — Chấm công với mix nhiều loại khu vực
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast, pad, toDateStr, formatDateVN, formatHours,
@@ -232,67 +232,75 @@ function openSupervisorModeContent(template) {
   toggleSupOtGroup(mode);
 }
 
-/* ⭐ FIX: detect external + sunday_ot từ template */
+/* ⭐ FIX: parse areas từ template — hỗ trợ type building/external/night/custom */
 function openEmployeeModeContent(template) {
   const validFloorIds = new Set(state.floors.map(f => f.id));
   const validBuildingIds = new Set(state.buildings.map(b => b.id));
 
-  // Detect external từ template
-  const isExternal = template &&
-    Array.isArray(template.areas) &&
-    template.areas.some(a => a.type === 'external');
+  // Reset
+  state.modalAreas = [];
+  state.modalOtAreas = [];
 
-  // Detect sunday_ot từ template
+  // Parse main areas
+  if (template && Array.isArray(template.areas) && template.areas.length) {
+    for (const a of template.areas) {
+      if (a.type === 'external' || a.type === 'night' || a.type === 'custom') {
+        state.modalAreas.push({ type: a.type, hours: Number(a.hours || 0) });
+      } else if (a.building_id && a.floor_id) {
+        if (validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id)) {
+          state.modalAreas.push({
+            type: 'building',
+            building_id: a.building_id,
+            floor_id: a.floor_id,
+            hours: a.hours != null ? Number(a.hours) : null,
+          });
+        }
+      }
+    }
+  }
+  if (!state.modalAreas.length) {
+    state.modalAreas = [{ type: 'building', building_id: '', floor_id: '', hours: null }];
+  }
+
+  // Parse OT areas
   const isSundayOt = template &&
     Array.isArray(template.ot_areas) &&
     template.ot_areas.some(a => a.type === 'sunday_ot');
-
   const sundayOtHours = isSundayOt
     ? Number(template.ot_areas.find(a => a.type === 'sunday_ot')?.hours || 0)
     : 0;
 
-  // Set checkbox + input
   const $sundayCheck = $('#sundayOtCheck');
   const $sundayHours = $('#sundayOtHours');
   if ($sundayCheck) $sundayCheck.checked = isSundayOt;
   if ($sundayHours) $sundayHours.value = sundayOtHours > 0 ? sundayOtHours : '';
 
-  // Main areas
-  if (isExternal) {
-    state.modalAreas = [];
-  } else if (template && Array.isArray(template.areas) && template.areas.length) {
-    state.modalAreas = template.areas
-      .filter(a => validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id))
-      .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: Number(a.hours || 0) }));
-    if (!state.modalAreas.length) state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
-  } else if (template && (template.is_off || template.mode === 'off' || template.mode === 'leave')) {
-    state.modalAreas = [];
-  } else {
-    state.modalAreas = [{ building_id: '', floor_id: '', hours: 0 }];
-  }
-
-  // OT areas (bỏ sunday_ot ra khỏi list bình thường)
   if (template && Array.isArray(template.ot_areas) && template.ot_areas.length) {
-    state.modalOtAreas = template.ot_areas
-      .filter(a => a.type !== 'sunday_ot' && validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id))
-      .map(a => ({
-        building_id: a.building_id,
-        floor_id: a.floor_id,
-        hours: a.hours != null ? Number(a.hours) : null,
-      }));
-  } else {
-    state.modalOtAreas = [];
+    for (const a of template.ot_areas) {
+      if (a.type === 'sunday_ot') continue;
+      if (a.type === 'external' || a.type === 'night' || a.type === 'custom') {
+        state.modalOtAreas.push({ type: a.type, hours: Number(a.hours || 0) });
+      } else if (a.building_id && a.floor_id) {
+        if (validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id)) {
+          state.modalOtAreas.push({
+            type: 'building',
+            building_id: a.building_id,
+            floor_id: a.floor_id,
+            hours: a.hours != null ? Number(a.hours) : null,
+          });
+        }
+      }
+    }
   }
 
   renderMainAreaPicker();
   renderOtAreaPicker();
 
-  // Determine mode
+  // Detect mode
   let mode = 'default';
   if (template) {
     if (template.mode === 'leave') mode = 'leave';
     else if (template.is_off || template.mode === 'off') mode = 'off';
-    else if (isExternal) mode = 'external';
     else if (template.mode === 'manual') mode = 'manual';
   }
 
@@ -300,81 +308,124 @@ function openEmployeeModeContent(template) {
   toggleModeSections(mode);
   $('#manualHours').value = template?.manual_hours ?? '';
 
-  // Show/hide sunday OT section
   toggleSundayOtSection(isSundayOt);
 }
 
-/* ============ AREA PICKER ============ */
+/* ============ AREA PICKER (rewrite) ============ */
 function renderAreaPickerInto(wrapId, areasState, isOt) {
   const rerender = () => renderAreaPickerInto(wrapId, areasState, isOt);
   const wrap = $('#' + wrapId);
   if (!wrap) return;
 
   if (!areasState.length) {
-    wrap.innerHTML = '<p class="hint" style="margin:0 0 4px">Chưa có khu vực.</p>';
+    wrap.innerHTML = '<p class="hint" style="margin:0 0 4px">Chưa có khu vực. Bấm "+ Thêm" bên dưới.</p>';
     return;
   }
 
   wrap.innerHTML = areasState.map((entry, idx) => {
-    const bOpts = state.buildings.map(b =>
-      `<option value="${b.id}" ${b.id === entry.building_id ? 'selected' : ''}>${b.name}</option>`
-    ).join('');
-    const floorsOfB = state.floors.filter(f => f.building_id === entry.building_id);
-    const fOpts = floorsOfB.map(f =>
-      `<option value="${f.id}" ${f.id === entry.floor_id ? 'selected' : ''}>
-        ${floorLabel(f.floor_number)} (${formatHours(f.default_hours)})
-      </option>`
-    ).join('');
+    const type = entry.type || 'building';
 
-    let hoursInput = '';
-    if (isOt) {
-      const floor = entry.floor_id ? state.floors.find(x => x.id === entry.floor_id) : null;
-      const displayVal = entry.hours != null ? entry.hours : '';
-      const placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
-      hoursInput = `<input type="number" class="area-hours-input" data-hours-idx="${idx}"
-        step="0.5" min="0" max="24" value="${displayVal}" placeholder="${placeholder}" />`;
-    }
+    // Type options
+    const typeOpts = `
+      <option value="building" ${type === 'building' ? 'selected' : ''}>🏢 Toà nhà</option>
+      <option value="external" ${type === 'external' ? 'selected' : ''}>🌳 Ngoại cảnh</option>
+      <option value="night" ${type === 'night' ? 'selected' : ''}>🌙 Ca đêm</option>
+      <option value="custom" ${type === 'custom' ? 'selected' : ''}>🎯 Tuỳ chỉnh</option>
+    `;
 
-    return `
-      <div class="area-entry" data-idx="${idx}">
+    let contentHtml = '';
+
+    if (type === 'building') {
+      const bOpts = state.buildings.map(b =>
+        `<option value="${b.id}" ${b.id === entry.building_id ? 'selected' : ''}>${b.name}</option>`
+      ).join('');
+      const floorsOfB = state.floors.filter(f => f.building_id === entry.building_id);
+      const fOpts = floorsOfB.map(f =>
+        `<option value="${f.id}" ${f.id === entry.floor_id ? 'selected' : ''}>
+          ${floorLabel(f.floor_number)} (${formatHours(f.default_hours)})
+        </option>`
+      ).join('');
+
+      let hoursInput = '';
+      if (isOt) {
+        // OT building: có giờ tuỳ chọn
+        const floor = entry.floor_id ? state.floors.find(x => x.id === entry.floor_id) : null;
+        const displayVal = entry.hours != null ? entry.hours : '';
+        const placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
+        hoursInput = `<input type="number" class="area-hours-input" data-hours-idx="${idx}"
+          step="0.5" min="0" max="24" value="${displayVal}" placeholder="${placeholder}" title="Để trống = chia sẻ tự động" />`;
+      }
+
+      contentHtml = `
         <select class="area-building"><option value="">-- Toà nhà --</option>${bOpts}</select>
         <select class="area-floor"><option value="">-- Tầng --</option>${fOpts}</select>
         ${hoursInput}
+      `;
+    } else {
+      // external / night / custom → chỉ cần giờ
+      const label = type === 'external' ? 'Giờ ngoại cảnh' : (type === 'night' ? 'Giờ ca đêm' : 'Giờ tuỳ chỉnh');
+      const displayVal = entry.hours != null ? entry.hours : '';
+      contentHtml = `<input type="number" class="area-hours-input area-hours-full" data-hours-idx="${idx}"
+        step="0.5" min="0" max="24" value="${displayVal}" placeholder="${label}" />`;
+    }
+
+    return `
+      <div class="area-entry" data-idx="${idx}" data-type="${type}">
+        <select class="area-type">${typeOpts}</select>
+        ${contentHtml}
         <button class="remove-area" data-remove="${idx}">✕</button>
       </div>`;
   }).join('');
 
+  // Bind events
   wrap.querySelectorAll('.area-entry').forEach(entryEl => {
     const idx = Number(entryEl.dataset.idx);
+    const typeSel = entryEl.querySelector('.area-type');
     const bSel = entryEl.querySelector('.area-building');
     const fSel = entryEl.querySelector('.area-floor');
     const hInput = entryEl.querySelector('.area-hours-input');
     const removeBtn = entryEl.querySelector('.remove-area');
 
-    bSel.addEventListener('change', () => {
-      areasState[idx].building_id = bSel.value;
-      areasState[idx].floor_id = '';
-      if (isOt) areasState[idx].hours = null;
+    // Type change
+    typeSel.addEventListener('change', () => {
+      const newType = typeSel.value;
+      const old = areasState[idx];
+      if (newType === 'building') {
+        areasState[idx] = { type: 'building', building_id: '', floor_id: '', hours: isOt ? null : null };
+      } else {
+        areasState[idx] = { type: newType, hours: old.hours || 0 };
+      }
       rerender();
       updatePreview();
     });
 
-    fSel.addEventListener('change', () => {
-      areasState[idx].floor_id = fSel.value;
-      if (isOt) {
-        areasState[idx].hours = null;
-        if (hInput) {
-          const floor = state.floors.find(x => x.id === fSel.value);
-          hInput.value = '';
-          hInput.placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
-        }
-      } else {
-        const floor = state.floors.find(x => x.id === fSel.value);
-        areasState[idx].hours = floor ? Number(floor.default_hours || 0) : 0;
-      }
-      updatePreview();
-    });
+    // Building change
+    if (bSel) {
+      bSel.addEventListener('change', () => {
+        areasState[idx].building_id = bSel.value;
+        areasState[idx].floor_id = '';
+        rerender();
+        updatePreview();
+      });
+    }
 
+    // Floor change
+    if (fSel) {
+      fSel.addEventListener('change', () => {
+        areasState[idx].floor_id = fSel.value;
+        if (isOt) {
+          areasState[idx].hours = null;
+          if (hInput) {
+            const floor = state.floors.find(x => x.id === fSel.value);
+            hInput.value = '';
+            hInput.placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
+          }
+        }
+        updatePreview();
+      });
+    }
+
+    // Hours input
     if (hInput) {
       hInput.addEventListener('input', () => {
         const raw = hInput.value.trim();
@@ -383,8 +434,12 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       });
     }
 
+    // Remove
     removeBtn.addEventListener('click', () => {
       areasState.splice(idx, 1);
+      if (!areasState.length) {
+        areasState.push({ type: 'building', building_id: '', floor_id: '', hours: null });
+      }
       rerender();
       updatePreview();
     });
@@ -401,12 +456,11 @@ export function renderOtAreaPicker() {
 
 /* ============ MODE TOGGLES ============ */
 export function toggleModeSections(mode) {
-  const m = $('#manualHoursGroup'); if (m) m.style.display = (mode === 'manual' || mode === 'external') ? 'block' : 'none';
+  const m = $('#manualHoursGroup'); if (m) m.style.display = mode === 'manual' ? 'block' : 'none';
   const a = $('#mainAreaSection'); if (a) a.style.display = mode === 'default' ? 'block' : 'none';
   const o = $('#otSection'); if (o) o.style.display = (mode === 'off' || mode === 'leave') ? 'none' : 'block';
 }
 
-/* ⭐ Toggle section "Tăng ca CN" */
 export function toggleSundayOtSection(isChecked) {
   const normal = $('#otNormalSection');
   const sunday = $('#sundayOtGroup');
@@ -437,16 +491,33 @@ function getSundayOtHours() {
 }
 
 /* ============ HOURS CALC ============ */
+/* Tính giờ 1 entry bất kỳ (external/night/custom lấy hours trực tiếp, building lấy floor default nếu null) */
+function entryHours(entry) {
+  if (!entry) return 0;
+  if (entry.type === 'external' || entry.type === 'night' || entry.type === 'custom') {
+    return Number(entry.hours || 0);
+  }
+  // building
+  if (entry.hours != null && !isNaN(entry.hours) && entry.hours > 0) {
+    return Number(entry.hours);
+  }
+  // Auto share → lấy floor default
+  if (entry.floor_id) {
+    const f = state.floors.find(x => x.id === entry.floor_id);
+    if (f) return Number(f.default_hours || 0);
+  }
+  return 0;
+}
+
 function computeMainHoursRaw() {
   const mode = getSelectedMode();
   if (mode === 'off' || mode === 'leave') return 0;
-  if (mode === 'manual' || mode === 'external') return Number($('#manualHours').value || 0);
+  if (mode === 'manual') return Number($('#manualHours').value || 0);
+
+  // default mode: sum tất cả entries
   let h = 0;
   for (const entry of state.modalAreas) {
-    if (entry.floor_id) {
-      const f = state.floors.find(x => x.id === entry.floor_id);
-      if (f) h += Number(f.default_hours || 0);
-    }
+    h += entryHours(entry);
   }
   return h;
 }
@@ -460,25 +531,16 @@ function computeOverflow() {
 }
 
 function computeOtHoursRaw() {
-  // Nếu đang bật tăng ca CN → dùng input riêng
-  if (isSundayOtChecked()) {
-    return getSundayOtHours();
-  }
+  if (isSundayOtChecked()) return getSundayOtHours();
+
   let h = 0;
   for (const entry of state.modalOtAreas) {
-    if (!entry.floor_id) continue;
-    if (entry.hours != null && !isNaN(entry.hours)) {
-      h += Number(entry.hours);
-    } else {
-      const f = state.floors.find(x => x.id === entry.floor_id);
-      if (f) h += Number(f.default_hours || 0);
-    }
+    h += entryHours(entry);
   }
   return h;
 }
 
 function computeOtHours() {
-  // Nếu bật tăng ca CN → không cộng overflow (vì đã là CN thuần)
   if (isSundayOtChecked()) return getSundayOtHours();
   return computeOtHoursRaw() + computeOverflow();
 }
@@ -504,7 +566,10 @@ export function updatePreview() {
   const $m = $('#mainHoursPreview'); if ($m) $m.textContent = mode === 'leave' ? 'PHÉP' : (mode === 'off' ? 'OFF' : formatHours(mainH));
   const $o = $('#otHoursPreview'); if ($o) $o.textContent = formatHours(otH);
   const $t = $('#totalHoursPreview'); if ($t) $t.textContent = mode === 'leave' ? 'PHÉP' : formatHours(mainH + otH);
-  const $n = $('#shareNote'); if ($n) $n.style.display = (mode === 'default' && mainH > 0) ? 'block' : 'none';
+  const $n = $('#shareNote'); if ($n) {
+    const hasBuildingAuto = state.modalAreas.some(a => a.type === 'building' && a.floor_id && (a.hours == null || a.hours === 0));
+    $n.style.display = (mode === 'default' && mainH > 0 && hasBuildingAuto) ? 'block' : 'none';
+  }
 }
 
 /* ============ PAYLOAD ============ */
@@ -538,12 +603,10 @@ function buildSupervisorPayload() {
   };
 }
 
+/* ⭐ Rewrite: build payload cho mix nhiều loại */
 function buildEmployeePayload() {
   const mode = getSelectedMode();
   const isInactive = mode === 'off' || mode === 'leave';
-  const mainH = computeMainHours();
-  const otH = isInactive ? 0 : computeOtHours();
-  const rawMain = computeMainHoursRaw();
 
   if (mode === 'leave') {
     return {
@@ -553,54 +616,115 @@ function buildEmployeePayload() {
     };
   }
 
-  if (mode !== 'off' && mode !== 'external' && mainH <= 0) {
-    toast('Vui lòng chọn khu vực chính hoặc nhập giờ');
-    return null;
+  if (mode === 'off') {
+    return {
+      employee_id: state.selectedEmployeeId,
+      total_hours: 0, ot_hours: 0, is_off: true,
+      mode: 'off', manual_hours: null, areas: [], ot_areas: [],
+    };
   }
 
-  if (mode === 'external' && mainH <= 0) {
-    toast('Nhập số giờ công ngoại cảnh (> 0)');
-    return null;
-  }
-
-  // ⭐ Build areas
-  let areas = [];
-  if (mode === 'external') {
-    areas = [{ type: 'external', hours: mainH }];
-  } else if (mode !== 'off') {
-    areas = state.modalAreas
-      .filter(a => a.building_id && a.floor_id)
-      .map(a => ({ building_id: a.building_id, floor_id: a.floor_id, hours: a.hours }));
-  }
-
-  // ⭐ Build ot_areas — xử lý cả sunday_ot và normal
-  let otAreas = [];
-  if (mode !== 'off') {
-    if (isSundayOtChecked()) {
-      const sundayH = getSundayOtHours();
-      if (sundayH > 0) {
-        otAreas = [{ type: 'sunday_ot', hours: sundayH }];
-      }
-    } else {
-      otAreas = state.modalOtAreas
-        .filter(a => a.building_id && a.floor_id)
-        .map(a => ({
-          building_id: a.building_id,
-          floor_id: a.floor_id,
-          hours: a.hours != null && !isNaN(a.hours) ? Number(a.hours) : null,
-        }));
+  if (mode === 'manual') {
+    // Manual: chỉ lấy manual_hours, không cần area
+    const mh = Number($('#manualHours').value || 0);
+    if (mh <= 0) {
+      toast('Nhập số giờ công (> 0)');
+      return null;
     }
+    const otH = computeOtHours();
+    return {
+      employee_id: state.selectedEmployeeId,
+      total_hours: Math.min(mh, DAILY_MAIN_CAP),
+      ot_hours: otH,
+      is_off: false,
+      mode: 'manual',
+      manual_hours: mh,
+      areas: [],
+      ot_areas: isSundayOtChecked()
+        ? [{ type: 'sunday_ot', hours: getSundayOtHours() }]
+        : state.modalOtAreas
+          .filter(a => entryHours(a) > 0)
+          .map(a => serializeArea(a)),
+    };
   }
+
+  // mode === 'default': mix các loại area
+  const validAreas = state.modalAreas.filter(a => {
+    if (a.type === 'building') return a.building_id && a.floor_id;
+    return entryHours(a) > 0;
+  });
+
+  if (!validAreas.length) {
+    toast('Chọn ít nhất 1 khu vực hoặc nhập giờ');
+    return null;
+  }
+
+  // Phân loại
+  const hasNonBuilding = validAreas.some(a => a.type !== 'building');
+  const hasBuildingWithManualHours = validAreas.some(a =>
+    a.type === 'building' && a.hours != null && a.hours > 0
+  );
+
+  // Tính tổng main hours
+  let totalMain = 0;
+  for (const entry of validAreas) totalMain += entryHours(entry);
+
+  // Quyết định mode lưu
+  let finalMode;
+  let manualHours = null;
+  if (!hasNonBuilding && !hasBuildingWithManualHours) {
+    // Chỉ building auto-share → dùng mode default để trigger chia sẻ đúng
+    finalMode = 'default';
+    manualHours = null;
+  } else {
+    // Có mix → manual
+    finalMode = 'manual';
+    manualHours = totalMain;
+  }
+
+  const mainCapped = Math.min(totalMain, DAILY_MAIN_CAP);
+
+  // Build ot_areas
+  let otAreas = [];
+  if (isSundayOtChecked()) {
+    const sh = getSundayOtHours();
+    if (sh > 0) otAreas = [{ type: 'sunday_ot', hours: sh }];
+  } else {
+    otAreas = state.modalOtAreas
+      .filter(a => entryHours(a) > 0)
+      .map(a => serializeArea(a, true));
+  }
+
+  const totalOt = isSundayOtChecked()
+    ? getSundayOtHours()
+    : otAreas.reduce((s, a) => s + Number(a.hours || 0), 0) + Math.max(0, totalMain - DAILY_MAIN_CAP);
 
   return {
     employee_id: state.selectedEmployeeId,
-    total_hours: mode === 'off' ? 0 : mainH,
-    ot_hours: otH,
-    is_off: mode === 'off',
-    mode: mode === 'external' ? 'manual' : mode,  // external lưu dưới dạng manual
-    manual_hours: (mode === 'manual' || mode === 'external') ? rawMain : null,
-    areas,
+    total_hours: mainCapped,
+    ot_hours: totalOt,
+    is_off: false,
+    mode: finalMode,
+    manual_hours: manualHours,
+    areas: validAreas.map(a => serializeArea(a)),
     ot_areas: otAreas,
+  };
+}
+
+/* Serialize 1 entry sang payload JSONB */
+function serializeArea(entry, isOt = false) {
+  if (entry.type === 'building') {
+    return {
+      type: 'building',
+      building_id: entry.building_id,
+      floor_id: entry.floor_id,
+      hours: entry.hours != null ? Number(entry.hours) : null,
+    };
+  }
+  // external / night / custom
+  return {
+    type: entry.type,
+    hours: Number(entry.hours || 0),
   };
 }
 
