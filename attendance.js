@@ -13,7 +13,6 @@ function ensureSpecialState() {
   if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
-/* ⭐ SELECTED VIEW DATE — ngày đang được chọn để xem */
 export function setSelectedViewDate(dateStr) {
   state.selectedViewDate = dateStr || null;
   const $row = $('#viewDateRow');
@@ -28,7 +27,6 @@ export function setSelectedViewDate(dateStr) {
   renderCalendar();
 }
 
-/* ⭐ Mở modal từ ngày đã chọn */
 export function openSelectedDate() {
   if (!state.selectedViewDate) return;
   openAttendanceModal(state.selectedViewDate);
@@ -1023,7 +1021,6 @@ export function toggleSelectionMode() {
     state.selectionMode = true;
     state.selectedDates.clear();
 
-    // ⭐ Clear view date khi vào selection mode
     state.selectedViewDate = null;
     const $vrow = $('#viewDateRow'); if ($vrow) $vrow.style.display = 'none';
 
@@ -1090,7 +1087,6 @@ export function renderCalendar() {
     }
     if (dateStr === todayStr) cls += ' today';
     if (state.selectionMode && state.selectedDates.has(dateStr)) cls += ' selected';
-    // ⭐ Highlight ngày đang chọn xem (không phải selection mode)
     if (!state.selectionMode && state.selectedViewDate === dateStr) cls += ' selected-view';
 
     html += `<div class="${cls}" data-date="${dateStr}">
@@ -1108,7 +1104,6 @@ export function renderCalendar() {
       attachCalendarSelect(el, el.dataset.date));
   }
 
-  // Đảm bảo button row đúng trạng thái
   const $row = $('#viewDateRow');
   if ($row) {
     if (!state.selectionMode && state.selectedViewDate) {
@@ -1121,29 +1116,26 @@ export function renderCalendar() {
   }
 }
 
-/* ⭐ Tap = chọn ngày (không mở modal) — dùng pointerdown để cảm giác tức thì */
+/* ⭐ FIX: dùng click event — reliable trên mọi browser */
 function attachCalendarSelect(el, dateStr) {
-  let startX = 0, startY = 0, moved = false;
+  // Visual feedback ngay khi chạm
+  el.addEventListener('touchstart', () => {
+    el.style.transform = 'scale(0.94)';
+  }, { passive: true });
 
-  const onDown = (e) => {
-    moved = false;
-    const t = e.touches?.[0] || e;
-    startX = t.clientX;
-    startY = t.clientY;
-  };
+  el.addEventListener('touchend', () => {
+    el.style.transform = '';
+  });
 
-  const onMove = (e) => {
-    if (moved) return;
-    const t = e.touches?.[0] || e;
-    if (Math.abs(t.clientX - startX) > 8 || Math.abs(t.clientY - startY) > 8) {
-      moved = true;
-    }
-  };
+  el.addEventListener('touchcancel', () => {
+    el.style.transform = '';
+  });
 
-  const onUp = (e) => {
-    if (moved) return;
+  // Click event — 100% reliable, xử lý toggle
+  el.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+
     try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
 
     if (state.selectedViewDate === dateStr) {
@@ -1151,18 +1143,7 @@ function attachCalendarSelect(el, dateStr) {
     } else {
       setSelectedViewDate(dateStr);
     }
-  };
-
-  if (window.PointerEvent) {
-    el.addEventListener('pointerdown', onDown);
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
-  } else {
-    el.addEventListener('touchstart', onDown, { passive: true });
-    el.addEventListener('touchmove', onMove, { passive: true });
-    el.addEventListener('touchend', onUp);
-    el.addEventListener('click', onUp);
-  }
+  });
 }
 
 export function switchTab(name) {
@@ -1199,7 +1180,6 @@ export async function changeMonth(delta) {
   d.setMonth(d.getMonth() + delta);
   state.currentMonth = d;
 
-  // ⭐ Clear selected view khi đổi tháng
   state.selectedViewDate = null;
   const $row = $('#viewDateRow'); if ($row) $row.style.display = 'none';
 
