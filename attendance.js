@@ -13,24 +13,117 @@ function ensureSpecialState() {
   if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
-/* ⭐ SELECTED VIEW DATE */
+/* ⭐ SELECTED VIEW DATE — nhấp là hiện panel ngày luôn */
 export function setSelectedViewDate(dateStr) {
   const newVal = dateStr || null;
   if (state.selectedViewDate === newVal) return;
-
   state.selectedViewDate = newVal;
+  renderCalendar();
+}
 
-  const $row = $('#viewDateRow');
-  const $label = $('#viewDateLabel');
+function hideDayPreview() {
+  const $p = $('#dayPreviewPanel');
+  if ($p) $p.style.display = 'none';
+}
 
-  if (state.selectedViewDate) {
-    if ($row) $row.style.display = 'block';
-    if ($label) $label.textContent = formatDateVN(state.selectedViewDate);
-  } else {
-    if ($row) $row.style.display = 'none';
+function renderDayPreview(dateStr) {
+  const $panel   = $('#dayPreviewPanel');
+  const $dateEl  = $('#dppDate');
+  const $body    = $('#dppBody');
+  const $editBtn = $('#dppEditBtn');
+  if (!$panel || !$body) return;
+
+  const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
+  const att = state.attendance.find(a => a.date === dateStr);
+
+  if ($dateEl) $dateEl.textContent = `📅 ${formatDateVN(dateStr)}`;
+  $body.innerHTML = buildDayPreviewBody(att, emp);
+
+  if ($editBtn) {
+    if (state.isAdmin && state.selectedEmployeeId) {
+      $editBtn.style.display = 'inline-flex';
+      $editBtn.onclick = (e) => {
+        e.stopPropagation();
+        openAttendanceModal(dateStr);
+      };
+    } else {
+      $editBtn.style.display = 'none';
+      $editBtn.onclick = null;
+    }
   }
 
-  renderCalendar();
+  $panel.style.display = 'block';
+}
+
+function buildDayPreviewBody(att, emp) {
+  if (!emp) {
+    return `<p style="margin:0;color:var(--text-muted);font-size:13px">Chọn nhân viên để xem chi tiết</p>`;
+  }
+  if (!att) {
+    return `<p style="margin:0;color:var(--text-muted);font-size:13px">📭 Chưa có chấm công ngày này</p>`;
+  }
+  if (att.mode === 'leave') {
+    return `<div style="padding:8px 12px;background:#fef3c7;border-radius:8px;color:#92400e;font-weight:600;font-size:13px">🏖️ Nghỉ phép</div>`;
+  }
+  if (att.is_off || att.mode === 'off') {
+    return `<div style="padding:8px 12px;background:#fee2e2;border-radius:8px;color:#991b1b;font-weight:600;font-size:13px">🚫 OFF — nghỉ</div>`;
+  }
+
+  const lines = [];
+  const addLine = (emoji, label, h) => {
+    lines.push(
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
+        `<span>${emoji} ${label}</span><strong>${formatHours(h)}</strong></div>`
+    );
+  };
+
+  if (Array.isArray(att.areas)) {
+    for (const a of att.areas) {
+      if (a.type === 'external')      addLine('🌳', 'Ngoại cảnh', Number(a.hours || 0));
+      else if (a.type === 'night')    addLine('🌙', 'Ca đêm',    Number(a.hours || 0));
+      else if (a.building_id && a.floor_id) {
+        const b = state.buildings.find(x => x.id === a.building_id);
+        const f = state.floors.find(x => x.id === a.floor_id);
+        const h = a.hours != null && a.hours > 0
+          ? Number(a.hours)
+          : (f ? Number(f.default_hours || 0) : 0);
+        addLine('🏢', `${b?.name || '?'} — ${f ? floorLabel(f.floor_number) : '?'}`, h);
+      }
+    }
+  }
+
+  if (att.mode === 'manual' && Number(att.manual_hours) > 0 &&
+      (!att.areas || att.areas.length === 0)) {
+    addLine('⏱️', 'Giờ công', Number(att.manual_hours));
+  }
+
+  if (Array.isArray(att.ot_areas)) {
+    for (const a of att.ot_areas) {
+      if (a.type === 'sunday_ot')      addLine('📅', 'Tăng ca CN',    Number(a.hours || 0));
+      else if (a.type === 'external')  addLine('🌳', 'Ngoại cảnh (OT)', Number(a.hours || 0));
+      else if (a.type === 'night')     addLine('🌙', 'Ca đêm (OT)',   Number(a.hours || 0));
+      else if (a.building_id && a.floor_id) {
+        const b = state.buildings.find(x => x.id === a.building_id);
+        const f = state.floors.find(x => x.id === a.floor_id);
+        const h = a.hours != null && a.hours > 0
+          ? Number(a.hours)
+          : (f ? Number(f.default_hours || 0) : 0);
+        addLine('🏢', `${b?.name || '?'} — ${f ? floorLabel(f.floor_number) : '?'} (OT)`, h);
+      }
+    }
+  }
+
+  const tMain = Number(att.total_hours || 0);
+  const tOT   = Number(att.ot_hours   || 0);
+
+  return (
+    (lines.length ? `<div>${lines.join('')}</div>` : '') +
+    `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:13px">` +
+      `<span style="color:var(--text-muted)">Công: <strong style="color:var(--text)">${formatHours(tMain)}</strong></span>` +
+      `<span style="color:var(--text-muted)">OT: <strong style="color:var(--warning)">${formatHours(tOT)}</strong></span>` +
+      `<span style="color:var(--text-muted);margin-left:auto">Tổng: <strong style="color:var(--ocean-700)">${formatHours(tMain + tOT)}</strong></span>` +
+    `</div>`
+  );
 }
 
 export function openSelectedDate() {
@@ -1111,15 +1204,11 @@ export function renderCalendar() {
       attachCalendarSelect(el, el.dataset.date));
   }
 
-  const $row = $('#viewDateRow');
-  if ($row) {
-    if (!state.selectionMode && state.selectedViewDate) {
-      $row.style.display = 'block';
-      const $label = $('#viewDateLabel');
-      if ($label) $label.textContent = formatDateVN(state.selectedViewDate);
-    } else {
-      $row.style.display = 'none';
-    }
+  // ⭐ Sync day preview panel
+  if (!state.selectionMode && state.selectedViewDate) {
+    renderDayPreview(state.selectedViewDate);
+  } else {
+    hideDayPreview();
   }
 }
 
