@@ -13,6 +13,25 @@ function ensureSpecialState() {
   if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
+/* ⭐ Cache day assignments theo ngày (dùng cho cả preview lẫn modal) */
+const _dayAssignCache = new Map();
+let _previewToken = 0;
+
+async function getDayAssignments(dateStr) {
+  if (_dayAssignCache.has(dateStr)) {
+    state.dayAssignments = _dayAssignCache.get(dateStr);
+    return state.dayAssignments;
+  }
+  const data = await loadDayAssignments(dateStr);
+  _dayAssignCache.set(dateStr, data);
+  state.dayAssignments = data;
+  return data;
+}
+
+export function invalidateDayAssignCache() {
+  _dayAssignCache.clear();
+}
+
 /* ⭐ SELECTED VIEW DATE — nhấp là hiện panel ngày luôn */
 export function setSelectedViewDate(dateStr) {
   const newVal = dateStr || null;
@@ -22,13 +41,38 @@ export function setSelectedViewDate(dateStr) {
 }
 
 function hideDayPreview() {
+  _previewToken++;
   const $p = $('#dayPreviewPanel');
   if ($p) $p.style.display = 'none';
 }
 
 function renderDayPreview(dateStr) {
+  const token = ++_previewToken;
+  const $panel  = $('#dayPreviewPanel');
+  const $dateEl = $('#dppDate');
+  const $body   = $('#dppBody');
+  if (!$panel || !$body) return;
+
+  if ($dateEl) $dateEl.textContent = `📅 ${formatDateVN(dateStr)}`;
+  $body.innerHTML = '<p style="margin:0;color:var(--text-muted);font-size:13px">⏳ Đang tải...</p>';
+  $panel.style.display = 'block';
+
+  getDayAssignments(dateStr)
+    .then(() => {
+      if (token !== _previewToken) return;
+      if (state.selectedViewDate !== dateStr) return;
+      _renderDayPreviewImmediate(dateStr);
+    })
+    .catch(err => {
+      if (token !== _previewToken) return;
+      if ($body) $body.innerHTML =
+        `<p style="margin:0;color:var(--danger);font-size:13px">⚠️ Lỗi tải dữ liệu ngày</p>`;
+      console.warn('[preview] getDayAssignments:', err);
+    });
+}
+
+function _renderDayPreviewImmediate(dateStr) {
   const $panel   = $('#dayPreviewPanel');
-  const $dateEl  = $('#dppDate');
   const $body    = $('#dppBody');
   const $editBtn = $('#dppEditBtn');
   if (!$panel || !$body) return;
@@ -36,7 +80,6 @@ function renderDayPreview(dateStr) {
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   const att = state.attendance.find(a => a.date === dateStr);
 
-  if ($dateEl) $dateEl.textContent = `📅 ${formatDateVN(dateStr)}`;
   $body.innerHTML = buildDayPreviewBody(att, emp);
 
   if ($editBtn) {
@@ -55,6 +98,7 @@ function renderDayPreview(dateStr) {
   $panel.style.display = 'block';
 }
 
+/* ⭐ Preview dùng CÙNG logic chia giờ với modal (calcEntryActualHours) */
 function buildDayPreviewBody(att, emp) {
   if (!emp) {
     return `<p style="margin:0;color:var(--text-muted);font-size:13px">Chọn nhân viên để xem chi tiết</p>`;
@@ -70,64 +114,74 @@ function buildDayPreviewBody(att, emp) {
   }
 
   const lines = [];
-  const addLine = (emoji, label, h) => {
+  let sumMain = 0, sumOT = 0;
+
+  const addLine = (emoji, label, h, isOT, others) => {
+    if (isOT) sumOT += h; else sumMain += h;
+    const note = formatSharedNote(others);
+    const noteHTML = note
+      ? `<span style="color:var(--text-muted);font-weight:500;font-size:11px"> (${note})</span>`
+      : '';
     lines.push(
       `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
-        `<span>${emoji} ${label}</span><strong>${formatHours(h)}</strong></div>`
+        `<span>${emoji} ${label}${noteHTML}</span><strong>${formatHours(h)}</strong></div>`
     );
   };
 
   if (Array.isArray(att.areas)) {
     for (const a of att.areas) {
-      if (a.type === 'external')      addLine('🌳', 'Ngoại cảnh', Number(a.hours || 0));
-      else if (a.type === 'night')    addLine('🌙', 'Ca đêm',    Number(a.hours || 0));
+      if (a.type === 'external')      addLine('🌳', 'Ngoại cảnh', calcEntryActualHours(a), false, getPoolForEntry(a).others);
+      else if (a.type === 'night')    addLine('🌙', 'Ca đêm',    calcEntryActualHours(a), false, getPoolForEntry(a).others);
       else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
         const f = state.floors.find(x => x.id === a.floor_id);
-        const h = a.hours != null && a.hours > 0
-          ? Number(a.hours)
-          : (f ? Number(f.default_hours || 0) : 0);
-        addLine('🏢', `${b?.name || '?'} — ${f ? floorLabel(f.floor_number) : '?'}`, h);
+        addLine('🏢', `${b?.name || '?'} — ${f ? floorLabel(f.floor_number) : '?'}`,
+          calcEntryActualHours(a), false, getPoolForEntry(a).others);
       }
     }
   }
 
   if (att.mode === 'manual' && Number(att.manual_hours) > 0 &&
       (!att.areas || att.areas.length === 0)) {
-    addLine('⏱️', 'Giờ công', Number(att.manual_hours));
+    const h = Number(att.manual_hours);
+    sumMain += h;
+    lines.push(
+      `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
+        `<span>⏱️ Giờ công</span><strong>${formatHours(h)}</strong></div>`
+    );
   }
 
   if (Array.isArray(att.ot_areas)) {
     for (const a of att.ot_areas) {
-      if (a.type === 'sunday_ot')      addLine('📅', 'Tăng ca CN',    Number(a.hours || 0));
-      else if (a.type === 'external')  addLine('🌳', 'Ngoại cảnh (OT)', Number(a.hours || 0));
-      else if (a.type === 'night')     addLine('🌙', 'Ca đêm (OT)',   Number(a.hours || 0));
+      if (a.type === 'sunday_ot') {
+        const h = Number(a.hours || 0);
+        sumOT += h;
+        lines.push(
+          `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px dashed var(--border)">` +
+            `<span>📅 Tăng ca CN</span><strong>${formatHours(h)}</strong></div>`
+        );
+      } else if (a.type === 'external') addLine('🌳', 'Ngoại cảnh (OT)', calcEntryActualHours(a), true, getPoolForEntry(a).others);
+      else if (a.type === 'night')      addLine('🌙', 'Ca đêm (OT)',    calcEntryActualHours(a), true, getPoolForEntry(a).others);
       else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
         const f = state.floors.find(x => x.id === a.floor_id);
-        const h = a.hours != null && a.hours > 0
-          ? Number(a.hours)
-          : (f ? Number(f.default_hours || 0) : 0);
-        addLine('🏢', `${b?.name || '?'} — ${f ? floorLabel(f.floor_number) : '?'} (OT)`, h);
+        addLine('🏢', `${b?.name || '?'} — ${f ? floorLabel(f.floor_number) : '?'} (OT)`,
+          calcEntryActualHours(a), true, getPoolForEntry(a).others);
       }
     }
   }
 
-  const tMain = Number(att.total_hours || 0);
-  const tOT   = Number(att.ot_hours   || 0);
-
   return (
     (lines.length ? `<div>${lines.join('')}</div>` : '') +
     `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:13px">` +
-      `<span style="color:var(--text-muted)">Công: <strong style="color:var(--text)">${formatHours(tMain)}</strong></span>` +
-      `<span style="color:var(--text-muted)">OT: <strong style="color:var(--warning)">${formatHours(tOT)}</strong></span>` +
-      `<span style="color:var(--text-muted);margin-left:auto">Tổng: <strong style="color:var(--ocean-700)">${formatHours(tMain + tOT)}</strong></span>` +
+      `<span style="color:var(--text-muted)">Công: <strong style="color:var(--text)">${formatHours(sumMain)}</strong></span>` +
+      `<span style="color:var(--text-muted)">OT: <strong style="color:var(--warning)">${formatHours(sumOT)}</strong></span>` +
+      `<span style="color:var(--text-muted);margin-left:auto">Tổng: <strong style="color:var(--ocean-700)">${formatHours(sumMain + sumOT)}</strong></span>` +
     `</div>`
   );
 }
 
 export function openSelectedDate() {
-  console.log('[ViewDate] open:', state.selectedViewDate);
   if (!state.selectedViewDate) return;
   openAttendanceModal(state.selectedViewDate);
 }
@@ -518,6 +572,7 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
 
+  _previewToken++;
   ensureSpecialState();
   state.editingDate = dateStr;
   state.batchDates = batchDates;
@@ -579,8 +634,8 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
 
   if (!batchDates) {
     bgTasks.push(
-      loadDayAssignments(dateStr)
-        .then(data => { state.dayAssignments = data; })
+      getDayAssignments(dateStr)
+        .then(() => updateEntryHints())
         .catch(err => console.warn('[bg day]', err))
     );
   }
@@ -1087,6 +1142,9 @@ export async function saveAttendance() {
 
   toast(`Đã lưu ${dates.length} ngày ✓`);
 
+  // ⭐ Invalidate preview cache vì assignments đã thay đổi
+  invalidateDayAssignCache();
+
   const wasSelection = state.selectionMode;
   state.batchDates = null;
   if (wasSelection) exitSelectionMode();
@@ -1104,7 +1162,7 @@ export async function saveAttendance() {
   }).catch(err => console.warn(err));
 
   if (dates.length === 1 && !wasSelection) {
-    state.dayAssignments = await loadDayAssignments(dates[0]);
+    await getDayAssignments(dates[0]);
     const saved = state.attendance.find(a => a.date === dates[0]);
     if (saved) {
       showSummaryView(saved);
@@ -1212,7 +1270,7 @@ export function renderCalendar() {
   }
 }
 
-/* ⭐ FIX: touchstart (mobile, 0ms) + click (desktop) với dedupe 400ms */
+/* ⭐ touchstart (mobile, 0ms) + click (desktop) với dedupe 400ms */
 function attachCalendarSelect(el, dateStr) {
   let lastFire = 0;
 
