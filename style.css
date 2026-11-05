@@ -281,6 +281,158 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: var(--ocean-500); color: white;
 }
 
+/* ============ DAY PREVIEW PANEL — phía trên lịch ============ */
+.day-preview-panel {
+  background: linear-gradient(135deg, #ffffff, var(--ocean-50));
+  border: 1.5px solid var(--ocean-200);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  animation: fadeIn 0.2s ease;
+}
+
+.dpp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+  gap: 8px;
+}
+
+.dpp-date {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ocean-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.dpp-edit-btn {
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--ocean-500), var(--ocean-600));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: 0.15s;
+}
+.dpp-edit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(14,165,183,0.3);
+}
+.dpp-edit-btn:active {
+  transform: translateY(0);
+}
+
+.dpp-body {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.dpp-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  gap: 8px;
+}
+.dpp-line .label {
+  color: var(--text-muted);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+.dpp-line .value {
+  font-weight: 700;
+  color: var(--ocean-700);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dpp-totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.dpp-total-item {
+  text-align: center;
+  background: white;
+  padding: 8px 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.dpp-total-item .label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dpp-total-item .value {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ocean-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dpp-empty {
+  text-align: center;
+  padding: 14px 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.dpp-status {
+  text-align: center;
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.dpp-status.leave {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+.dpp-status.off {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.dpp-shared {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 2px;
+}
+
 /* ============ Calendar ============ */
 .calendar-wrap {
   background: var(--card); border-radius: var(--radius);
@@ -349,11 +501,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .cal-day.selected-view .day-num {
   color: white !important;
-}
-
-/* Animation cho nút Xem */
-#viewDateRow {
-  animation: fadeIn 0.2s ease;
 }
 
 /* ============ Calendar Legend ============ */
@@ -1595,6 +1742,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .legend-item { font-size: 10px; gap: 4px; }
   .legend-dot { width: 10px; height: 10px; }
   .seg-control label span { font-size: 11px; padding: 9px 2px; }
+  .dpp-total-item .value { font-size: 13px; }
+  .dpp-total-item .label { font-size: 9px; }
 }
 
 @media (max-width: 380px) {
@@ -1626,6 +1775,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   .seg-control label span { font-size: 10px; padding: 9px 2px; min-height: 38px; line-height: 20px; }
   .att-preview-item .value { font-size: 16px; }
+
+  .dpp-total-item .value { font-size: 12px; }
+  .dpp-total-item .label { font-size: 9px; }
+  .dpp-edit-btn { padding: 6px 10px; font-size: 11px; }
 }
 
 @media (max-width: 360px) {
