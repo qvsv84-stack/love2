@@ -236,7 +236,7 @@ async function showGuestView() {
 
     await loadPublicEmployees();
     await Promise.all([loadBuildings(), loadAttendanceForMonth()]);
-    updateSummary();  // ⭐ FIX #3 (race): double-safe
+    updateSummary();  // ⭐ FIX race: double-safe
     renderCalendar();
   } finally {
     _showGuestInProgress = false;
@@ -292,7 +292,7 @@ async function onLoggedIn(user) {
     loadAttendanceForMonth(),
   ]);
 
-  updateSummary();  // ⭐ FIX #2 (race): double-safe sau Promise.all
+  updateSummary();  // ⭐ FIX race: double-safe
   renderCalendar();
   renderBuildings();
 }
@@ -336,7 +336,7 @@ async function loadEmployees() {
 
   renderEmployeeSelect();
   renderEmployeeList();
-  updateSummary();  // ⭐ FIX #1 (race): gọi lại khi employees đã load xong
+  updateSummary();  // ⭐ FIX race: gọi lại khi employees đã load xong
 }
 
 function renderEmployeeSelect() {
@@ -538,6 +538,16 @@ async function copyPhoneNumber() {
   } catch (err) {
     toast('Không sao chép được');
   }
+}
+
+/* ⭐ Mở Zalo theo SĐT — https://zalo.me/{phone} mở app nếu cài, fallback web */
+function openZalo() {
+  const phone = state.phoneActionNumber;
+  if (!phone) return;
+  // Zalo hỗ trợ cả local (0912345678) lẫn quốc tế (84912345678) → giữ nguyên
+  const url = 'https://zalo.me/' + encodeURIComponent(phone);
+  window.open(url, '_blank', 'noopener');
+  closeModal('phoneActionModal');
 }
 
 /* ============ ROLE / STATUS / DELETE ============ */
@@ -1103,7 +1113,9 @@ function updateSummary() {
   if (!emp) {
     ['sumName', 'sumRole', 'sumMonthLabel', 'sumTodayDate']
       .forEach(id => { const el = $('#' + id); if (el) el.textContent = '—'; });
-    // ⭐ FIX #8: reset đúng kiểu (giờ có "h", ngày không)
+    // ⭐ Ẩn phone row khi không có employee
+    const $pr = $('#sumPhoneRow'); if ($pr) $pr.style.display = 'none';
+    // ⭐ FIX #8: reset đúng kiểu
     const $sd = $('#sumDays'); if ($sd) $sd.textContent = '0';
     const $sw = $('#sumWork'); if ($sw) $sw.textContent = '0h';
     const $so = $('#sumOT'); if ($so) $so.textContent = '0h';
@@ -1115,6 +1127,26 @@ function updateSummary() {
 
   $('#sumName').textContent = emp.full_name || emp.username || emp.email || '—';
   $('#sumRole').textContent = roleLabelOf(emp);
+
+  // ⭐ Phone row — hiện nếu có SĐT, tap mở modal 3 hành động
+  const $phoneRow = $('#sumPhoneRow');
+  const $phoneBtn = $('#sumPhoneBtn');
+  const $phoneText = $('#sumPhoneText');
+  const empPhone = (emp.phone || '').trim();
+  if ($phoneRow && $phoneBtn && $phoneText) {
+    if (empPhone) {
+      $phoneText.textContent = empPhone;
+      // Gỡ handler cũ (nếu có) rồi gắn mới — tránh leak khi đổi employee
+      $phoneBtn.onclick = (ev) => {
+        ev.preventDefault();
+        showPhoneAction(empPhone);
+      };
+      $phoneRow.style.display = 'block';
+    } else {
+      $phoneRow.style.display = 'none';
+      $phoneBtn.onclick = null;
+    }
+  }
 
   // ⭐ Label tháng đang xem (MM/YYYY)
   const y = state.currentMonth.getFullYear();
@@ -2348,7 +2380,6 @@ function bindEvents() {
     if (e.target.id === 'exportModal') closeModal('exportModal');
   });
   $('#exportSubmitBtn').addEventListener('click', () => {
-    // ⭐ doExport giờ là async — không await cần thiết, nhưng bắt lỗi
     if (exportModule) exportModule.doExport().catch(err => console.error(err));
   });
   $$('input[name="exportScope"]').forEach(r => {
@@ -2374,7 +2405,6 @@ function bindEvents() {
     if (salaryModule) salaryModule.onSortChanged();
   });
   $('#salaryExportBtn').addEventListener('click', () => {
-    // ⭐ doExportSalary giờ là async
     if (exportModule && exportModule.doExportSalary) {
       exportModule.doExportSalary().catch(err => console.error(err));
     }
@@ -2457,8 +2487,11 @@ function bindEvents() {
   });
   $('#saveEditEmpBtn').addEventListener('click', saveEditEmployee);
 
+  // ⭐ PHONE ACTION — Gọi / Zalo / Copy
   $('#phoneCallBtn').addEventListener('click', callPhoneNumber);
   $('#phoneCopyBtn').addEventListener('click', copyPhoneNumber);
+  const $zaloBtn = $('#phoneZaloBtn');
+  if ($zaloBtn) $zaloBtn.addEventListener('click', openZalo);
   $('#phoneActionModal').addEventListener('click', (e) => {
     if (e.target.id === 'phoneActionModal') closeModal('phoneActionModal');
   });
