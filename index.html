@@ -191,18 +191,21 @@
         <div id="exportActionRow" style="display:none; margin-bottom:12px">
           <button id="exportExcelBtn" class="btn-secondary" style="width:100%">📥 Xuất Excel</button>
         </div>
+
+        <!-- ⭐ DAY PREVIEW PANEL — phía trên lịch -->
+        <div id="dayPreviewPanel" class="day-preview-panel" style="display:none">
+          <div class="dpp-header">
+            <span class="dpp-date" id="dppDate">📅 —</span>
+            <button class="dpp-edit-btn" id="dppEditBtn" style="display:none">✏️ Sửa</button>
+          </div>
+          <div class="dpp-body" id="dppBody"></div>
+        </div>
+
         <div class="calendar-wrap">
           <div class="weekdays">
             <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
           </div>
           <div id="calendarGrid" class="calendar-grid"></div>
-        </div>
-
-        <!-- ⭐ Nút Xem chi tiết ngày đã chọn -->
-        <div id="viewDateRow" style="display:none;margin-top:12px">
-          <button id="viewDateBtn" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;font-size:15px">
-            👁 Xem chi tiết ngày <span id="viewDateLabel">—</span>
-          </button>
         </div>
 
         <div class="calendar-legend">
@@ -211,7 +214,7 @@
           <span class="legend-item"><span class="legend-dot dot-leave"></span>Phép</span>
           <span class="legend-item"><span class="legend-dot dot-today"></span>Hôm nay</span>
         </div>
-        <p class="hint" id="calendarHint" style="display:none">💡 Nhấp vào một ngày để chọn · Nhấn "Xem chi tiết" để chấm công</p>
+        <p class="hint" id="calendarHint" style="display:none">💡 Nhấp vào một ngày để xem chi tiết · Nút ✏️ Sửa để chấm công</p>
       </section>
 
       <section id="tab-areas" class="tab-content">
