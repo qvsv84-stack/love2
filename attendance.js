@@ -221,7 +221,7 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   if (targetIsSupervisor) openSupervisorModeContent(template);
   else openEmployeeModeContent(template);
 
-  // ⭐ Sunday toggle: chỉ hiện Chủ nhật
+  // ⭐ Chỉ hiện Tăng ca CN vào Chủ nhật
   const $sundayToggle = $('#sundayOtToggle');
   if ($sundayToggle) {
     let isSunday = false;
@@ -348,7 +348,7 @@ function openEmployeeModeContent(template) {
   toggleSundayOtSection(isSundayOt);
 }
 
-/* ⭐ Helpers để tính preview khớp với SQL trigger */
+/* ⭐ Helpers tính preview khớp SQL trigger */
 function getEntryDefaultHours(entry) {
   if (entry.type === 'building') {
     if (!entry.floor_id) return 0;
@@ -643,7 +643,6 @@ function computeOtHours() {
   return computeOtHoursRaw() + computeOverflow();
 }
 
-/* ⭐ Preview THẬT (đã chia theo số người cùng khu vực) */
 function computePreviewMain() {
   const mode = getSelectedMode();
   if (mode === 'off' || mode === 'leave') return 0;
@@ -898,27 +897,48 @@ export function renderCalendar() {
       el.addEventListener('click', () => toggleDateSelection(el.dataset.date)));
   } else if (state.isAdmin) {
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
-      attachLongPress(el, () => openAttendanceModal(el.dataset.date)));
+      attachDoubleTap(el, () => openAttendanceModal(el.dataset.date)));
   }
 }
 
-function attachLongPress(el, cb) {
-  let timer = null, moved = false;
-  const DURATION = 550;
-  const start = () => {
-    moved = false;
-    timer = setTimeout(() => { if (!moved) { if (navigator.vibrate) navigator.vibrate(30); cb(); } }, DURATION);
+/* ⭐ Double-tap thay long press */
+function attachDoubleTap(el, cb) {
+  let lastTap = 0;
+  let tapTimer = null;
+  const DOUBLE_TAP_DELAY = 300;
+
+  const onTap = (e) => {
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTap;
+
+    if (timeSinceLastTap < DOUBLE_TAP_DELAY && timeSinceLastTap > 0) {
+      // ⭐ Double tap detected
+      if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; }
+      lastTap = 0;
+
+      el.classList.add('pressing');
+      setTimeout(() => el.classList.remove('pressing'), 200);
+
+      try { if (navigator.vibrate) navigator.vibrate(20); } catch {}
+
+      e.preventDefault();
+      e.stopPropagation();
+      cb();
+      return;
+    }
+
+    lastTap = now;
+    // Optional: visual feedback cho first tap
+    el.classList.add('pressing');
+    if (tapTimer) clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => {
+      el.classList.remove('pressing');
+      tapTimer = null;
+      lastTap = 0;
+    }, DOUBLE_TAP_DELAY);
   };
-  const cancel = () => { clearTimeout(timer); timer = null; };
-  const move = () => { moved = true; cancel(); };
-  el.addEventListener('touchstart', start, { passive: true });
-  el.addEventListener('touchend', cancel);
-  el.addEventListener('touchmove', move, { passive: true });
-  el.addEventListener('touchcancel', cancel);
-  el.addEventListener('mousedown', start);
-  el.addEventListener('mouseup', cancel);
-  el.addEventListener('mouseleave', cancel);
-  el.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  el.addEventListener('click', onTap);
 }
 
 export function switchTab(name) {
