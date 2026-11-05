@@ -119,6 +119,37 @@ function getShortName(fullName) {
 function openModal(id) { $('#' + id).style.display = 'flex'; }
 function closeModal(id) { $('#' + id).style.display = 'none'; }
 
+/* ⭐ Lazy load html2canvas — chỉ tải khi cần */
+let _html2canvasPromise = null;
+function loadHtml2Canvas() {
+  if (window.html2canvas) return Promise.resolve(window.html2canvas);
+  if (_html2canvasPromise) return _html2canvasPromise;
+  _html2canvasPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.async = true;
+    s.onload = () => resolve(window.html2canvas);
+    s.onerror = () => { _html2canvasPromise = null; reject(new Error('html2canvas load failed')); };
+    document.head.appendChild(s);
+  });
+  return _html2canvasPromise;
+}
+
+/* ⭐ Cache attendance theo employee_id + year-month */
+const attendanceCache = {};
+function attendanceCacheKey(empId, y, m) {
+  return `${empId}_${y}_${m}`;
+}
+function invalidateAttendanceCache(empId) {
+  if (empId) {
+    Object.keys(attendanceCache).forEach(k => {
+      if (k.startsWith(empId + '_')) delete attendanceCache[k];
+    });
+  } else {
+    Object.keys(attendanceCache).forEach(k => delete attendanceCache[k]);
+  }
+}
+
 /* ============ AUTH ============ */
 async function initAuth() {
   try {
@@ -130,9 +161,26 @@ async function initAuth() {
     }
   } catch {}
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.user) await onLoggedIn(session.user);
-  else await showGuestView();
+  // ⭐ Timeout 8s — nếu Supabase treo, không để trang trắng
+  let session = null;
+  try {
+    const sessionPromise = supabase.auth.getSession();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 8000)
+    );
+    const { data } = await Promise.race([sessionPromise, timeoutPromise]);
+    session = data?.session;
+  } catch (err) {
+    console.warn('[Auth]', err.message);
+    session = null;
+  }
+
+  if (session?.user) {
+    try { await onLoggedIn(session.user); }
+    catch (err) { console.error(err); await showGuestView(); }
+  } else {
+    await showGuestView();
+  }
 }
 
 function showLoginScreen() {
@@ -177,9 +225,9 @@ async function showGuestView() {
 
   switchTab('calendar');
 
+  // ⭐ Cần employee trước, sau đó song song
   await loadPublicEmployees();
-  await loadBuildings();
-  await loadAttendanceForMonth();
+  await Promise.all([loadBuildings(), loadAttendanceForMonth()]);
   renderCalendar();
 }
 
@@ -225,14 +273,22 @@ async function onLoggedIn(user) {
   state.selectedEmployeeId = user.id;
   switchTab('calendar');
 
-  await loadEmployees();
-  await loadBuildings();
-  await loadAttendanceForMonth();
+  // ⭐⭐⭐ LOAD SONG SONG — nhanh gấp 2-3 lần
+  await Promise.all([
+    loadEmployees(),
+    loadBuildings(),
+    loadAttendanceForMonth(),
+  ]);
+
   renderCalendar();
+  renderBuildings();
 }
 
 async function handleLogout() {
   await supabase.auth.signOut();
+  // ⭐ Clear cache khi logout
+  invalidateAttendanceCache();
+  if (salaryModule) salaryModule.invalidateCache();
   await showGuestView();
 }
 
@@ -531,6 +587,11 @@ async function deleteEmployee(userId, name) {
   const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userId });
   if (error) { toast('Lỗi: ' + error.message.replace(/^ERROR:\s*/i, '')); return; }
   toast('🗑 Đã xoá nhân viên');
+
+  // ⭐ Invalidate cache
+  invalidateAttendanceCache();
+  if (salaryModule) salaryModule.invalidateCache();
+
   await loadEmployees();
   await loadAttendanceForMonth();
   await loadTodayAssignments();
@@ -587,9 +648,11 @@ async function loadBuildings() {
     const { data: floors } = await supabase
       .from('floors').select('*').in('building_id', ids).order('floor_number');
     state.floors = floors || [];
-  } else state.floors = [];
+  } else {
+    state.floors = [];
+  }
 
-  await loadTodayAssignments();
+  // ⭐ KHÔNG gọi loadTodayAssignments ở đây — chỉ cần khi mở tab Khu vực
   renderBuildings();
 }
 
@@ -901,6 +964,8 @@ async function deleteBuilding(id) {
   const { error } = await supabase.from('buildings').delete().eq('id', id);
   if (error) { toast('Xoá thất bại'); return; }
   toast('Đã xoá');
+  invalidateAttendanceCache();
+  if (salaryModule) salaryModule.invalidateCache();
   await loadBuildings();
   await loadAttendanceForMonth();
   renderCalendar();
@@ -970,16 +1035,27 @@ async function saveFloors() {
   if (failed) { toast('Lỗi lưu: ' + failed.error.message); return; }
   toast('Đã lưu giờ tầng ✓');
   closeModal('floorModal');
+  invalidateAttendanceCache();
+  if (salaryModule) salaryModule.invalidateCache();
   await loadBuildings();
   await loadAttendanceForMonth();
   renderCalendar();
 }
 
 /* ============ ATTENDANCE ============ */
-async function loadAttendanceForMonth() {
+async function loadAttendanceForMonth(forceRefresh = false) {
   if (!state.selectedEmployeeId) { state.attendance = []; return; }
   const y = state.currentMonth.getFullYear();
   const m = state.currentMonth.getMonth();
+  const key = attendanceCacheKey(state.selectedEmployeeId, y, m);
+
+  // ⭐ Cache hit
+  if (!forceRefresh && attendanceCache[key]) {
+    state.attendance = attendanceCache[key];
+    updateSummary();
+    return;
+  }
+
   const start = `${y}-${pad(m + 1)}-01`;
   const end = `${y}-${pad(m + 1)}-${pad(new Date(y, m + 1, 0).getDate())}`;
 
@@ -987,8 +1063,13 @@ async function loadAttendanceForMonth() {
     .from('attendance').select('*')
     .eq('employee_id', state.selectedEmployeeId)
     .gte('date', start).lte('date', end);
-  if (error) { console.error(error); state.attendance = []; }
-  else state.attendance = data || [];
+  if (error) {
+    console.error(error);
+    state.attendance = [];
+  } else {
+    state.attendance = data || [];
+    attendanceCache[key] = state.attendance;
+  }
   updateSummary();
 }
 
@@ -1464,7 +1545,11 @@ async function saveAttendance() {
 
   if (wasSelection) exitSelectionMode();
 
-  await loadAttendanceForMonth();
+  // ⭐ Invalidate cache
+  invalidateAttendanceCache(state.selectedEmployeeId);
+  if (salaryModule) salaryModule.invalidateCache();
+
+  await loadAttendanceForMonth(true);
   await loadTodayAssignments();
   renderCalendar();
   renderBuildings();
@@ -1596,7 +1681,8 @@ function switchTab(name) {
     $('#salaryRoleFilter').value = state.salaryRoleFilter;
     $('#salarySearch').value = state.salarySearch || '';
     $('#salarySort').value = state.salarySort || 'hours_desc';
-    salaryModule.loadSalaryForMonth(true);
+    // ⭐ false = dùng cache, không force refetch mỗi lần mở tab
+    salaryModule.loadSalaryForMonth(false);
   }
 
   if (name === 'areas' && state.isAdmin) {
@@ -1742,7 +1828,6 @@ function renderExcelBlocks(y, m, daysInMonth) {
     if (daysInMonth > mid) {
       block2.innerHTML = renderMatrixBlock(y, m, mid + 1, daysInMonth, attMap);
       block2.style.display = 'block';
-      // Show/hide part 2 label
       const part2Label = block2.previousElementSibling;
       if (part2Label && part2Label.classList.contains('excel-part-label')) {
         part2Label.style.display = 'inline-block';
@@ -1757,7 +1842,6 @@ function renderExcelBlocks(y, m, daysInMonth) {
     }
   }
 
-  // Bind tap tên → mở modal action
   $$('[data-emp]').forEach(el => {
     el.addEventListener('click', () => {
       openExcelActionModal(el.dataset.emp);
@@ -1832,10 +1916,12 @@ function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title
   return html;
 }
 
-/* ⭐ Chụp 1 user (hoặc nhiều user) → PNG */
+/* ⭐ Chụp 1 user (hoặc nhiều user) → PNG — lazy load html2canvas */
 async function captureExcelPNG(profilesToCapture, title, filename) {
-  if (typeof html2canvas === 'undefined') {
-    toast('Chưa tải được thư viện xuất ảnh');
+  try {
+    await loadHtml2Canvas();
+  } catch {
+    toast('Không tải được thư viện ảnh');
     return null;
   }
 
@@ -1859,7 +1945,6 @@ async function captureExcelPNG(profilesToCapture, title, filename) {
     </div>
   `;
 
-  // Đợi 1 tick để DOM render
   await new Promise(r => setTimeout(r, 100));
 
   try {
@@ -2003,7 +2088,6 @@ async function sharePNG(blob, filename, title) {
       toast('✅ Đã chia sẻ ảnh');
     } catch (err) {
       if (err.name === 'AbortError') return;
-      // Fallback download
       downloadBlob(blob, filename);
     }
   } else if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -2015,7 +2099,6 @@ async function sharePNG(blob, filename, title) {
       downloadBlob(blob, filename);
     }
   } else {
-    // Fallback download
     downloadBlob(blob, filename);
     toast('✅ Đã tải ảnh: ' + filename);
   }
@@ -2097,7 +2180,12 @@ async function bulkCopySubmit() {
 
   toast(`Đã copy ${payloads.length} bản ghi ✓`);
   closeModal('bulkCopyModal');
-  await loadAttendanceForMonth();
+
+  // ⭐ Invalidate cache
+  invalidateAttendanceCache();
+  if (salaryModule) salaryModule.invalidateCache();
+
+  await loadAttendanceForMonth(true);
   await loadTodayAssignments();
   renderCalendar();
   renderBuildings();
@@ -2196,7 +2284,8 @@ function bindEvents() {
     if (e.target.id === 'exportModal') closeModal('exportModal');
   });
   $('#exportSubmitBtn').addEventListener('click', () => {
-    if (exportModule) exportModule.doExport();
+    // ⭐ doExport giờ là async — không await cần thiết, nhưng bắt lỗi
+    if (exportModule) exportModule.doExport().catch(err => console.error(err));
   });
   $$('input[name="exportScope"]').forEach(r => {
     r.addEventListener('change', () => {
@@ -2204,7 +2293,7 @@ function bindEvents() {
     });
   });
   $('#exportMonth').addEventListener('change', () => {
-    if (exportModule) exportModule.onMonthChanged();
+    if (exportModule) exportModule.onMonthChanged().catch(err => console.error(err));
   });
 
   // SALARY
@@ -2221,7 +2310,10 @@ function bindEvents() {
     if (salaryModule) salaryModule.onSortChanged();
   });
   $('#salaryExportBtn').addEventListener('click', () => {
-    if (exportModule && exportModule.doExportSalary) exportModule.doExportSalary();
+    // ⭐ doExportSalary giờ là async
+    if (exportModule && exportModule.doExportSalary) {
+      exportModule.doExportSalary().catch(err => console.error(err));
+    }
   });
 
   // EXCEL TAB
@@ -2318,6 +2410,8 @@ function bindEvents() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session && state.user) {
+      invalidateAttendanceCache();
+      if (salaryModule) salaryModule.invalidateCache();
       showGuestView();
     }
   });
