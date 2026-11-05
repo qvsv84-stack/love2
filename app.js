@@ -26,6 +26,7 @@ import {
   saveAttendance, toggleSelectionMode, exitSelectionMode,
   renderCalendar, switchTab, changeMonth,
   openSelectedDate,
+  invalidateDayAssignCache,
 } from './attendance.js';
 
 import {
@@ -61,6 +62,48 @@ async function reloadAreasForDate(dateStr) {
     b.renderBuildings();
   } catch (err) {
     console.warn('[reloadAreas] failed:', err);
+  }
+}
+
+/* ⭐ Auto-restore phiên từ localStorage nếu có username/password đã lưu */
+async function tryAutoLogin() {
+  try {
+    const saved = localStorage.getItem(LS_KEY);
+    if (!saved) return false;
+    const { username, password } = JSON.parse(saved || '{}');
+    if (!username || !password) return false;
+
+    const email = username.includes('@') ? username : `${username}@${DEFAULT_DOMAIN}`;
+    dbg('info', '🔑 Auto-login: ' + email);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      dbg('warn', 'Auto-login fail: ' + error.message);
+      return false;
+    }
+    dbg('ok', 'Auto-login OK');
+    await onLoggedIn(data.user);
+    return true;
+  } catch (err) {
+    console.warn('[autoLogin]', err);
+    return false;
+  }
+}
+
+/* ⭐ Kiểm tra session còn sống không, refresh nếu cần */
+async function ensureSessionAlive() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data?.session) return true;
+    // Thử refresh token
+    const { data: refreshed, error } = await supabase.auth.refreshSession();
+    if (error || !refreshed?.session) {
+      dbg('warn', 'Session chết — thử auto-login');
+      return await tryAutoLogin();
+    }
+    return true;
+  } catch (err) {
+    console.warn('[ensureSession]', err);
+    return false;
   }
 }
 
@@ -119,7 +162,6 @@ function bindEvents() {
     openAttendanceModal(todayStr);
   });
 
-  /* ⭐ Nút Xem chi tiết ngày đã chọn */
   const $viewDateBtn = $('#viewDateBtn');
   if ($viewDateBtn) {
     $viewDateBtn.addEventListener('click', () => {
@@ -157,6 +199,7 @@ function bindEvents() {
 
       toast(`Đã xoá ${dates.length} ngày ✓`);
       invalidateAttendanceCache(state.selectedEmployeeId);
+      invalidateDayAssignCache();
       if (state.salaryModule) state.salaryModule.invalidateCache();
       await loadAttendanceForMonth(true);
       renderCalendar();
@@ -194,7 +237,6 @@ function bindEvents() {
     });
   }
 
-  /* ⭐ Bind date picker xem ngày cũ */
   const $areasViewDate = $('#areasViewDate');
   if ($areasViewDate) {
     if (!$areasViewDate.value) {
@@ -213,7 +255,6 @@ function bindEvents() {
     $areasViewDate.addEventListener('input', handleDateChange);
   }
 
-  /* ⭐ Nút "Hôm nay" */
   const $areasTodayBtn = $('#areasTodayBtn');
   if ($areasTodayBtn) {
     $areasTodayBtn.addEventListener('click', async () => {
@@ -389,12 +430,36 @@ function bindEvents() {
   $$('[data-close]').forEach(btn =>
     btn.addEventListener('click', () => closeModal(btn.dataset.close)));
 
-  supabase.auth.onAuthStateChange((_event, session) => {
-    if (!session && state.user) {
+  /* ⭐ Auth state: CHỈ logout khi Supabase bắn SIGNED_OUT thật, không bắt null-session tạm */
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+      dbg('warn', 'Signed out — chuyển guest');
       invalidateAttendanceCache();
       if (state.salaryModule) state.salaryModule.invalidateCache();
+      state.user = null;
+      showGuestView();
+    } else if (event === 'SIGNED_IN' && session?.user && !state.user) {
+      // Re-login (ví dụ do auto-restore) — khôi phục state
+      dbg('ok', 'Signed in (restore): ' + session.user.email);
+      onLoggedIn(session.user).catch(err => console.warn(err));
+    }
+    // TOKEN_REFRESHED / INITIAL_SESSION / USER_UPDATED → bỏ qua, không đụng state
+  });
+
+  /* ⭐ Khi tab active lại sau khi ẩn lâu → kiểm tra session còn sống */
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!state.user) return;
+    const alive = await ensureSessionAlive();
+    if (!alive) {
+      dbg('warn', 'Session mất — về guest');
       showGuestView();
     }
+  });
+
+  /* ⭐ Khi mạng có lại → refresh session phòng hờ */
+  window.addEventListener('online', () => {
+    if (state.user) ensureSessionAlive().catch(() => {});
   });
 }
 
@@ -440,6 +505,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     dbg('info', 'Bind events...');
     bindEvents();
+
+    /* ⭐ Nếu có saved credentials mà session đã hết → auto restore trước khi initAuth */
+    try {
+      const { data: { session: existing } } = await supabase.auth.getSession();
+      if (!existing) {
+        dbg('info', 'Không có session — thử auto-login từ localStorage...');
+        const restored = await tryAutoLogin();
+        if (restored) {
+          dbg('ok', '✅ Auto-restored session');
+          return; // onLoggedIn đã lo phần UI
+        }
+      }
+    } catch (err) {
+      console.warn('[pre-init auth]', err);
+    }
 
     dbg('info', 'Init auth...');
     await initAuth();
