@@ -201,16 +201,56 @@
             <label>Nhân viên:</label>
             <select id="employeeSelect" class="select-input"></select>
           </div>
+
+          <!-- ⭐⭐⭐ SUMMARY CARD MỚI — 2 section: Tổng tháng + Hôm nay -->
           <div class="summary-card" id="summaryCard" style="display:none">
             <div class="summary-line">
               <span class="emp-name" id="sumName">—</span>
               <span class="emp-role" id="sumRole">—</span>
             </div>
-            <div class="summary-stats" style="grid-template-columns: repeat(4, 1fr)">
-              <div class="stat"><span class="stat-label">Ngày công</span><span class="stat-value" id="sumDays">0</span></div>
-              <div class="stat"><span class="stat-label">Giờ công</span><span class="stat-value" id="sumWork">0h</span></div>
-              <div class="stat"><span class="stat-label">Tăng ca</span><span class="stat-value" id="sumOT">0h</span></div>
-              <div class="stat"><span class="stat-label">Phép</span><span class="stat-value" id="sumLeave">0</span></div>
+
+            <!-- Section 1: Tổng tháng -->
+            <div style="margin-top:10px">
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;display:flex;align-items:center;gap:4px">
+                <span>📅</span>
+                <span>Tổng tháng <span id="sumMonthLabel" style="color:var(--ocean-700)">—</span></span>
+              </div>
+              <div class="summary-stats" style="grid-template-columns: repeat(4, 1fr)">
+                <div class="stat">
+                  <span class="stat-label">Ngày</span>
+                  <span class="stat-value" id="sumDays">0</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-label">Giờ</span>
+                  <span class="stat-value" id="sumWork">0h</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-label">OT</span>
+                  <span class="stat-value" id="sumOT">0h</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-label">Phép</span>
+                  <span class="stat-value" id="sumLeave">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 2: Hôm nay (ẩn khi xem tháng khác) -->
+            <div id="sumTodaySection" style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;display:flex;align-items:center;gap:4px">
+                <span>📍</span>
+                <span>Hôm nay — <span id="sumTodayDate" style="color:var(--ocean-700)">—</span></span>
+              </div>
+              <div class="summary-stats" style="grid-template-columns: repeat(2, 1fr)">
+                <div class="stat">
+                  <span class="stat-label">Công</span>
+                  <span class="stat-value" id="sumTodayWork" style="color:var(--success)">0h</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-label">Tăng ca</span>
+                  <span class="stat-value" id="sumTodayOT" style="color:var(--warning)">0h</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
