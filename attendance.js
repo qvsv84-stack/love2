@@ -13,8 +13,13 @@ function ensureSpecialState() {
   if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
+/* ⭐ SELECTED VIEW DATE */
 export function setSelectedViewDate(dateStr) {
-  state.selectedViewDate = dateStr || null;
+  const newVal = dateStr || null;
+  if (state.selectedViewDate === newVal) return;
+
+  state.selectedViewDate = newVal;
+
   const $row = $('#viewDateRow');
   const $label = $('#viewDateLabel');
 
@@ -24,10 +29,12 @@ export function setSelectedViewDate(dateStr) {
   } else {
     if ($row) $row.style.display = 'none';
   }
+
   renderCalendar();
 }
 
 export function openSelectedDate() {
+  console.log('[ViewDate] open:', state.selectedViewDate);
   if (!state.selectedViewDate) return;
   openAttendanceModal(state.selectedViewDate);
 }
@@ -1116,25 +1123,19 @@ export function renderCalendar() {
   }
 }
 
-/* ⭐ FIX: dùng click event — reliable trên mọi browser */
+/* ⭐ FIX: touchstart (mobile, 0ms) + click (desktop) với dedupe 400ms */
 function attachCalendarSelect(el, dateStr) {
-  // Visual feedback ngay khi chạm
-  el.addEventListener('touchstart', () => {
-    el.style.transform = 'scale(0.94)';
-  }, { passive: true });
+  let lastFire = 0;
 
-  el.addEventListener('touchend', () => {
-    el.style.transform = '';
-  });
+  const handle = (e) => {
+    const now = Date.now();
+    if (now - lastFire < 400) return;
+    lastFire = now;
 
-  el.addEventListener('touchcancel', () => {
-    el.style.transform = '';
-  });
-
-  // Click event — 100% reliable, xử lý toggle
-  el.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e) {
+      if (e.cancelable) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+    }
 
     try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
 
@@ -1143,7 +1144,10 @@ function attachCalendarSelect(el, dateStr) {
     } else {
       setSelectedViewDate(dateStr);
     }
-  });
+  };
+
+  el.addEventListener('touchstart', (e) => handle(e), { passive: false });
+  el.addEventListener('click', (e) => handle(e));
 }
 
 export function switchTab(name) {
