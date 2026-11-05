@@ -12,6 +12,9 @@ function ensureSpecialState() {
   if (!state.specialAreas) {
     state.specialAreas = { external: null, night: null };
   }
+  if (!Array.isArray(state.dayAssignments)) {
+    state.dayAssignments = [];
+  }
 }
 
 /* ============ LOAD ============ */
@@ -42,6 +45,39 @@ export async function loadAttendanceForMonth(forceRefresh = false) {
     attendanceCache[key] = state.attendance;
   }
   updateSummary();
+}
+
+async function loadDayAssignments(dateStr) {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('employee_id, areas')
+      .eq('date', dateStr)
+      .neq('is_off', true);
+    if (error) { console.error(error); return []; }
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+function getConflictsForFloor(floorId, excludeEmpId) {
+  if (!floorId || !Array.isArray(state.dayAssignments)) return [];
+  const empIds = new Set();
+  for (const att of state.dayAssignments) {
+    if (att.employee_id === excludeEmpId) continue;
+    if (Array.isArray(att.areas)) {
+      for (const a of att.areas) {
+        if ((!a.type || a.type === 'building') && a.floor_id === floorId) {
+          empIds.add(att.employee_id);
+        }
+      }
+    }
+  }
+  return [...empIds].map(id => {
+    const emp = state.employees.find(e => e.id === id);
+    return emp?.full_name || emp?.username || 'NV khác';
+  });
 }
 
 /* ============ SUMMARY ============ */
@@ -153,6 +189,13 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
 
   state.editingDate = dateStr;
   state.batchDates = batchDates;
+
+  // ⭐ Load day assignments để check conflict
+  if (!batchDates) {
+    state.dayAssignments = await loadDayAssignments(dateStr);
+  } else {
+    state.dayAssignments = [];
+  }
 
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   const targetIsSupervisor = emp?.role === 'admin';
@@ -347,6 +390,7 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
     `;
 
     let contentHtml = '';
+    let conflictHtml = '';
 
     if (type === 'building') {
       const bOpts = state.buildings.map(b =>
@@ -366,6 +410,14 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         const placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
         hoursInput = `<input type="number" class="area-hours-input" data-hours-idx="${idx}"
           step="0.5" min="0" max="24" value="${displayVal}" placeholder="${placeholder}" title="Để trống = chia sẻ tự động" />`;
+      }
+
+      // ⭐ Conflict check
+      if (entry.floor_id) {
+        const conflicts = getConflictsForFloor(entry.floor_id, state.selectedEmployeeId);
+        if (conflicts.length > 0) {
+          conflictHtml = `<div class="area-conflict">⚠️ Đã có ${conflicts.join(', ')} đang làm ở tầng này</div>`;
+        }
       }
 
       contentHtml = `
@@ -396,6 +448,7 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         <select class="area-type">${typeOpts}</select>
         ${contentHtml}
         <button class="remove-area" data-remove="${idx}">✕</button>
+        ${conflictHtml}
       </div>`;
   }).join('');
 
@@ -442,6 +495,7 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
             hInput.placeholder = floor ? formatHours(floor.default_hours) : 'Giờ';
           }
         }
+        rerender();
         updatePreview();
       });
     }
@@ -675,8 +729,6 @@ function buildEmployeePayload() {
     };
   }
 
-  /* ⭐ mode === 'default' — LUÔN dùng mode 'default' (không tự chuyển manual)
-     Trigger SQL sẽ chia sẻ giờ building + cộng external/night/sunday_ot */
   const validAreas = state.modalAreas.filter(a => {
     if (a.type === 'building') return a.building_id && a.floor_id;
     return entryHours(a) > 0;
@@ -710,7 +762,7 @@ function buildEmployeePayload() {
     total_hours: mainCapped,
     ot_hours: totalOt,
     is_off: false,
-    mode: 'default',   // ⭐ LUÔN default — trigger sẽ chia sẻ + cộng OT overflow
+    mode: 'default',
     manual_hours: null,
     areas: validAreas.map(a => serializeArea(a)),
     ot_areas: otAreas,
