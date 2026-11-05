@@ -306,11 +306,17 @@ function openEmployeeModeContent(template) {
   renderMainAreaPicker();
   renderOtAreaPicker();
 
+  // ⭐ FIX: phân biệt 2 loại 'manual'
   let mode = 'default';
   if (template) {
     if (template.mode === 'leave') mode = 'leave';
     else if (template.is_off || template.mode === 'off') mode = 'off';
-    else if (template.mode === 'manual') mode = 'manual';
+    else if (template.mode === 'manual') {
+      // - Có areas → do mix nhiều khu vực (building + ngoại cảnh/ca đêm) → UI hiển thị 'default'
+      // - Không có areas → user thật sự chọn "Thủ công (nhập tổng giờ)" → UI hiển thị 'manual'
+      const hasAreas = Array.isArray(template.areas) && template.areas.length > 0;
+      mode = hasAreas ? 'default' : 'manual';
+    }
   }
 
   $$('input[name="attMode"]').forEach(r => r.checked = r.value === mode);
@@ -336,7 +342,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
   wrap.innerHTML = areasState.map((entry, idx) => {
     const type = entry.type || 'building';
 
-    // 3 option: building / external / night
     const hasExternal = !!state.specialAreas.external;
     const hasNight = !!state.specialAreas.night;
 
@@ -374,7 +379,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         ${hoursInput}
       `;
     } else {
-      // external / night — CHỈ input giờ, KHÔNG dropdown
       const special = state.specialAreas[type];
       const defaultH = special?.default_hours ?? null;
       const displayVal = entry.hours != null ? entry.hours : (defaultH != null ? defaultH : '');
@@ -400,7 +404,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       </div>`;
   }).join('');
 
-  // Bind events
   wrap.querySelectorAll('.area-entry').forEach(entryEl => {
     const idx = Number(entryEl.dataset.idx);
     const typeSel = entryEl.querySelector('.area-type');
@@ -409,14 +412,12 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
     const hInput = entryEl.querySelector('.area-hours-input');
     const removeBtn = entryEl.querySelector('.remove-area');
 
-    // Type change
     if (typeSel) {
       typeSel.addEventListener('change', () => {
         const newType = typeSel.value;
         if (newType === 'building') {
           areasState[idx] = { type: 'building', building_id: '', floor_id: '', hours: null };
         } else {
-          // external hoặc night — auto fill từ record nếu có
           const special = state.specialAreas[newType];
           const autoHours = special?.default_hours != null ? Number(special.default_hours) : null;
           areasState[idx] = { type: newType, hours: autoHours };
@@ -426,7 +427,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       });
     }
 
-    // Building change
     if (bSel) {
       bSel.addEventListener('change', () => {
         areasState[idx].building_id = bSel.value;
@@ -436,7 +436,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       });
     }
 
-    // Floor change
     if (fSel) {
       fSel.addEventListener('change', () => {
         areasState[idx].floor_id = fSel.value;
@@ -452,7 +451,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       });
     }
 
-    // Hours input
     if (hInput) {
       hInput.addEventListener('input', () => {
         const raw = hInput.value.trim();
@@ -461,7 +459,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       });
     }
 
-    // Remove
     removeBtn.addEventListener('click', () => {
       areasState.splice(idx, 1);
       if (!areasState.length) {
@@ -523,7 +520,6 @@ function entryHours(entry) {
   if (entry.type === 'external' || entry.type === 'night') {
     return Number(entry.hours || 0);
   }
-  // building
   if (entry.hours != null && !isNaN(entry.hours) && entry.hours > 0) {
     return Number(entry.hours);
   }
@@ -688,7 +684,6 @@ function buildEmployeePayload() {
   // mode === 'default'
   const validAreas = state.modalAreas.filter(a => {
     if (a.type === 'building') return a.building_id && a.floor_id;
-    // external/night: bắt buộc có giờ > 0
     return entryHours(a) > 0;
   });
 
@@ -697,8 +692,6 @@ function buildEmployeePayload() {
     return null;
   }
 
-  // Nếu chỉ có building auto-share → dùng mode 'default' để trigger chia sẻ đúng
-  // Ngược lại có mix → 'manual' + manual_hours = tổng
   const hasNonBuilding = validAreas.some(a => a.type !== 'building');
   const hasBuildingWithManualHours = validAreas.some(a =>
     a.type === 'building' && a.hours != null && a.hours > 0
@@ -719,7 +712,6 @@ function buildEmployeePayload() {
 
   const mainCapped = Math.min(totalMain, DAILY_MAIN_CAP);
 
-  // OT areas
   let otAreas = [];
   if (isSundayOtChecked()) {
     const sh = getSundayOtHours();
