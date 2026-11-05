@@ -32,7 +32,7 @@ export function invalidateDayAssignCache() {
   _dayAssignCache.clear();
 }
 
-/* ⭐ SELECTED VIEW DATE — nhấp là hiện panel ngày luôn */
+/* ⭐ SELECTED VIEW DATE — nhấp là vào split-view */
 export function setSelectedViewDate(dateStr) {
   const newVal = dateStr || null;
   if (state.selectedViewDate === newVal) return;
@@ -44,6 +44,10 @@ function hideDayPreview() {
   _previewToken++;
   const $p = $('#dayPreviewPanel');
   if ($p) $p.style.display = 'none';
+
+  // ⭐ Thoát split-view
+  const $tab = $('#tab-calendar');
+  if ($tab) $tab.classList.remove('split-view');
 }
 
 function renderDayPreview(dateStr) {
@@ -52,6 +56,19 @@ function renderDayPreview(dateStr) {
   const $dateEl = $('#dppDate');
   const $body   = $('#dppBody');
   if (!$panel || !$body) return;
+
+  // ⭐ Bật split-view ngay (trước khi async load)
+  const $tab = $('#tab-calendar');
+  if ($tab) $tab.classList.add('split-view');
+
+  // ⭐ Setup nút ✕ đóng split-view
+  const $closeBtn = $('#dppCloseBtn');
+  if ($closeBtn) {
+    $closeBtn.onclick = (e) => {
+      e.stopPropagation();
+      setSelectedViewDate(null);
+    };
+  }
 
   if ($dateEl) $dateEl.textContent = `📅 ${formatDateVN(dateStr)}`;
   $body.innerHTML = '<p style="margin:0;color:var(--text-muted);font-size:13px">⏳ Đang tải...</p>';
@@ -96,6 +113,10 @@ function _renderDayPreviewImmediate(dateStr) {
   }
 
   $panel.style.display = 'block';
+
+  // Đảm bảo split-view vẫn bật (phòng case gọi trực tiếp)
+  const $tab = $('#tab-calendar');
+  if ($tab) $tab.classList.add('split-view');
 }
 
 /* ⭐ Preview dùng CÙNG logic chia giờ với modal (calcEntryActualHours) */
@@ -1180,7 +1201,7 @@ export function toggleSelectionMode() {
     state.selectedDates.clear();
 
     state.selectedViewDate = null;
-    const $vrow = $('#viewDateRow'); if ($vrow) $vrow.style.display = 'none';
+    hideDayPreview();
 
     const bar = $('#selectionBar'); if (bar) bar.style.display = 'block';
     const btn = $('#selectionToggleBtn');
@@ -1262,7 +1283,7 @@ export function renderCalendar() {
       attachCalendarSelect(el, el.dataset.date));
   }
 
-  // ⭐ Sync day preview panel
+  // ⭐ Sync day preview panel / split-view
   if (!state.selectionMode && state.selectedViewDate) {
     renderDayPreview(state.selectedViewDate);
   } else {
@@ -1332,7 +1353,7 @@ export async function changeMonth(delta) {
   state.currentMonth = d;
 
   state.selectedViewDate = null;
-  const $row = $('#viewDateRow'); if ($row) $row.style.display = 'none';
+  hideDayPreview();
 
   await loadAttendanceForMonth();
   renderCalendar();
