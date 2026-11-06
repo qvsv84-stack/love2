@@ -1414,15 +1414,31 @@ export function switchTab(name) {
     $('#excelMonth').value = `${y}-${String(m).padStart(2, '0')}`;
     import('./excel.js').then(e => e.loadExcelData()).catch(err => console.warn(err));
   }
-
-  // ⭐⭐⭐ LOAD ROOMS KHI CLICK TAB ⭐⭐⭐
   if (name === 'rooms') {
     import('./rooms.js')
       .then(m => m.loadRooms())
       .catch(err => {
         console.warn('[rooms] Load fail:', err);
         const wrap = $('#roomsList');
-        if (wrap) wrap.innerHTML = '<p class="hint" style="color:var(--danger)">⚠️ Không tải được danh sách phòng. Kiểm tra Console (F12).</p>';
+        if (wrap) wrap.innerHTML = '<p class="hint" style="color:var(--danger)">⚠️ Không tải được danh sách phòng.</p>';
+      });
+  }
+  // ⭐ SQL TAB
+  if (name === 'sql') {
+    if (!state.isAdmin) {
+      toast('Chỉ admin được chạy SQL');
+      switchTab('calendar');
+      return;
+    }
+    import('./sql-runner.js')
+      .then(m => m.initSqlRunner())
+      .catch(err => {
+        console.warn('[sql-runner] Load fail:', err);
+        const $out = $('#sqlOutput');
+        if ($out) {
+          $out.style.display = 'block';
+          $out.innerHTML = '<span style="color:#f87171">❌ Không load được sql-runner.js</span>';
+        }
       });
   }
 }
