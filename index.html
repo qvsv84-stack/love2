@@ -38,6 +38,54 @@
     .dbg-warn { color: #ffd60a; }
     .dbg-error { color: #ff453a; }
 
+    /* ⭐⭐⭐ TABS — WRAP + CĂN GIỮA ⭐⭐⭐ */
+    .tabs {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      justify-content: center !important;
+      align-items: center !important;
+      gap: 6px !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+      white-space: normal !important;
+      padding: 8px 6px !important;
+      height: auto !important;
+      min-height: auto !important;
+      row-gap: 6px !important;
+    }
+
+    .tabs .tab-btn {
+      flex: 0 0 auto !important;
+      flex-shrink: 0 !important;
+      width: auto !important;
+      min-width: auto !important;
+      max-width: none !important;
+      white-space: nowrap !important;
+      margin: 0 !important;
+      font-size: 12.5px !important;
+      padding: 7px 12px !important;
+      line-height: 1.2 !important;
+    }
+
+    @media (max-width: 480px) {
+      .tabs .tab-btn {
+        font-size: 12px !important;
+        padding: 6px 10px !important;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .tabs .tab-btn {
+        font-size: 11px !important;
+        padding: 5px 8px !important;
+      }
+    }
+
+    /* ⭐ Đảm bảo fullpage vẫn ẩn tabs */
+    body.dpp-fullpage .tabs {
+      display: none !important;
+    }
+
     .area-create-buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
     .area-create-buttons .btn-create { flex: 1 1 0; min-width: 100px; padding: 10px 12px; font-size: 13px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; font-family: inherit; color: white; transition: 0.2s; }
     .area-create-buttons .btn-create:hover { transform: translateY(-1px); }
@@ -62,7 +110,7 @@
     #dppEmployeeSelect option { color: #333; background: #fff; font-weight: 500; }
 
     body.dpp-fullpage { overflow: hidden !important; }
-    body.dpp-fullpage .app-header, body.dpp-fullpage .tabs { display: none !important; }
+    body.dpp-fullpage .app-header { display: none !important; }
     body.dpp-fullpage #mainScreen { position: fixed !important; inset: 0 !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; background: #f0f4f8 !important; z-index: 100 !important; display: block !important; }
     body.dpp-fullpage #mainScreen > .tab-content:not(#tab-calendar) { display: none !important; }
     body.dpp-fullpage .modal-overlay { z-index: 10000 !important; }
@@ -81,7 +129,6 @@
     #roomsStickyBar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 200; padding: 10px 12px max(10px, env(safe-area-inset-bottom, 10px)); pointer-events: none; }
     #roomsStickyBar > div { pointer-events: auto; }
 
-    /* SQL tab */
     #sqlInput { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6; min-height: 220px; resize: vertical; width: 100%; box-sizing: border-box; padding: 12px; border-radius: 10px; }
     #sqlOutput { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow-y: auto; }
     .sql-history-item:last-child { border-bottom: none; }
@@ -343,30 +390,21 @@
         <div id="roomsStickyBar"></div>
       </section>
 
-      <!-- ⭐ TAB SQL -->
       <section id="tab-sql" class="tab-content">
         <div class="section-header"><h2>⚙️ Chạy SQL (Admin)</h2></div>
-
         <div style="padding:10px 12px;background:#fef3c7;border:1px solid #fbbf24;border-radius:10px;font-size:12px;color:#92400e;margin-bottom:12px;line-height:1.5;">
           ⚠️ <strong>Cảnh báo:</strong> Chạy SQL có thể <strong>xoá hoặc hỏng dữ liệu vĩnh viễn</strong>. Chỉ dùng khi đã kiểm tra kỹ. <strong>Không thể hoàn tác.</strong>
         </div>
-
         <div class="form-group">
           <label>Câu lệnh SQL</label>
           <textarea id="sqlInput" class="input" rows="10" placeholder="-- Ví dụ:
-select * from cslx_rooms limit 5;
-
--- Hoặc chạy DDL:
-create table if not exists public.test_x (id int);"></textarea>
+select * from cslx_rooms limit 5;"></textarea>
         </div>
-
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <button id="sqlRunBtn" class="btn-primary" style="flex:1;">▶️ Chạy</button>
           <button id="sqlClearBtn" class="btn-secondary" style="flex-shrink:0;">🗑 Xoá</button>
         </div>
-
         <div id="sqlOutput" class="form-group" style="display:none; padding:12px; background:#0f172a; color:#e2e8f0; border-radius:10px;"></div>
-
         <div class="form-group">
           <label>📜 Lịch sử (bấm để chèn lại)</label>
           <div id="sqlHistory" style="background:#fff; border:1px solid var(--border); border-radius:10px; max-height:240px; overflow-y:auto;"></div>
@@ -667,7 +705,7 @@ create table if not exists public.test_x (id int);"></textarea>
   })();
   </script>
 
-  <script type="module" src="./app.js?v=7"></script>
+  <script type="module" src="./app.js?v=8"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
