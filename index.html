@@ -382,6 +382,8 @@
         <button class="tab-btn" data-tab="employees" style="display:none">👥 Nhân viên</button>
         <button class="tab-btn" data-tab="salary" style="display:none">💰 Tính công</button>
         <button class="tab-btn" data-tab="excel" style="display:none">📊 Bảng công</button>
+        <!-- ⭐ TAB PHÒNG HỌC MỚI -->
+        <button class="tab-btn" data-tab="rooms" style="display:none">🏫 Phòng học</button>
       </nav>
 
       <section id="tab-calendar" class="tab-content active">
@@ -600,6 +602,23 @@
           <div id="excelBlock2" class="excel-block"></div>
         </div>
       </section>
+
+      <!-- ⭐ TAB PHÒNG HỌC MỚI -->
+      <section id="tab-rooms" class="tab-content">
+        <div class="section-header">
+          <h2>🏫 Danh mục Phòng học</h2>
+        </div>
+        
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <input type="text" id="roomsSearch" class="input" placeholder="🔍 Tìm mã phòng, tên phòng, ghi chú..." style="flex:1;" autocomplete="off" />
+          <select id="roomsBuildingFilter" class="input" style="width:120px; flex-shrink:0;">
+            <option value="all">Tất cả toà</option>
+          </select>
+        </div>
+
+        <div id="roomsList" class="rooms-list"></div>
+      </section>
+
     </main>
 
     <div id="attendanceModal" class="modal-overlay" style="display:none">
@@ -945,7 +964,7 @@
   </script>
 
   <!-- ⭐ TẢI APP.JS TĨNH TRỰC TIẾP -->
-  <script type="module" src="./app.js?v=3"></script>
+  <script type="module" src="./app.js?v=4"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
