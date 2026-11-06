@@ -70,7 +70,6 @@
       background: linear-gradient(135deg, #6366f1, #4338ca);
     }
 
-    /* ⭐ Nút "Xem chi tiết" dưới lịch tháng */
     #viewDetailBtn {
       display: none;
       width: 100%;
@@ -90,7 +89,6 @@
     }
     #viewDetailBtn:active { transform: translateY(1px); }
 
-    /* ⭐ Nút ✕ floating — chỉ hiện khi fullpage */
     .dpp-close-btn-float {
       position: fixed;
       top: max(10px, env(safe-area-inset-top, 0px));
@@ -115,12 +113,11 @@
     .dpp-close-btn-float:active { background: rgba(0, 0, 0, 0.75); }
     body.dpp-fullpage .dpp-close-btn-float { display: flex; }
 
-    /* ⭐ EMPLOYEE BAR (chỉ trong fullpage) */
     #dppEmployeeBar {
       display: none;
       align-items: center;
       gap: 12px;
-      padding: 10px 60px 10px 14px;   /* chừa 60px cho nút ✕ */
+      padding: 10px 60px 10px 14px;
       background: linear-gradient(135deg, #0ea5b7, #0891b2);
       color: white;
       border-radius: 12px;
@@ -142,10 +139,7 @@
       flex-shrink: 0;
       border: 2px solid rgba(255,255,255,0.4);
     }
-    #dppEmpInfo {
-      flex: 1;
-      min-width: 0;
-    }
+    #dppEmpInfo { flex: 1; min-width: 0; }
     #dppEmpLabel {
       font-size: 10px;
       opacity: 0.85;
@@ -173,21 +167,12 @@
       white-space: nowrap;
       overflow: hidden;
     }
-    #dppEmployeeSelect option {
-      color: #333;
-      background: #fff;
-      font-weight: 500;
-    }
+    #dppEmployeeSelect option { color: #333; background: #fff; font-weight: 500; }
 
-    /* ⭐⭐ FULLPAGE MODE */
     body.dpp-fullpage { overflow: hidden !important; }
-
     body.dpp-fullpage .app-header,
-    body.dpp-fullpage .tabs {
-      display: none !important;
-    }
+    body.dpp-fullpage .tabs { display: none !important; }
 
-    /* Hạ z-index để modal (10000) nổi lên trên */
     body.dpp-fullpage #mainScreen {
       position: fixed !important;
       inset: 0 !important;
@@ -198,15 +183,10 @@
       z-index: 100 !important;
       display: block !important;
     }
-
     body.dpp-fullpage #mainScreen > .tab-content:not(#tab-calendar) {
       display: none !important;
     }
-
-    /* Modal luôn nổi trên fullpage */
-    body.dpp-fullpage .modal-overlay {
-      z-index: 10000 !important;
-    }
+    body.dpp-fullpage .modal-overlay { z-index: 10000 !important; }
 
     body.dpp-fullpage #tab-calendar {
       position: absolute !important;
@@ -236,7 +216,6 @@
       display: none !important;
     }
 
-    /* Month nav */
     body.dpp-fullpage #tab-calendar > .month-nav {
       flex-shrink: 0;
       margin: 0;
@@ -245,14 +224,10 @@
       border-radius: 12px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.06);
       border: 1px solid rgba(0,0,0,0.04);
-      padding-right: 60px; /* chừa chỗ nút ✕ */
+      padding-right: 60px;
     }
-    body.dpp-fullpage #tab-calendar > .month-nav h2 {
-      font-size: 16px;
-      margin: 0;
-    }
+    body.dpp-fullpage #tab-calendar > .month-nav h2 { font-size: 16px; margin: 0; }
 
-    /* Calendar card */
     body.dpp-fullpage #tab-calendar > .calendar-wrap {
       flex: 1 1 0;
       min-height: 0;
@@ -276,7 +251,6 @@
       margin: 0;
     }
 
-    /* Day detail card */
     body.dpp-fullpage #tab-calendar > #dayPreviewPanel {
       flex: 1 1 0;
       min-height: 0;
@@ -382,8 +356,8 @@
         <button class="tab-btn" data-tab="employees" style="display:none">👥 Nhân viên</button>
         <button class="tab-btn" data-tab="salary" style="display:none">💰 Tính công</button>
         <button class="tab-btn" data-tab="excel" style="display:none">📊 Bảng công</button>
-        <!-- ⭐ TAB PHÒNG HỌC MỚI -->
-        <button class="tab-btn" data-tab="rooms" style="display:none">🏫 Phòng học</button>
+        <!-- ⭐ TAB PHÒNG HỌC - KHÔNG display:none -->
+        <button class="tab-btn" data-tab="rooms">🏫 Phòng học</button>
       </nav>
 
       <section id="tab-calendar" class="tab-content active">
@@ -402,58 +376,36 @@
               <span class="emp-name" id="sumName">—</span>
               <span class="emp-role" id="sumRole">—</span>
             </div>
-
             <div id="sumPhoneRow" style="margin-top:6px;display:none">
               <button id="sumPhoneBtn" type="button" style="display:inline-flex;align-items:center;gap:6px;background:var(--ocean-100);color:var(--ocean-700);border:none;padding:6px 12px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">
                 📞 <span id="sumPhoneText">—</span>
               </button>
             </div>
-
             <div style="margin-top:10px">
               <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;display:flex;align-items:center;gap:4px">
                 <span>📅</span>
                 <span>Tổng tháng <span id="sumMonthLabel" style="color:var(--ocean-700)">—</span></span>
               </div>
               <div class="summary-stats" style="grid-template-columns: repeat(4, 1fr)">
-                <div class="stat">
-                  <span class="stat-label">Ngày</span>
-                  <span class="stat-value" id="sumDays">0</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-label">Giờ</span>
-                  <span class="stat-value" id="sumWork">0h</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-label">OT</span>
-                  <span class="stat-value" id="sumOT">0h</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-label">Phép</span>
-                  <span class="stat-value" id="sumLeave">0</span>
-                </div>
+                <div class="stat"><span class="stat-label">Ngày</span><span class="stat-value" id="sumDays">0</span></div>
+                <div class="stat"><span class="stat-label">Giờ</span><span class="stat-value" id="sumWork">0h</span></div>
+                <div class="stat"><span class="stat-label">OT</span><span class="stat-value" id="sumOT">0h</span></div>
+                <div class="stat"><span class="stat-label">Phép</span><span class="stat-value" id="sumLeave">0</span></div>
               </div>
             </div>
-
             <div id="sumTodaySection" style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
               <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;display:flex;align-items:center;gap:4px">
                 <span>📍</span>
                 <span>Hôm nay — <span id="sumTodayDate" style="color:var(--ocean-700)">—</span></span>
               </div>
               <div class="summary-stats" style="grid-template-columns: repeat(2, 1fr)">
-                <div class="stat">
-                  <span class="stat-label">Công</span>
-                  <span class="stat-value" id="sumTodayWork" style="color:var(--success)">0h</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-label">Tăng ca</span>
-                  <span class="stat-value" id="sumTodayOT" style="color:var(--warning)">0h</span>
-                </div>
+                <div class="stat"><span class="stat-label">Công</span><span class="stat-value" id="sumTodayWork" style="color:var(--success)">0h</span></div>
+                <div class="stat"><span class="stat-label">Tăng ca</span><span class="stat-value" id="sumTodayOT" style="color:var(--warning)">0h</span></div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- ⭐ EMPLOYEE BAR — chỉ hiện trong fullpage -->
         <div id="dppEmployeeBar">
           <div id="dppEmpAvatar">?</div>
           <div id="dppEmpInfo">
@@ -485,10 +437,8 @@
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
 
-        <!-- ⭐ NÚT "Xem chi tiết" — hiện khi có ngày được chọn -->
         <button id="viewDetailBtn" type="button">👁 Xem chi tiết</button>
 
-        <!-- GIỮ NGUYÊN DOM, CHỈ ẨN -->
         <div class="calendar-legend" style="display:none">
           <span class="legend-item"><span class="legend-dot dot-work"></span>Đi làm</span>
           <span class="legend-item"><span class="legend-dot dot-off"></span>OFF</span>
@@ -505,15 +455,11 @@
           <div class="dpp-body" id="dppBody"></div>
         </div>
 
-        <!-- ⭐ NÚT ✕ FLOATING -->
         <button id="dppCloseBtn" class="dpp-close-btn-float" title="Đóng" type="button">✕</button>
       </section>
 
       <section id="tab-areas" class="tab-content">
-        <div class="section-header">
-          <h2>🏢 Khu vực phụ trách</h2>
-        </div>
-
+        <div class="section-header"><h2>🏢 Khu vực phụ trách</h2></div>
         <div class="form-group" style="margin-bottom:12px">
           <label>📅 Xem ngày</label>
           <div style="display:flex;gap:6px;align-items:center">
@@ -521,13 +467,11 @@
             <button type="button" id="areasTodayBtn" class="btn-secondary" style="padding:12px 14px;font-size:13px;white-space:nowrap;flex-shrink:0">Hôm nay</button>
           </div>
         </div>
-
         <div class="area-create-buttons">
           <button class="btn-create" data-create="building">+ Thêm tòa nhà</button>
           <button class="btn-create" data-create="external" id="createExternalBtn">+ Thêm ngoại cảnh</button>
           <button class="btn-create" data-create="night" id="createNightBtn">+ Thêm ca đêm</button>
         </div>
-
         <div id="areasSummary" class="areas-summary" style="display:none"></div>
         <div class="areas-filters">
           <input type="text" id="areasSearch" class="input" placeholder="🔍 Tìm tên hoặc SĐT nhân viên..." autocomplete="off" />
@@ -603,22 +547,19 @@
         </div>
       </section>
 
-      <!-- ⭐ TAB PHÒNG HỌC MỚI -->
+      <!-- ⭐ TAB PHÒNG HỌC -->
       <section id="tab-rooms" class="tab-content">
         <div class="section-header">
           <h2>🏫 Danh mục Phòng học</h2>
         </div>
-        
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <input type="text" id="roomsSearch" class="input" placeholder="🔍 Tìm mã phòng, tên phòng, ghi chú..." style="flex:1;" autocomplete="off" />
           <select id="roomsBuildingFilter" class="input" style="width:120px; flex-shrink:0;">
             <option value="all">Tất cả toà</option>
           </select>
         </div>
-
         <div id="roomsList" class="rooms-list"></div>
       </section>
-
     </main>
 
     <div id="attendanceModal" class="modal-overlay" style="display:none">
@@ -629,11 +570,7 @@
         </div>
         <div class="modal-body">
           <p id="prefillNote" class="prefill-note" style="display:none"></p>
-
-          <div id="attSummaryView" style="display:none">
-            <div id="attSummaryContent"></div>
-          </div>
-
+          <div id="attSummaryView" style="display:none"><div id="attSummaryContent"></div></div>
           <div id="attEditorView">
             <div id="supervisorModeSection" style="display:none">
               <div class="att-section">
@@ -666,21 +603,17 @@
                   <label><input type="radio" name="attMode" value="leave"><span>Phép</span></label>
                 </div>
               </div>
-
               <div class="att-section" id="mainAreaSection">
                 <div class="att-section-title">📍 Khu vực chính</div>
                 <div id="mainAreaPicker" class="area-picker"></div>
                 <button id="addMainAreaBtn" class="btn-add-area">＋ Thêm khu vực</button>
               </div>
-
               <div class="att-section" id="manualHoursGroup" style="display:none">
                 <div class="att-section-title">⏱️ Tổng số giờ công</div>
                 <input type="number" id="manualHours" class="input" step="0.5" min="0" max="24" placeholder="VD: 8" />
               </div>
-
               <div class="att-section" id="otSection">
                 <div class="att-section-title">🌙 Tăng ca (tuỳ chọn)</div>
-
                 <label class="ot-sunday-toggle" id="sundayOtToggle">
                   <input type="checkbox" id="sundayOtCheck" />
                   <div class="ot-sunday-content">
@@ -688,41 +621,26 @@
                     <div class="ot-sunday-sub">Bao trùm — không chia tầng</div>
                   </div>
                 </label>
-
                 <div id="otNormalSection" style="margin-top:10px">
                   <div id="otAreaPicker" class="area-picker"></div>
                   <button id="addOtAreaBtn" class="btn-add-area">＋ Thêm khu vực tăng ca</button>
                 </div>
-
                 <div id="sundayOtGroup" style="display:none;margin-top:10px">
                   <input type="number" id="sundayOtHours" class="input" step="0.5" min="0" max="24" placeholder="Số giờ tăng ca CN" />
                 </div>
               </div>
-
               <p id="shareNote" class="share-note" style="display:none">
                 💡 Chia sẻ giờ tự động nếu nhiều người cùng tầng. Tối đa 8h/ngày — phần vượt chuyển OT.
               </p>
             </div>
-
             <p id="batchNote" class="prefill-note" style="display:none;margin-top:12px;margin-bottom:0"></p>
           </div>
         </div>
-
         <div class="att-preview-sticky" id="attPreviewSticky" style="display:none">
-          <div class="att-preview-item">
-            <span class="label">Công</span>
-            <span class="value" id="mainHoursPreview">0h</span>
-          </div>
-          <div class="att-preview-item">
-            <span class="label">Tăng ca</span>
-            <span class="value" id="otHoursPreview">0h</span>
-          </div>
-          <div class="att-preview-item total">
-            <span class="label">Tổng</span>
-            <span class="value" id="totalHoursPreview">0h</span>
-          </div>
+          <div class="att-preview-item"><span class="label">Công</span><span class="value" id="mainHoursPreview">0h</span></div>
+          <div class="att-preview-item"><span class="label">Tăng ca</span><span class="value" id="otHoursPreview">0h</span></div>
+          <div class="att-preview-item total"><span class="label">Tổng</span><span class="value" id="totalHoursPreview">0h</span></div>
         </div>
-
         <div class="modal-footer">
           <button class="btn-secondary" data-close="attendanceModal" id="attCancelBtn">Huỷ</button>
           <button id="saveAttendanceBtn" class="btn-primary">Lưu</button>
@@ -773,10 +691,7 @@
           <button class="btn-close" data-close="specialAreaModal">✕</button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>Tên hiển thị</label>
-            <input type="text" id="specialAreaName" class="input" placeholder="VD: Ngoại cảnh" />
-          </div>
+          <div class="form-group"><label>Tên hiển thị</label><input type="text" id="specialAreaName" class="input" placeholder="VD: Ngoại cảnh" /></div>
           <div class="form-group">
             <label>Giờ mặc định (khi chấm công tự điền)</label>
             <input type="number" id="specialAreaHours" class="input" step="0.5" min="0" max="24" value="8" placeholder="VD: 8" />
@@ -920,56 +835,75 @@
 
   <script>
   (function () {
-    let _resolved = false;
-    const check = setInterval(() => {
+    setTimeout(() => {
       const main = document.getElementById('mainScreen');
       const login = document.getElementById('loginScreen');
-      if ((main && main.style.display === 'block') ||
-          (login && login.style.display === 'block')) {
-        _resolved = true;
-        clearInterval(check);
-      }
-    }, 200);
+      const isReady = (main && main.style.display === 'block') ||
+                      (login && login.style.display === 'block');
+      if (isReady) return;
 
-    setTimeout(() => {
-      clearInterval(check);
-      if (_resolved) return;
       const loading = document.getElementById('loading');
       if (!loading) return;
-      loading.innerHTML =
-        '<div style="text-align:center;padding:24px;color:#5c7c82;font-family:Be Vietnam Pro,sans-serif">' +
-        '<p style="font-size:15px;color:#e74c3c;margin-bottom:12px">⚠️ Tải trang quá lâu</p>' +
-        '<p style="font-size:13px;margin-bottom:16px;line-height:1.5">Bấm <strong>🔍 Mở Debug</strong> để xem lỗi chi tiết.</p>' +
-        '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
-        '<button id="timeoutDebugBtn" style="padding:11px 20px;background:#e74c3c;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔍 Mở Debug</button>' +
-        '<button onclick="location.reload()" style="padding:11px 20px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔄 Tải lại</button>' +
-        '</div>' +
-        '</div>';
+
+      const appJsLoaded = window.__APP_JS_LOADED__ === true;
+
+      if (!appJsLoaded) {
+        loading.innerHTML = `
+          <div style="text-align:center;padding:24px;color:#5c7c82;font-family:Be Vietnam Pro,sans-serif">
+            <p style="font-size:15px;color:#e74c3c;margin-bottom:12px">⚠️ Không tải được ứng dụng</p>
+            <p style="font-size:13px;margin-bottom:16px;line-height:1.5">
+              File <code>app.js</code> không chạy được.<br>
+              Có thể do: file lỗi, thiếu file import, hoặc cache cũ.
+            </p>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+              <button id="timeoutDebugBtn" style="padding:11px 20px;background:#e74c3c;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔍 Mở Debug</button>
+              <button onclick="location.reload(true)" style="padding:11px 20px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔄 Tải lại</button>
+            </div>
+          </div>`;
+      } else {
+        loading.innerHTML = `
+          <div style="text-align:center;padding:24px;color:#5c7c82;font-family:Be Vietnam Pro,sans-serif">
+            <p style="font-size:15px;color:#e74c3c;margin-bottom:12px">⚠️ Đăng nhập chậm</p>
+            <p style="font-size:13px;margin-bottom:16px;line-height:1.5">
+              Ứng dụng đã tải nhưng chưa kết nối được máy chủ.<br>
+              Kiểm tra mạng (tắt VPN, tắt Low Data Mode) hoặc thử lại.
+            </p>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+              <button onclick="location.reload()" style="padding:11px 20px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔄 Tải lại</button>
+              <button id="skipAuthBtn" style="padding:11px 20px;background:#94a3b8;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">Vào không đăng nhập</button>
+            </div>
+          </div>`;
+        setTimeout(() => {
+          const skipBtn = document.getElementById('skipAuthBtn');
+          if (skipBtn) skipBtn.onclick = () => {
+            loading.style.display = 'none';
+            const main = document.getElementById('mainScreen');
+            const guest = document.getElementById('guestBanner');
+            if (main) main.style.display = 'block';
+            if (guest) guest.style.display = 'block';
+          };
+        }, 50);
+      }
+
       setTimeout(() => {
         const dbgBtn = document.getElementById('timeoutDebugBtn');
-        if (dbgBtn) {
-          dbgBtn.addEventListener('click', async () => {
-            try {
-              const mod = await import('./debug.js');
-              mod.openDebug();
-              mod.runAll();
-            } catch (err) {
-              alert('Không load được debug.js: ' + err.message);
-            }
-          });
-        }
+        if (dbgBtn) dbgBtn.addEventListener('click', async () => {
+          try {
+            const mod = await import('./debug.js');
+            mod.openDebug();
+            mod.runAll();
+          } catch (err) { alert('Không load được debug.js: ' + err.message); }
+        });
       }, 50);
-    }, 10000);
+    }, 8000);
   })();
   </script>
 
-  <!-- ⭐ TẢI APP.JS TĨNH TRỰC TIẾP -->
-  <script type="module" src="./app.js?v=4"></script>
+  <script type="module" src="./app.js?v=5"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
     console.log('[App] running v' + APP_VERSION);
-
     setTimeout(async () => {
       const upd = await checkForUpdate();
       if (upd) {
