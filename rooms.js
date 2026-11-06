@@ -1,928 +1,395 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Giám Sát Chấm Công - ĐH XH&NV</title>
+// rooms.js — Quản lý danh mục phòng học + gán nhân viên
+import { supabase } from './supabase.js';
+import { state, $, toast } from './core.js';
 
-  <link rel="preconnect" href="https://cjswxglxyyqrcfbyyjer.supabase.co" crossorigin>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+function ensureState() {
+  if (!state.rooms) state.rooms = [];
+  if (!state.roomsAssignments) state.roomsAssignments = {};
+  if (!state.roomsSelectedEmp) state.roomsSelectedEmp = null;
+  if (!state.roomsChecked) state.roomsChecked = new Set();
+  if (!state.roomsOriginalChecked) state.roomsOriginalChecked = new Set();
+  if (!state.roomsSearch) state.roomsSearch = '';
+  if (!state.roomsBuildingFilter) state.roomsBuildingFilter = 'all';
+}
 
-  <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#0ea5b7" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Chấm Công" />
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230ea5b7'/%3E%3Ctext x='90' y='115' font-size='90' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3EĐH%3C/text%3E%3C/svg%3E" />
+export async function loadRooms(force = false) {
+  ensureState();
 
-  <script>
-    (function() {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (let registration of registrations) { registration.unregister(); }
-        });
+  const wrap = $('#roomsList');
+  if (wrap) wrap.innerHTML = '<p class="hint">⏳ Đang tải danh sách phòng...</p>';
+
+  /* 1. Load cslx_rooms */
+  if (force || !state.rooms.length) {
+    try {
+      const { data, error } = await supabase
+        .from('cslx_rooms')
+        .select('*')
+        .order('building_code', { nullsFirst: false })
+        .order('room_code');
+
+      if (error) throw error;
+      state.rooms = data || [];
+    } catch (err) {
+      console.error('[rooms] Load cslx_rooms fail:', err);
+      if (wrap) {
+        wrap.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:10px;color:#991b1b;font-size:13px;line-height:1.5;">
+          <strong>⚠️ Không tải được danh sách phòng</strong><br>
+          <small>Lỗi: ${err.message || JSON.stringify(err)}</small><br><br>
+          <button onclick="location.reload()" style="padding:8px 14px;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit;font-size:12px;">Thử lại</button>
+        </div>`;
       }
-      if ('caches' in window) {
-        caches.keys().then(function(names) {
-          for (let name of names) { caches.delete(name); }
-        });
-      }
-    })();
-  </script>
-
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
-
-  <style>
-    .dbg-line { padding: 3px 0; border-bottom: 1px solid #2c2c2e; display: flex; gap: 6px; line-height: 1.4; }
-    .dbg-time { color: #8e8e93; flex-shrink: 0; }
-    .dbg-msg { flex: 1; word-break: break-all; }
-    .dbg-info { color: #64d2ff; }
-    .dbg-ok { color: #32d74b; }
-    .dbg-warn { color: #ffd60a; }
-    .dbg-error { color: #ff453a; }
-
-    .area-create-buttons {
-      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;
+      return;
     }
-    .area-create-buttons .btn-create {
-      flex: 1 1 0; min-width: 100px;
-      padding: 10px 12px; font-size: 13px; font-weight: 600;
-      border: none; border-radius: 10px; cursor: pointer; font-family: inherit;
-      color: white; transition: 0.2s;
-    }
-    .area-create-buttons .btn-create:hover { transform: translateY(-1px); }
-    .area-create-buttons .btn-create:active { transform: translateY(0); }
-    .area-create-buttons .btn-create[data-create="building"] {
-      background: linear-gradient(135deg, var(--ocean-500), var(--ocean-600));
-    }
-    .area-create-buttons .btn-create[data-create="external"] {
-      background: linear-gradient(135deg, #16a34a, #15803d);
-    }
-    .area-create-buttons .btn-create[data-create="night"] {
-      background: linear-gradient(135deg, #6366f1, #4338ca);
-    }
+  }
 
-    #viewDetailBtn {
-      display: none;
-      width: 100%;
-      margin: 12px 0;
-      padding: 12px 14px;
-      background: linear-gradient(135deg, var(--ocean-500, #0ea5b7), var(--ocean-600, #0891b2));
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(14, 165, 183, 0.35);
-      -webkit-tap-highlight-color: transparent;
-      text-align: center;
-    }
-    #viewDetailBtn:active { transform: translateY(1px); }
+  /* 2. Load cslx_room_assignments */
+  if (force || !Object.keys(state.roomsAssignments).length) {
+    try {
+      const { data, error } = await supabase
+        .from('cslx_room_assignments')
+        .select('room_code, employee_id');
 
-    .dpp-close-btn-float {
-      position: fixed;
-      top: max(10px, env(safe-area-inset-top, 0px));
-      right: max(10px, env(safe-area-inset-right, 0px));
-      z-index: 101;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(0, 0, 0, 0.55);
-      color: #fff;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-size: 17px;
-      font-family: inherit;
-      cursor: pointer;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    }
-    .dpp-close-btn-float:active { background: rgba(0, 0, 0, 0.75); }
-    body.dpp-fullpage .dpp-close-btn-float { display: flex; }
-
-    #dppEmployeeBar {
-      display: none;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 60px 10px 14px;
-      background: linear-gradient(135deg, #0ea5b7, #0891b2);
-      color: white;
-      border-radius: 12px;
-      box-shadow: 0 2px 10px rgba(14, 165, 183, 0.3);
-      flex-shrink: 0;
-    }
-    body.dpp-fullpage #dppEmployeeBar { display: flex; }
-
-    #dppEmpAvatar {
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.25);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 16px;
-      flex-shrink: 0;
-      border: 2px solid rgba(255,255,255,0.4);
-    }
-    #dppEmpInfo { flex: 1; min-width: 0; }
-    #dppEmpLabel {
-      font-size: 10px;
-      opacity: 0.85;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      font-weight: 600;
-      margin-bottom: 2px;
-    }
-    #dppEmployeeSelect {
-      width: 100%;
-      border: none;
-      background: transparent;
-      color: white;
-      font-size: 15px;
-      font-weight: 700;
-      font-family: inherit;
-      padding: 2px 20px 2px 0;
-      cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='white'><path d='M7 10l5 5 5-5z'/></svg>");
-      background-repeat: no-repeat;
-      background-position: right center;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      overflow: hidden;
-    }
-    #dppEmployeeSelect option { color: #333; background: #fff; font-weight: 500; }
-
-    body.dpp-fullpage { overflow: hidden !important; }
-    body.dpp-fullpage .app-header,
-    body.dpp-fullpage .tabs { display: none !important; }
-
-    body.dpp-fullpage #mainScreen {
-      position: fixed !important;
-      inset: 0 !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      overflow: hidden !important;
-      background: #f0f4f8 !important;
-      z-index: 100 !important;
-      display: block !important;
-    }
-    body.dpp-fullpage #mainScreen > .tab-content:not(#tab-calendar) {
-      display: none !important;
-    }
-    body.dpp-fullpage .modal-overlay { z-index: 10000 !important; }
-
-    body.dpp-fullpage #tab-calendar {
-      position: absolute !important;
-      inset: 0 !important;
-      display: flex !important;
-      flex-direction: column;
-      gap: 8px;
-      padding:
-        max(10px, env(safe-area-inset-top, 0px))
-        max(12px, env(safe-area-inset-right, 0px))
-        max(10px, env(safe-area-inset-bottom, 0px))
-        max(12px, env(safe-area-inset-left, 0px)) !important;
-      box-sizing: border-box;
-      overflow: hidden;
-      background: #f0f4f8;
-      margin: 0 !important;
-    }
-
-    body.dpp-fullpage #tab-calendar > #guestBanner,
-    body.dpp-fullpage #tab-calendar > .employee-panel,
-    body.dpp-fullpage #tab-calendar > #quickAttendanceRow,
-    body.dpp-fullpage #tab-calendar > #calendarActions,
-    body.dpp-fullpage #tab-calendar > #exportActionRow,
-    body.dpp-fullpage #tab-calendar > .calendar-legend,
-    body.dpp-fullpage #tab-calendar > #calendarHint,
-    body.dpp-fullpage #tab-calendar > #viewDetailBtn {
-      display: none !important;
-    }
-
-    body.dpp-fullpage #tab-calendar > .month-nav {
-      flex-shrink: 0;
-      margin: 0;
-      padding: 8px 12px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      border: 1px solid rgba(0,0,0,0.04);
-      padding-right: 60px;
-    }
-    body.dpp-fullpage #tab-calendar > .month-nav h2 { font-size: 16px; margin: 0; }
-
-    body.dpp-fullpage #tab-calendar > .calendar-wrap {
-      flex: 1 1 0;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      margin: 0;
-      padding: 8px 10px 10px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      border: 1px solid rgba(0,0,0,0.04);
-      -webkit-overflow-scrolling: touch;
-      position: relative;
-    }
-    body.dpp-fullpage #tab-calendar > .calendar-wrap .weekdays {
-      position: sticky;
-      top: 0;
-      background: #fff;
-      z-index: 1;
-      padding: 4px 0 6px;
-      margin: 0;
-    }
-
-    body.dpp-fullpage #tab-calendar > #dayPreviewPanel {
-      flex: 1 1 0;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      margin: 0 !important;
-      padding: 10px 14px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      border: 1px solid rgba(0,0,0,0.04);
-      -webkit-overflow-scrolling: touch;
-      word-break: break-word;
-    }
-    body.dpp-fullpage #tab-calendar > #dayPreviewPanel .dpp-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 10px;
-      margin-bottom: 10px;
-      border-bottom: 1px solid var(--border, #e5e7eb);
-      position: sticky;
-      top: -10px;
-      background: #fff;
-      padding-top: 4px;
-      margin-top: -4px;
-      z-index: 1;
-    }
-    body.dpp-fullpage #tab-calendar > #dayPreviewPanel .dpp-date {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--ocean-700, #0369a1);
-    }
-    body.dpp-fullpage #tab-calendar > #dayPreviewPanel .dpp-edit-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 6px 14px;
-      font-size: 13px;
-      font-weight: 600;
-      font-family: inherit;
-      border: 1px solid var(--ocean-200, #bae6fd);
-      background: var(--ocean-50, #f0f9ff);
-      color: var(--ocean-700, #0369a1);
-      border-radius: 8px;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    body.dpp-fullpage #tab-calendar > #dayPreviewPanel .dpp-edit-btn:active {
-      background: var(--ocean-100, #e0f2fe);
-    }
-
-    /* ⭐ Sticky bar cho rooms */
-    #roomsStickyBar {
-      display: none;
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 200;
-      padding: 10px 12px max(10px, env(safe-area-inset-bottom, 10px));
-      pointer-events: none;
-    }
-    #roomsStickyBar > div {
-      pointer-events: auto;
-    }
-  </style>
-</head>
-<body>
-  <div id="app">
-    <header class="app-header">
-      <div class="header-title">
-        <h1>ĐH XÃ HỘI VÀ NHÂN VĂN</h1>
-        <p class="subtitle">Hệ thống giám sát chấm công</p>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-        <button id="debugBtn" class="btn-icon" title="Debug (Ctrl+Shift+D)">🔍</button>
-        <button id="loginBtn" class="btn-header-login" style="display:none">Đăng nhập</button>
-        <button id="logoutBtn" class="btn-icon" title="Đăng xuất" style="display:none">⎋</button>
-      </div>
-    </header>
-
-    <div id="loading" class="loading-screen">
-      <div class="spinner"></div>
-      <p>Đang tải...</p>
-    </div>
-
-    <section id="loginScreen" class="login-screen" style="display:none">
-      <div class="login-card">
-        <h2>Đăng nhập</h2>
-        <p class="login-hint">Dành cho Giám sát / Nhân viên</p>
-        <form id="loginForm">
-          <div class="form-group">
-            <label>Tên đăng nhập</label>
-            <div style="display:flex;gap:6px;align-items:center">
-              <input type="text" id="loginEmail" required placeholder="tienloi" autocomplete="username" />
-              <span style="font-size:13px;color:var(--text-muted);white-space:nowrap">@skyone.vn</span>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Mật khẩu</label>
-            <input type="password" id="loginPassword" required placeholder="••••••••" autocomplete="current-password" />
-          </div>
-          <label class="radio" style="margin-bottom:14px">
-            <input type="checkbox" id="rememberPass" /> <span style="font-size:13px">Lưu mật khẩu</span>
-          </label>
-          <button type="submit" class="btn-primary">Đăng nhập</button>
-          <button type="button" id="cancelLoginBtn" class="btn-secondary" style="width:100%;margin-top:10px">← Quay lại</button>
-          <p id="loginError" class="error-msg"></p>
-        </form>
-      </div>
-    </section>
-
-    <main id="mainScreen" style="display:none">
-      <nav class="tabs">
-        <button class="tab-btn active" data-tab="calendar">📅 Lịch công</button>
-        <button class="tab-btn" data-tab="areas" style="display:none">🏢 Khu vực</button>
-        <button class="tab-btn" data-tab="employees" style="display:none">👥 Nhân viên</button>
-        <button class="tab-btn" data-tab="salary" style="display:none">💰 Tính công</button>
-        <button class="tab-btn" data-tab="excel" style="display:none">📊 Bảng công</button>
-        <button class="tab-btn" data-tab="rooms">🏫 Phòng học</button>
-      </nav>
-
-      <section id="tab-calendar" class="tab-content active">
-        <div id="guestBanner" class="guest-banner" style="display:none">
-          <p>🔑 Đăng nhập để chấm công và quản lý</p>
-          <button id="guestLoginBtn" class="btn-primary">Đăng nhập</button>
-        </div>
-        <div class="employee-panel">
-          <div class="emp-selector-row" id="empSelectorRow" style="display:none">
-            <label>Nhân viên:</label>
-            <select id="employeeSelect" class="select-input"></select>
-          </div>
-
-          <div class="summary-card" id="summaryCard" style="display:none">
-            <div class="summary-line">
-              <span class="emp-name" id="sumName">—</span>
-              <span class="emp-role" id="sumRole">—</span>
-            </div>
-            <div id="sumPhoneRow" style="margin-top:6px;display:none">
-              <button id="sumPhoneBtn" type="button" style="display:inline-flex;align-items:center;gap:6px;background:var(--ocean-100);color:var(--ocean-700);border:none;padding:6px 12px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">
-                📞 <span id="sumPhoneText">—</span>
-              </button>
-            </div>
-            <div style="margin-top:10px">
-              <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;display:flex;align-items:center;gap:4px">
-                <span>📅</span>
-                <span>Tổng tháng <span id="sumMonthLabel" style="color:var(--ocean-700)">—</span></span>
-              </div>
-              <div class="summary-stats" style="grid-template-columns: repeat(4, 1fr)">
-                <div class="stat"><span class="stat-label">Ngày</span><span class="stat-value" id="sumDays">0</span></div>
-                <div class="stat"><span class="stat-label">Giờ</span><span class="stat-value" id="sumWork">0h</span></div>
-                <div class="stat"><span class="stat-label">OT</span><span class="stat-value" id="sumOT">0h</span></div>
-                <div class="stat"><span class="stat-label">Phép</span><span class="stat-value" id="sumLeave">0</span></div>
-              </div>
-            </div>
-            <div id="sumTodaySection" style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
-              <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;display:flex;align-items:center;gap:4px">
-                <span>📍</span>
-                <span>Hôm nay — <span id="sumTodayDate" style="color:var(--ocean-700)">—</span></span>
-              </div>
-              <div class="summary-stats" style="grid-template-columns: repeat(2, 1fr)">
-                <div class="stat"><span class="stat-label">Công</span><span class="stat-value" id="sumTodayWork" style="color:var(--success)">0h</span></div>
-                <div class="stat"><span class="stat-label">Tăng ca</span><span class="stat-value" id="sumTodayOT" style="color:var(--warning)">0h</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="dppEmployeeBar">
-          <div id="dppEmpAvatar">?</div>
-          <div id="dppEmpInfo">
-            <div id="dppEmpLabel">Đang xem lịch</div>
-            <select id="dppEmployeeSelect"></select>
-          </div>
-        </div>
-
-        <div class="month-nav">
-          <button id="prevMonth" class="btn-icon">◀</button>
-          <h2 id="monthLabel">Tháng —</h2>
-          <button id="nextMonth" class="btn-icon">▶</button>
-        </div>
-        <div id="quickAttendanceRow" style="display:none; margin-bottom:12px">
-          <button id="todayAttendanceBtn" class="btn-primary" style="width:100%">📝 Chấm công hôm nay</button>
-        </div>
-        <div id="calendarActions" style="display:none">
-          <button id="selectionToggleBtn" class="btn-secondary">☑️ Chọn nhiều ngày</button>
-          <button id="bulkCopyBtn" class="btn-secondary">📋 Copy ngày</button>
-        </div>
-        <div id="exportActionRow" style="display:none; margin-bottom:12px">
-          <button id="exportExcelBtn" class="btn-secondary" style="width:100%">📥 Xuất Excel</button>
-        </div>
-
-        <div class="calendar-wrap">
-          <div class="weekdays">
-            <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
-          </div>
-          <div id="calendarGrid" class="calendar-grid"></div>
-        </div>
-
-        <button id="viewDetailBtn" type="button">👁 Xem chi tiết</button>
-
-        <div class="calendar-legend" style="display:none">
-          <span class="legend-item"><span class="legend-dot dot-work"></span>Đi làm</span>
-          <span class="legend-item"><span class="legend-dot dot-off"></span>OFF</span>
-          <span class="legend-item"><span class="legend-dot dot-leave"></span>Phép</span>
-          <span class="legend-item"><span class="legend-dot dot-today"></span>Hôm nay</span>
-        </div>
-        <p class="hint" id="calendarHint" style="display:none">💡 Nhấp vào một ngày để xem chi tiết · Nút ✏️ Sửa để chấm công</p>
-
-        <div id="dayPreviewPanel" class="day-preview-panel" style="display:none">
-          <div class="dpp-header">
-            <span class="dpp-date" id="dppDate">📅 —</span>
-            <button class="dpp-edit-btn" id="dppEditBtn" style="display:none">✏️ Sửa</button>
-          </div>
-          <div class="dpp-body" id="dppBody"></div>
-        </div>
-
-        <button id="dppCloseBtn" class="dpp-close-btn-float" title="Đóng" type="button">✕</button>
-      </section>
-
-      <section id="tab-areas" class="tab-content">
-        <div class="section-header"><h2>🏢 Khu vực phụ trách</h2></div>
-        <div class="form-group" style="margin-bottom:12px">
-          <label>📅 Xem ngày</label>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input type="date" id="areasViewDate" class="input" style="flex:1;min-width:0" />
-            <button type="button" id="areasTodayBtn" class="btn-secondary" style="padding:12px 14px;font-size:13px;white-space:nowrap;flex-shrink:0">Hôm nay</button>
-          </div>
-        </div>
-        <div class="area-create-buttons">
-          <button class="btn-create" data-create="building">+ Thêm tòa nhà</button>
-          <button class="btn-create" data-create="external" id="createExternalBtn">+ Thêm ngoại cảnh</button>
-          <button class="btn-create" data-create="night" id="createNightBtn">+ Thêm ca đêm</button>
-        </div>
-        <div id="areasSummary" class="areas-summary" style="display:none"></div>
-        <div class="areas-filters">
-          <input type="text" id="areasSearch" class="input" placeholder="🔍 Tìm tên hoặc SĐT nhân viên..." autocomplete="off" />
-          <select id="areasRoleFilter" class="input">
-            <option value="all">Tất cả vai trò</option>
-            <option value="admin">Giám sát</option>
-            <option value="employee">Nhân viên</option>
-            <option value="temporary">Thời vụ</option>
-            <option value="external">Ngoại cảnh</option>
-          </select>
-        </div>
-        <div id="buildingsList" class="buildings-list"></div>
-        <p class="hint" id="areasHint">📅 Đang hiển thị nhân viên được phân công hôm nay</p>
-      </section>
-
-      <section id="tab-employees" class="tab-content">
-        <div class="section-header">
-          <h2>👥 Danh sách nhân viên</h2>
-          <button id="addEmployeeBtn" class="btn-primary" style="display:none">+ Tạo nhân viên</button>
-        </div>
-        <div id="employeesList" class="employees-list"></div>
-        <p class="hint">Nhân viên được tạo bởi Giám sát. Tên đăng nhập tự động gắn @skyone.vn.</p>
-      </section>
-
-      <section id="tab-salary" class="tab-content">
-        <div class="section-header">
-          <h2>💰 Tính công</h2>
-          <button id="salaryExportBtn" class="btn-primary">📥 Xuất Excel</button>
-        </div>
-        <div class="form-group"><label>Tháng</label><input type="month" id="salaryMonth" class="input" /></div>
-        <div class="form-group">
-          <label>Đối tượng</label>
-          <select id="salaryRoleFilter" class="input">
-            <option value="nv_tv">Nhân viên + Thời vụ</option>
-            <option value="employee">Chỉ Nhân viên</option>
-            <option value="temporary">Chỉ Thời vụ</option>
-            <option value="external">Chỉ Ngoại cảnh</option>
-            <option value="all">Tất cả (gồm Giám sát)</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Tìm kiếm</label><input type="text" id="salarySearch" class="input" placeholder="Tên hoặc số điện thoại..." autocomplete="off" /></div>
-        <div class="form-group">
-          <label>Sắp xếp</label>
-          <select id="salarySort" class="input">
-            <option value="hours_desc">Giờ công cao → thấp</option>
-            <option value="hours_asc">Giờ công thấp → cao</option>
-            <option value="name">Tên (A → Z)</option>
-            <option value="position">Vị trí (theo toà)</option>
-          </select>
-        </div>
-        <div id="salarySummary"></div>
-        <div id="salaryList"></div>
-        <div id="salaryTotal"></div>
-      </section>
-
-      <section id="tab-excel" class="tab-content">
-        <div class="section-header"><h2>📊 Bảng công</h2></div>
-        <div class="form-group"><label>Tháng</label><input type="month" id="excelMonth" class="input" /></div>
-        <div class="excel-help">
-          💡 <strong>NC</strong> = Ngày công (8h=1) · <strong>OT</strong> = Tăng ca (giờ) · <strong>O</strong> = nghỉ · <strong>P</strong> = phép
-          <br><small>Tap vào tên để lưu ảnh / chia sẻ</small>
-        </div>
-        <div class="excel-actions-bar">
-          <button id="excelSaveAllBtn" class="btn-secondary">📷 Lưu tất cả PNG</button>
-          <button id="excelShareAllBtn" class="btn-primary">📤 Chia sẻ tất cả</button>
-        </div>
-        <div id="excelLoading" class="hint" style="display:none">Đang tải...</div>
-        <div id="excelContent" style="display:none">
-          <div class="excel-part-label">📅 Ngày 1 → 15</div>
-          <div id="excelBlock1" class="excel-block"></div>
-          <div class="excel-part-label">📅 Ngày 16 → 31</div>
-          <div id="excelBlock2" class="excel-block"></div>
-        </div>
-      </section>
-
-      <!-- ⭐ TAB PHÒNG HỌC — có Employee bar + Sticky bar -->
-      <section id="tab-rooms" class="tab-content">
-        <div class="section-header">
-          <h2>🏫 Danh mục Phòng học</h2>
-        </div>
-
-        <div id="roomsEmpBar"></div>
-
-        <div style="display:flex; gap:8px; margin-bottom:12px;">
-          <input type="text" id="roomsSearch" class="input" placeholder="🔍 Tìm mã phòng, tên phòng, ghi chú..." style="flex:1;" autocomplete="off" />
-          <select id="roomsBuildingFilter" class="input" style="width:120px; flex-shrink:0;">
-            <option value="all">Tất cả toà</option>
-          </select>
-        </div>
-
-        <div id="roomsList" class="rooms-list" style="padding-bottom: 120px;"></div>
-
-        <div id="roomsStickyBar"></div>
-      </section>
-    </main>
-
-    <div id="attendanceModal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header">
-          <h3 id="attModalTitle">Chấm công</h3>
-          <button class="btn-close" data-close="attendanceModal">✕</button>
-        </div>
-        <div class="modal-body">
-          <p id="prefillNote" class="prefill-note" style="display:none"></p>
-          <div id="attSummaryView" style="display:none"><div id="attSummaryContent"></div></div>
-          <div id="attEditorView">
-            <div id="supervisorModeSection" style="display:none">
-              <div class="att-section">
-                <div class="att-section-title">Chế độ chấm công</div>
-                <div class="seg-control">
-                  <label><input type="radio" name="supMode" value="default" checked><span>Mặc định</span></label>
-                  <label><input type="radio" name="supMode" value="ot"><span>Tăng ca</span></label>
-                  <label><input type="radio" name="supMode" value="off"><span>OFF</span></label>
-                  <label><input type="radio" name="supMode" value="leave"><span>Phép</span></label>
-                </div>
-              </div>
-              <div class="att-section" id="supOtGroup" style="display:none">
-                <div class="att-section-title">Số giờ tăng ca</div>
-                <input type="number" id="supOtHours" class="input" step="0.5" min="0" max="12" placeholder="0" />
-              </div>
-              <div class="preview-box" style="flex-direction:column;align-items:stretch;gap:6px;margin-top:12px">
-                <div style="display:flex;justify-content:space-between;align-items:center"><span>Giờ công chính:</span><strong id="supMainPreview">8h</strong></div>
-                <div style="display:flex;justify-content:space-between;align-items:center"><span>Tăng ca:</span><strong id="supOtPreview">0h</strong></div>
-                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--border);padding-top:6px;margin-top:2px"><span>Tổng:</span><strong id="supTotalPreview" style="color:var(--ocean-600);font-size:20px">8h</strong></div>
-              </div>
-            </div>
-
-            <div id="employeeModeSection">
-              <div class="att-section">
-                <div class="att-section-title">1️⃣ Chế độ</div>
-                <div class="seg-control">
-                  <label><input type="radio" name="attMode" value="default" checked><span>Khu vực</span></label>
-                  <label><input type="radio" name="attMode" value="manual"><span>Thủ công</span></label>
-                  <label><input type="radio" name="attMode" value="off"><span>OFF</span></label>
-                  <label><input type="radio" name="attMode" value="leave"><span>Phép</span></label>
-                </div>
-              </div>
-              <div class="att-section" id="mainAreaSection">
-                <div class="att-section-title">📍 Khu vực chính</div>
-                <div id="mainAreaPicker" class="area-picker"></div>
-                <button id="addMainAreaBtn" class="btn-add-area">＋ Thêm khu vực</button>
-              </div>
-              <div class="att-section" id="manualHoursGroup" style="display:none">
-                <div class="att-section-title">⏱️ Tổng số giờ công</div>
-                <input type="number" id="manualHours" class="input" step="0.5" min="0" max="24" placeholder="VD: 8" />
-              </div>
-              <div class="att-section" id="otSection">
-                <div class="att-section-title">🌙 Tăng ca (tuỳ chọn)</div>
-                <label class="ot-sunday-toggle" id="sundayOtToggle">
-                  <input type="checkbox" id="sundayOtCheck" />
-                  <div class="ot-sunday-content">
-                    <div class="ot-sunday-title">📅 Tăng ca Chủ nhật</div>
-                    <div class="ot-sunday-sub">Bao trùm — không chia tầng</div>
-                  </div>
-                </label>
-                <div id="otNormalSection" style="margin-top:10px">
-                  <div id="otAreaPicker" class="area-picker"></div>
-                  <button id="addOtAreaBtn" class="btn-add-area">＋ Thêm khu vực tăng ca</button>
-                </div>
-                <div id="sundayOtGroup" style="display:none;margin-top:10px">
-                  <input type="number" id="sundayOtHours" class="input" step="0.5" min="0" max="24" placeholder="Số giờ tăng ca CN" />
-                </div>
-              </div>
-              <p id="shareNote" class="share-note" style="display:none">
-                💡 Chia sẻ giờ tự động nếu nhiều người cùng tầng. Tối đa 8h/ngày — phần vượt chuyển OT.
-              </p>
-            </div>
-            <p id="batchNote" class="prefill-note" style="display:none;margin-top:12px;margin-bottom:0"></p>
-          </div>
-        </div>
-        <div class="att-preview-sticky" id="attPreviewSticky" style="display:none">
-          <div class="att-preview-item"><span class="label">Công</span><span class="value" id="mainHoursPreview">0h</span></div>
-          <div class="att-preview-item"><span class="label">Tăng ca</span><span class="value" id="otHoursPreview">0h</span></div>
-          <div class="att-preview-item total"><span class="label">Tổng</span><span class="value" id="totalHoursPreview">0h</span></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-close="attendanceModal" id="attCancelBtn">Huỷ</button>
-          <button id="saveAttendanceBtn" class="btn-primary">Lưu</button>
-          <button id="attEditBtn" class="btn-primary" style="display:none">✏️ Sửa</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="bulkCopyModal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header"><h3>📋 Copy chấm công</h3><button class="btn-close" data-close="bulkCopyModal">✕</button></div>
-        <div class="modal-body">
-          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.5">Copy toàn bộ chấm công của <strong>tất cả nhân viên</strong> từ ngày nguồn sang ngày đích. Nhân viên đã có dữ liệu ngày đích sẽ được bỏ qua.</p>
-          <div class="form-group"><label>Từ ngày (nguồn)</label><input type="date" id="bulkSourceDate" class="input" /></div>
-          <div class="form-group"><label>Sang ngày (đích)</label><input type="date" id="bulkTargetDate" class="input" /></div>
-          <p id="bulkCopyInfo" style="font-size:12px;color:var(--text-muted);margin-top:8px"></p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-close="bulkCopyModal">Huỷ</button>
-          <button id="bulkCopySubmit" class="btn-primary">Copy</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="buildingModal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header"><h3>Thêm tòa nhà</h3><button class="btn-close" data-close="buildingModal">✕</button></div>
-        <div class="modal-body">
-          <div class="form-group"><label>Tên tòa nhà</label><input type="text" id="buildingName" class="input" placeholder="VD: Tòa A" /></div>
-          <div class="form-group">
-            <label>Số tầng lầu</label>
-            <input type="number" id="buildingFloors" class="input" min="1" max="50" value="1" />
-            <p style="font-size:12px;color:var(--text-muted);margin-top:6px">VD: nhập 5 + có tầng trệt → tạo <strong>Trệt + Tầng 1..5</strong> (6 mặt bằng)</p>
-          </div>
-          <div class="form-group"><label class="radio"><input type="checkbox" id="noGroundFloor" /><span>Không có tầng trệt (bắt đầu từ Tầng 1)</span></label></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-close="buildingModal">Huỷ</button>
-          <button id="saveBuildingBtn" class="btn-primary">Lưu</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="specialAreaModal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header">
-          <h3 id="specialAreaTitle">Tạo khu vực</h3>
-          <button class="btn-close" data-close="specialAreaModal">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group"><label>Tên hiển thị</label><input type="text" id="specialAreaName" class="input" placeholder="VD: Ngoại cảnh" /></div>
-          <div class="form-group">
-            <label>Giờ mặc định (khi chấm công tự điền)</label>
-            <input type="number" id="specialAreaHours" class="input" step="0.5" min="0" max="24" value="8" placeholder="VD: 8" />
-          </div>
-          <p class="error-msg" id="specialAreaError" style="text-align:left"></p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-close="specialAreaModal">Huỷ</button>
-          <button id="saveSpecialAreaBtn" class="btn-primary">Lưu</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="floorModal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header"><h3 id="floorModalTitle">Thiết lập tầng</h3><button class="btn-close" data-close="floorModal">✕</button></div>
-        <div class="modal-body"><div id="floorsForm" class="floors-form"></div></div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-close="floorModal">Huỷ</button>
-          <button id="saveFloorsBtn" class="btn-primary">Lưu</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="employeeModal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header"><h3>Tạo nhân viên mới</h3><button class="btn-close" data-close="employeeModal">✕</button></div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Tên đăng nhập</label>
-            <div style="display:flex;gap:6px;align-items:center">
-              <input type="text" id="empUsername" class="input" placeholder="vd: tienloi" />
-              <span style="font-size:13px;color:var(--text-muted);white-space:nowrap">@skyone.vn</span>
-            </div>
-          </div>
-          <div class="form-group"><label>Mật khẩu</label><input type="text" id="empPassword" class="input" placeholder="Tối thiểu 6 ký tự" /></div>
-          <div class="form-group"><label>Số điện thoại</label><input type="tel" id="empPhone" class="input" placeholder="VD: 0912345678" maxlength="10" pattern="[0-9]{0,10}" inputmode="numeric" autocomplete="off" /></div>
-          <div class="form-group"><label>Tên hiển thị</label><input type="text" id="empFullName" class="input" placeholder="Nguyễn Văn A" /></div>
-          <p class="error-msg" id="empCreateError" style="text-align:left"></p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-close="employeeModal">Huỷ</button>
-          <button id="saveEmployeeBtn" class="btn-primary">Tạo</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="editEmployeeModal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header"><h3 id="editEmpTitle">Sửa nhân viên</h3><button class="btn-close" data-close="editEmployeeModal">✕</button></div>
-        <div class="modal-body">
-          <div class="form-group"><label>Tên đăng nhập</label><input type="text" id="editEmpUsername" class="input" disabled /></div>
-          <div class="form-group"><label>Tên hiển thị</label><input type="text" id="editEmpFullName" class="input" placeholder="Nguyễn Văn A" /></div>
-          <div class="form-group"><label>Số điện thoại</label><input type="tel" id="editEmpPhone" class="input" placeholder="VD: 0912345678" maxlength="10" pattern="[0-9]{0,10}" inputmode="numeric" autocomplete="off" /></div>
-          <div class="form-group"><label>Mật khẩu mới</label><input type="text" id="editEmpPassword" class="input" placeholder="Tối thiểu 6 ký tự" autocomplete="off" /></div>
-          <p class="error-msg" id="editEmpError" style="text-align:left"></p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-close="editEmployeeModal">Huỷ</button>
-          <button id="saveEditEmpBtn" class="btn-primary">Lưu</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="phoneActionModal" class="modal-overlay center" style="display:none">
-      <div class="modal" style="max-width: 340px;">
-        <div class="modal-header"><h3 id="phoneActionNumber">—</h3><button class="btn-close" data-close="phoneActionModal">✕</button></div>
-        <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
-          <button id="phoneCallBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px">📞 Gọi điện</button>
-          <button id="phoneZaloBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#0068ff;color:#fff">💬 Mở Zalo</button>
-          <button id="phoneCopyBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">📋 Sao chép số</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="excelActionModal" class="modal-overlay center" style="display:none">
-      <div class="modal" style="max-width: 340px;">
-        <div class="modal-header"><h3 id="excelActionName">—</h3><button class="btn-close" data-close="excelActionModal">✕</button></div>
-        <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
-          <button id="excelSaveOneBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px">📷 Lưu ảnh PNG</button>
-          <button id="excelShareOneBtn" class="btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">📤 Chia sẻ</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="exportModal" class="modal-overlay center" style="display:none">
-      <div class="modal" style="max-width:440px">
-        <div class="modal-header"><h3>📥 Xuất bảng chấm công</h3><button class="btn-close" data-close="exportModal">✕</button></div>
-        <div class="modal-body">
-          <div class="form-group"><label>Tháng</label><input type="month" id="exportMonth" class="input" /></div>
-          <div class="form-group">
-            <label>Vai trò</label>
-            <select id="exportRole" class="input">
-              <option value="all">Tất cả vai trò</option>
-              <option value="admin">Chỉ Giám sát</option>
-              <option value="employee">Chỉ Nhân viên</option>
-              <option value="temporary">Chỉ Thời vụ</option>
-              <option value="external">Chỉ Ngoại cảnh</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Trạng thái</label>
-            <select id="exportStatus" class="input">
-              <option value="all">Tất cả</option>
-              <option value="active">Đang làm</option>
-              <option value="inactive">Đã vô hiệu</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Phạm vi</label>
-            <div class="radio-group">
-              <label class="radio"><input type="radio" name="exportScope" value="all" checked /><span>Toàn bộ (theo bộ lọc trên)</span></label>
-              <label class="radio"><input type="radio" name="exportScope" value="one" /><span>Chỉ 1 người</span></label>
-            </div>
-          </div>
-          <div class="form-group" id="exportOnePersonGroup" style="display:none">
-            <label>Chọn nhân viên</label>
-            <select id="exportOnePerson" class="input"></select>
-          </div>
-          <p class="error-msg" id="exportError" style="text-align:left"></p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-close="exportModal">Huỷ</button>
-          <button id="exportSubmitBtn" class="btn-primary">Xuất file</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="selectionBar" class="selection-bar" style="display:none;">
-      <div class="selection-bar-inner">
-        <span id="selectionCount">0 ngày đã chọn</span>
-        <button id="cancelSelectionBtn" class="btn-secondary">Huỷ</button>
-        <button id="deleteSelectionBtn" class="btn-secondary" disabled style="background:#fee2e2;color:#e74c3c;border-color:#fecaca">🗑 Xoá</button>
-        <button id="applySelectionBtn" class="btn-primary" disabled>Chấm công</button>
-      </div>
-    </div>
-
-    <div id="excelCaptureArea" style="position:fixed;left:-99999px;top:0;pointer-events:none;z-index:-1"></div>
-    <div id="toast" class="toast" style="display:none"></div>
-  </div>
-
-  <script>
-  (function () {
-    setTimeout(() => {
-      const main = document.getElementById('mainScreen');
-      const login = document.getElementById('loginScreen');
-      const isReady = (main && main.style.display === 'block') ||
-                      (login && login.style.display === 'block');
-      if (isReady) return;
-
-      const loading = document.getElementById('loading');
-      if (!loading) return;
-
-      const appJsLoaded = window.__APP_JS_LOADED__ === true;
-
-      if (!appJsLoaded) {
-        loading.innerHTML = `
-          <div style="text-align:center;padding:24px;color:#5c7c82;font-family:Be Vietnam Pro,sans-serif">
-            <p style="font-size:15px;color:#e74c3c;margin-bottom:12px">⚠️ Không tải được ứng dụng</p>
-            <p style="font-size:13px;margin-bottom:16px;line-height:1.5">File <code>app.js</code> không chạy được.<br>Có thể do: file lỗi, thiếu file import, hoặc cache cũ.</p>
-            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-              <button id="timeoutDebugBtn" style="padding:11px 20px;background:#e74c3c;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔍 Mở Debug</button>
-              <button onclick="location.reload(true)" style="padding:11px 20px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔄 Tải lại</button>
-            </div>
-          </div>`;
+      if (error) {
+        console.warn('[rooms] Load assignments lỗi (bỏ qua):', error);
+        state.roomsAssignments = {};
       } else {
-        loading.innerHTML = `
-          <div style="text-align:center;padding:24px;color:#5c7c82;font-family:Be Vietnam Pro,sans-serif">
-            <p style="font-size:15px;color:#e74c3c;margin-bottom:12px">⚠️ Đăng nhập chậm</p>
-            <p style="font-size:13px;margin-bottom:16px;line-height:1.5">Ứng dụng đã tải nhưng chưa kết nối được máy chủ.<br>Kiểm tra mạng (tắt VPN, tắt Low Data Mode) hoặc thử lại.</p>
-            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-              <button onclick="location.reload()" style="padding:11px 20px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔄 Tải lại</button>
-              <button id="skipAuthBtn" style="padding:11px 20px;background:#94a3b8;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">Vào không đăng nhập</button>
-            </div>
-          </div>`;
-        setTimeout(() => {
-          const skipBtn = document.getElementById('skipAuthBtn');
-          if (skipBtn) skipBtn.onclick = () => {
-            loading.style.display = 'none';
-            const main = document.getElementById('mainScreen');
-            const guest = document.getElementById('guestBanner');
-            if (main) main.style.display = 'block';
-            if (guest) guest.style.display = 'block';
-          };
-        }, 50);
+        const map = {};
+        for (const row of (data || [])) {
+          if (!map[row.room_code]) map[row.room_code] = [];
+          map[row.room_code].push(row.employee_id);
+        }
+        state.roomsAssignments = map;
+      }
+    } catch (err) {
+      console.warn('[rooms] Load assignments exception:', err);
+      state.roomsAssignments = {};
+    }
+  }
+
+  renderRooms();
+}
+
+export function renderRooms() {
+  ensureState();
+  const wrap = $('#roomsList');
+  if (!wrap) return;
+
+  renderEmpBar();
+
+  const filterEl = $('#roomsBuildingFilter');
+  if (filterEl) {
+    if (filterEl.options.length <= 1 && state.rooms.length > 0) {
+      const buildings = [...new Set(state.rooms.map(r => r.building_code).filter(Boolean))].sort();
+      filterEl.innerHTML = '<option value="all">Tất cả toà</option>' +
+        buildings.map(b => `<option value="${b}">Toà ${b}</option>`).join('');
+    }
+    if (filterEl.value !== state.roomsBuildingFilter) {
+      filterEl.value = state.roomsBuildingFilter;
+    }
+  }
+
+  const search = (state.roomsSearch || '').toLowerCase().trim();
+  const bFilter = state.roomsBuildingFilter || 'all';
+  const isAssigning = !!state.roomsSelectedEmp;
+
+  const empMap = {};
+  for (const e of state.employees || []) empMap[e.id] = e;
+
+  const filtered = state.rooms.filter(r => {
+    if (bFilter !== 'all' && r.building_code !== bFilter) return false;
+    if (search) {
+      const m = `${r.room_code || ''} ${r.room_name || ''} ${r.note || ''}`.toLowerCase();
+      if (!m.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    wrap.innerHTML = '<p class="hint">Không tìm thấy phòng nào phù hợp.</p>';
+    renderStickyBar();
+    return;
+  }
+
+  const grouped = {};
+  for (const r of filtered) {
+    const b = r.building_code || 'Khác';
+    if (!grouped[b]) grouped[b] = [];
+    grouped[b].push(r);
+  }
+
+  let html = '';
+  const sortedBuildings = Object.keys(grouped).sort();
+
+  for (const b of sortedBuildings) {
+    const roomsInBuilding = grouped[b];
+    const codesInBuilding = roomsInBuilding.map(r => r.room_code);
+    const allCheckedInBuilding = isAssigning && codesInBuilding.length > 0 &&
+      codesInBuilding.every(c => state.roomsChecked.has(c));
+
+    html += `<div class="building-card" style="margin-bottom:16px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.04);">`;
+    html += `<div class="building-header" style="padding: 10px 14px; background:var(--ocean-50); border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:8px;">`;
+    html += `<span style="color:var(--ocean-700); font-size:15px; font-weight:700;">🏢 Toà ${b}</span>`;
+    if (isAssigning) {
+      html += `<button class="rooms-select-all" data-building="${b}" data-check="${allCheckedInBuilding ? '0' : '1'}" style="padding:4px 10px; font-size:11px; background:#fff; border:1px solid var(--ocean-200, #bae6fd); border-radius:12px; color:var(--ocean-700); font-weight:600; cursor:pointer;">
+        ${allCheckedInBuilding ? '☐ Bỏ chọn toà' : '☑️ Chọn toà'}
+      </button>`;
+    } else {
+      html += `<span style="background:#fff; border:1px solid var(--ocean-200, #bae6fd); padding:2px 10px; border-radius:12px; font-size:12px; font-weight:600; color:var(--ocean-600);">${roomsInBuilding.length} phòng</span>`;
+    }
+    html += `</div>`;
+
+    html += `<div>`;
+    for (const r of roomsInBuilding) {
+      const assignedEmps = (state.roomsAssignments[r.room_code] || [])
+        .map(id => empMap[id])
+        .filter(Boolean);
+      const isChecked = state.roomsChecked.has(r.room_code);
+      const rowBg = isAssigning && isChecked ? 'background:#e0f2fe;' : '';
+
+      html += `<div class="room-row" data-room="${r.room_code}" style="padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; ${rowBg} ${isAssigning ? 'cursor:pointer;' : ''}">`;
+
+      if (isAssigning) {
+        html += `<div style="flex-shrink:0; padding-top:2px;">
+          <input type="checkbox" class="room-check" data-room="${r.room_code}" ${isChecked ? 'checked' : ''} style="width:20px; height:20px; cursor:pointer; accent-color:var(--ocean-500, #0ea5b7);" />
+        </div>`;
       }
 
-      setTimeout(() => {
-        const dbgBtn = document.getElementById('timeoutDebugBtn');
-        if (dbgBtn) dbgBtn.addEventListener('click', async () => {
-          try {
-            const mod = await import('./debug.js');
-            mod.openDebug();
-            mod.runAll();
-          } catch (err) { alert('Không load được debug.js: ' + err.message); }
-        });
-      }, 50);
-    }, 8000);
-  })();
-  </script>
+      html += `<div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 700; font-size: 14px; color: var(--text);">${r.room_code}</div>
+        ${r.room_name ? `<div style="font-size: 13px; color: var(--ocean-700); font-weight:500; margin-top: 2px;">${r.room_name}</div>` : ''}
+        ${r.note ? `<div style="font-size: 12px; color: #d97706; margin-top: 4px; background:#fef3c7; padding:2px 6px; border-radius:4px; display:inline-block;">📝 ${r.note}</div>` : ''}
+        ${assignedEmps.length ? `
+          <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:4px;">
+            ${assignedEmps.map(e => {
+              const name = e.full_name || e.username || '?';
+              const isCurrent = e.id === state.roomsSelectedEmp;
+              return `<span style="font-size:11px; padding:2px 8px; border-radius:10px; background:${isCurrent ? 'var(--ocean-500, #0ea5b7)' : '#f1f5f9'}; color:${isCurrent ? '#fff' : '#475569'}; font-weight:600;">👤 ${name}</span>`;
+            }).join('')}
+          </div>
+        ` : ''}
+      </div>`;
 
-  <script type="module" src="./app.js?v=6"></script>
+      html += `<div style="text-align: right; flex-shrink: 0;">
+        ${r.capacity ? `<div style="font-size: 12px; font-weight: 600; color: var(--success);">👥 ${r.capacity}</div>` : ''}
+        ${r.double_tables ? `<div style="font-size: 10px; color: var(--text-muted);">${r.double_tables} bàn đôi</div>` : ''}
+        ${r.single_tables ? `<div style="font-size: 10px; color: var(--text-muted);">${r.single_tables} bàn đơn</div>` : ''}
+      </div>`;
 
-  <script type="module">
-    import { APP_VERSION, checkForUpdate } from './version.js';
-    console.log('[App] running v' + APP_VERSION);
-    setTimeout(async () => {
-      const upd = await checkForUpdate();
-      if (upd) {
-        const btn = document.createElement('div');
-        btn.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#0ea5b7;color:white;padding:10px 18px;border-radius:24px;font-size:13px;font-weight:600;cursor:pointer;z-index:9999;box-shadow:0 4px 16px rgba(14,165,183,0.4);font-family:inherit;display:flex;align-items:center;gap:8px;';
-        btn.innerHTML = '🔄 Có bản mới (' + upd.latest + ') — Bấm để cập nhật';
-        btn.onclick = () => { location.reload(); };
-        document.body.appendChild(btn);
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  wrap.innerHTML = html;
+
+  if (isAssigning) {
+    wrap.querySelectorAll('.room-check').forEach(cb => {
+      cb.addEventListener('click', (e) => e.stopPropagation());
+      cb.addEventListener('change', (e) => {
+        e.stopPropagation();
+        toggleRoomCheck(cb.dataset.room, cb.checked);
+      });
+    });
+
+    wrap.querySelectorAll('.room-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        toggleRoomCheck(row.dataset.room);
+      });
+    });
+
+    wrap.querySelectorAll('.rooms-select-all').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const b = btn.dataset.building;
+        const wantCheck = btn.dataset.check === '1';
+        const rooms = grouped[b] || [];
+        for (const r of rooms) {
+          if (wantCheck) state.roomsChecked.add(r.room_code);
+          else state.roomsChecked.delete(r.room_code);
+        }
+        renderRooms();
+      });
+    });
+  }
+
+  renderStickyBar();
+}
+
+function renderEmpBar() {
+  const bar = $('#roomsEmpBar');
+  if (!bar) return;
+
+  const currentId = state.roomsSelectedEmp;
+  const employees = (state.employees || []).filter(e => e.status !== 'inactive');
+  const options = employees.map(e =>
+    `<option value="${e.id}" ${e.id === currentId ? 'selected' : ''}>${e.full_name || e.username || 'NV'}</option>`
+  ).join('');
+
+  bar.innerHTML = `
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; padding:10px 12px; background:${currentId ? 'var(--ocean-50, #f0f9ff)' : '#fff'}; border:1px solid var(--border); border-radius:10px;">
+      <div style="flex:1; min-width:0;">
+        <label style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.6px; display:block; margin-bottom:4px;">
+          👤 ${currentId ? 'Đang gán phòng cho' : 'Chọn nhân viên để gán phòng'}
+        </label>
+        <select id="roomsEmpSelect" class="input" style="width:100%; font-weight:600;">
+          <option value="">— Chọn nhân viên —</option>
+          ${options}
+        </select>
+      </div>
+      ${currentId ? `<button id="roomsClearEmpBtn" class="btn-secondary" style="padding:8px 12px; font-size:13px; flex-shrink:0;">✕ Thoát</button>` : ''}
+    </div>
+  `;
+
+  const sel = $('#roomsEmpSelect');
+  if (sel) {
+    sel.value = currentId || '';
+    sel.addEventListener('change', async (e) => {
+      await selectEmployeeForRooms(e.target.value || null);
+    });
+  }
+  const clearBtn = $('#roomsClearEmpBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', async () => {
+      await selectEmployeeForRooms(null);
+    });
+  }
+}
+
+function renderStickyBar() {
+  const bar = $('#roomsStickyBar');
+  if (!bar) return;
+
+  if (!state.roomsSelectedEmp) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    return;
+  }
+
+  bar.style.display = 'block';
+
+  const count = state.roomsChecked.size;
+  const emp = (state.employees || []).find(e => e.id === state.roomsSelectedEmp);
+  const empName = emp?.full_name || emp?.username || '';
+
+  bar.innerHTML = `
+    <div style="display:flex; align-items:center; gap:10px; padding:12px 14px; background:linear-gradient(135deg, #0e7490, #0891b2); color:#fff; border-radius:14px; box-shadow:0 -2px 12px rgba(0,0,0,0.15);">
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:10px; opacity:0.85; text-transform:uppercase; letter-spacing:0.6px; font-weight:700;">Đang gán cho</div>
+        <div style="font-weight:700; font-size:15px; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${empName}</div>
+        <div style="font-size:12px; opacity:0.9; margin-top:2px;">Đã chọn <strong>${count}</strong> phòng</div>
+      </div>
+      <button id="roomsCancelBtn" style="padding:9px 14px; font-size:13px; font-weight:600; flex-shrink:0; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.35); border-radius:10px; cursor:pointer; font-family:inherit;">
+        Huỷ
+      </button>
+      <button id="roomsSaveBtn" style="padding:9px 14px; font-size:13px; font-weight:700; flex-shrink:0; background:#fff; color:#0e7490; border:none; border-radius:10px; cursor:pointer; font-family:inherit;">
+        💾 Lưu
+      </button>
+    </div>
+  `;
+
+  const cancelBtn = $('#roomsCancelBtn');
+  if (cancelBtn) cancelBtn.addEventListener('click', async () => {
+    const dirty =
+      state.roomsChecked.size !== state.roomsOriginalChecked.size ||
+      [...state.roomsChecked].some(c => !state.roomsOriginalChecked.has(c));
+    if (dirty && !confirm('Huỷ thay đổi chưa lưu?')) return;
+    await selectEmployeeForRooms(null);
+  });
+
+  const saveBtn = $('#roomsSaveBtn');
+  if (saveBtn) saveBtn.addEventListener('click', saveAssignments);
+}
+
+async function selectEmployeeForRooms(empId) {
+  ensureState();
+  state.roomsSelectedEmp = empId || null;
+  state.roomsChecked = new Set();
+  state.roomsOriginalChecked = new Set();
+
+  if (empId) {
+    for (const roomCode in state.roomsAssignments) {
+      if (state.roomsAssignments[roomCode].includes(empId)) {
+        state.roomsChecked.add(roomCode);
+        state.roomsOriginalChecked.add(roomCode);
       }
-    }, 3000);
-  </script>
-</body>
-</html>
+    }
+  }
+
+  renderRooms();
+}
+
+function toggleRoomCheck(roomCode, forceState = null) {
+  if (!state.roomsSelectedEmp) return;
+  let nowChecked;
+  if (forceState === null) {
+    nowChecked = !state.roomsChecked.has(roomCode);
+  } else {
+    nowChecked = !!forceState;
+  }
+  if (nowChecked) state.roomsChecked.add(roomCode);
+  else state.roomsChecked.delete(roomCode);
+  renderRooms();
+}
+
+async function saveAssignments() {
+  const empId = state.roomsSelectedEmp;
+  if (!empId) return;
+
+  const newSet = new Set(state.roomsChecked);
+  const oldSet = new Set(state.roomsOriginalChecked);
+
+  const toAdd = [...newSet].filter(c => !oldSet.has(c));
+  const toRemove = [...oldSet].filter(c => !newSet.has(c));
+
+  if (!toAdd.length && !toRemove.length) {
+    toast('Không có thay đổi');
+    return;
+  }
+
+  const btn = $('#roomsSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
+
+  try {
+    if (toRemove.length) {
+      const { error } = await supabase
+        .from('cslx_room_assignments')
+        .delete()
+        .eq('employee_id', empId)
+        .in('room_code', toRemove);
+      if (error) throw error;
+    }
+
+    if (toAdd.length) {
+      const rows = toAdd.map(rc => ({ room_code: rc, employee_id: empId }));
+      const { error } = await supabase
+        .from('cslx_room_assignments')
+        .upsert(rows, { onConflict: 'room_code,employee_id', ignoreDuplicates: true });
+      if (error) throw error;
+    }
+
+    for (const rc of toRemove) {
+      const arr = state.roomsAssignments[rc];
+      if (arr) {
+        const idx = arr.indexOf(empId);
+        if (idx >= 0) arr.splice(idx, 1);
+        if (!arr.length) delete state.roomsAssignments[rc];
+      }
+    }
+    for (const rc of toAdd) {
+      if (!state.roomsAssignments[rc]) state.roomsAssignments[rc] = [];
+      if (!state.roomsAssignments[rc].includes(empId)) {
+        state.roomsAssignments[rc].push(empId);
+      }
+    }
+
+    const emp = (state.employees || []).find(e => e.id === empId);
+    toast(`✅ Đã lưu ${newSet.size} phòng cho ${emp?.full_name || emp?.username || ''}`);
+
+    await selectEmployeeForRooms(empId);
+  } catch (err) {
+    console.error('[rooms save]', err);
+    toast('Lỗi lưu: ' + (err.message || 'không xác định'));
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; }
+  }
+}
