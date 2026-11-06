@@ -17,21 +17,16 @@
   <meta name="apple-mobile-web-app-title" content="Chấm Công" />
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230ea5b7'/%3E%3Ctext x='90' y='115' font-size='90' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3EĐH%3C/text%3E%3C/svg%3E" />
 
-  <!-- ⭐ SCRIPT DIỆT CACHE VÀ SERVICE WORKER CŨ -->
   <script>
     (function() {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (let registration of registrations) {
-            registration.unregister();
-          }
+          for (let registration of registrations) { registration.unregister(); }
         });
       }
       if ('caches' in window) {
         caches.keys().then(function(names) {
-          for (let name of names) {
-            caches.delete(name);
-          }
+          for (let name of names) { caches.delete(name); }
         });
       }
     })();
@@ -302,6 +297,21 @@
     body.dpp-fullpage #tab-calendar > #dayPreviewPanel .dpp-edit-btn:active {
       background: var(--ocean-100, #e0f2fe);
     }
+
+    /* ⭐ Sticky bar cho rooms */
+    #roomsStickyBar {
+      display: none;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 200;
+      padding: 10px 12px max(10px, env(safe-area-inset-bottom, 10px));
+      pointer-events: none;
+    }
+    #roomsStickyBar > div {
+      pointer-events: auto;
+    }
   </style>
 </head>
 <body>
@@ -356,7 +366,6 @@
         <button class="tab-btn" data-tab="employees" style="display:none">👥 Nhân viên</button>
         <button class="tab-btn" data-tab="salary" style="display:none">💰 Tính công</button>
         <button class="tab-btn" data-tab="excel" style="display:none">📊 Bảng công</button>
-        <!-- ⭐ TAB PHÒNG HỌC - KHÔNG display:none -->
         <button class="tab-btn" data-tab="rooms">🏫 Phòng học</button>
       </nav>
 
@@ -547,18 +556,24 @@
         </div>
       </section>
 
-      <!-- ⭐ TAB PHÒNG HỌC -->
+      <!-- ⭐ TAB PHÒNG HỌC — có Employee bar + Sticky bar -->
       <section id="tab-rooms" class="tab-content">
         <div class="section-header">
           <h2>🏫 Danh mục Phòng học</h2>
         </div>
+
+        <div id="roomsEmpBar"></div>
+
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <input type="text" id="roomsSearch" class="input" placeholder="🔍 Tìm mã phòng, tên phòng, ghi chú..." style="flex:1;" autocomplete="off" />
           <select id="roomsBuildingFilter" class="input" style="width:120px; flex-shrink:0;">
             <option value="all">Tất cả toà</option>
           </select>
         </div>
-        <div id="roomsList" class="rooms-list"></div>
+
+        <div id="roomsList" class="rooms-list" style="padding-bottom: 120px;"></div>
+
+        <div id="roomsStickyBar"></div>
       </section>
     </main>
 
@@ -851,10 +866,7 @@
         loading.innerHTML = `
           <div style="text-align:center;padding:24px;color:#5c7c82;font-family:Be Vietnam Pro,sans-serif">
             <p style="font-size:15px;color:#e74c3c;margin-bottom:12px">⚠️ Không tải được ứng dụng</p>
-            <p style="font-size:13px;margin-bottom:16px;line-height:1.5">
-              File <code>app.js</code> không chạy được.<br>
-              Có thể do: file lỗi, thiếu file import, hoặc cache cũ.
-            </p>
+            <p style="font-size:13px;margin-bottom:16px;line-height:1.5">File <code>app.js</code> không chạy được.<br>Có thể do: file lỗi, thiếu file import, hoặc cache cũ.</p>
             <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
               <button id="timeoutDebugBtn" style="padding:11px 20px;background:#e74c3c;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔍 Mở Debug</button>
               <button onclick="location.reload(true)" style="padding:11px 20px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔄 Tải lại</button>
@@ -864,10 +876,7 @@
         loading.innerHTML = `
           <div style="text-align:center;padding:24px;color:#5c7c82;font-family:Be Vietnam Pro,sans-serif">
             <p style="font-size:15px;color:#e74c3c;margin-bottom:12px">⚠️ Đăng nhập chậm</p>
-            <p style="font-size:13px;margin-bottom:16px;line-height:1.5">
-              Ứng dụng đã tải nhưng chưa kết nối được máy chủ.<br>
-              Kiểm tra mạng (tắt VPN, tắt Low Data Mode) hoặc thử lại.
-            </p>
+            <p style="font-size:13px;margin-bottom:16px;line-height:1.5">Ứng dụng đã tải nhưng chưa kết nối được máy chủ.<br>Kiểm tra mạng (tắt VPN, tắt Low Data Mode) hoặc thử lại.</p>
             <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
               <button onclick="location.reload()" style="padding:11px 20px;background:#0ea5b7;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">🔄 Tải lại</button>
               <button id="skipAuthBtn" style="padding:11px 20px;background:#94a3b8;color:#fff;border:none;border-radius:10px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer">Vào không đăng nhập</button>
@@ -899,7 +908,7 @@
   })();
   </script>
 
-  <script type="module" src="./app.js?v=5"></script>
+  <script type="module" src="./app.js?v=6"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
