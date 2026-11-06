@@ -40,7 +40,7 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-const APP_BUILD = '2026-11-06-final-v3-sessionfix';
+const APP_BUILD = '2026-11-06-final-v4-sql';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
 /* ⭐ Đánh dấu app.js đã load (cho timeout guard HTML) */
@@ -94,7 +94,6 @@ function markExplicitLogout() {
   setTimeout(() => { _explicitLogout = false; }, 3000);
 }
 
-/* ⭐ withTimeout — KHÔNG BAO GIỜ REJECT, luôn resolve với fallback */
 function withTimeout(promise, ms, fallback = null) {
   return Promise.race([
     promise.catch(err => {
@@ -108,14 +107,12 @@ function withTimeout(promise, ms, fallback = null) {
   ]);
 }
 
-/* ⭐ Kiểm tra session hết hạn */
 function isSessionExpired(session) {
   if (!session) return true;
   if (!session.expires_at) return false;
-  return Date.now() / 1000 > (session.expires_at - 60); // 60s buffer
+  return Date.now() / 1000 > (session.expires_at - 60);
 }
 
-/* ⭐ Force logout khi session hỏng */
 async function forceLogout(reason) {
   console.warn('[forceLogout]', reason);
   try { await supabase.auth.signOut(); } catch {}
@@ -463,7 +460,6 @@ function bindEvents() {
       showGuestView();
       return;
     }
-    // TOKEN_REFRESHED — kiểm tra nếu refresh fail
     if (event === 'TOKEN_REFRESHED') {
       if (!session) {
         console.warn('[TOKEN_REFRESHED] session null — có thể refresh thất bại');
@@ -481,6 +477,18 @@ function bindEvents() {
   window.addEventListener('online', () => {
     if (state.user) ensureSessionAlive().catch(() => {});
   });
+
+  /* ⭐ Tự động hiện tab SQL cho admin (polling nhẹ) */
+  let _lastSqlTabState = null;
+  setInterval(() => {
+    const $sqlTab = document.querySelector('[data-tab="sql"]');
+    if (!$sqlTab) return;
+    const wantDisplay = state.isAdmin ? '' : 'none';
+    if (_lastSqlTabState !== wantDisplay) {
+      _lastSqlTabState = wantDisplay;
+      $sqlTab.style.display = wantDisplay;
+    }
+  }, 800);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -514,7 +522,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindEvents();
     console.log('[App] bindEvents OK');
 
-    /* ⭐⭐⭐ KIỂM TRA SESSION TRƯỚC KHI INIT AUTH ⭐⭐⭐ */
     let existingSession = null;
     try {
       const { data } = await withTimeout(supabase.auth.getSession(), 3000, { data: { session: null } });
@@ -523,7 +530,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.warn('[App] getSession error:', err);
     }
 
-    // Session tồn tại NHƯNG hết hạn → refresh hoặc force logout
     if (existingSession && isSessionExpired(existingSession)) {
       console.warn('[App] Session hết hạn — thử refresh');
       try {
@@ -544,7 +550,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    // Không có session → thử auto-login
     if (!existingSession) {
       console.log('[App] Không có session — thử auto-login');
       const restored = await withTimeout(tryAutoLogin(), 5000, false);
@@ -554,14 +559,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    // Gọi initAuth với timeout + bắt lỗi 401
     console.log('[App] Gọi initAuth()');
     try {
       const result = await withTimeout(initAuth(), 8000, null);
-      // Nếu initAuth trả về null (timeout) hoặc throw ngầm
       if (result === null) {
         console.warn('[App] initAuth timeout — kiểm tra session');
-        // Re-check session sau khi timeout
         const { data } = await supabase.auth.getSession();
         if (!data.session || isSessionExpired(data.session)) {
           await forceLogout('initAuth timeout with expired session');
@@ -570,14 +572,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } catch (err) {
       console.error('[App] initAuth error:', err);
-      // Lỗi 401/JWT/hết hạn → force logout
       const msg = String(err?.message || err || '').toLowerCase();
       const status = err?.status || err?.code || 0;
       if (status === 401 || msg.includes('jwt') || msg.includes('401') || msg.includes('unauthorized') || msg.includes('expired')) {
         await forceLogout('initAuth 401/JWT error');
         return;
       }
-      // Lỗi khác → vẫn show guest
       showGuestView();
       return;
     }
