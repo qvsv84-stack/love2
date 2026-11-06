@@ -60,7 +60,6 @@ function populateDppEmployeeSelect() {
   const $main = $('#employeeSelect');
   const $dpp = $('#dppEmployeeSelect');
   if (!$main || !$dpp) return;
-
   if ($dpp.options.length !== $main.options.length) {
     $dpp.innerHTML = $main.innerHTML;
   }
@@ -80,12 +79,9 @@ function bindDppEmployeeSelect() {
     if (newId === state.selectedEmployeeId) return;
 
     state.selectedEmployeeId = newId;
-
     const $main = $('#employeeSelect');
     if ($main) $main.value = newId;
-
     if (state.selectionMode) exitSelectionMode();
-
     await loadAttendanceForMonth(true);
     renderCalendar();
   });
@@ -101,7 +97,6 @@ function renderDayPreview(dateStr) {
 
   document.body.classList.add('dpp-fullpage');
 
-  // Setup nút ✕
   const $closeBtn = $('#dppCloseBtn');
   if ($closeBtn) {
     $closeBtn.onclick = (e) => {
@@ -110,7 +105,6 @@ function renderDayPreview(dateStr) {
     };
   }
 
-  // Populate dropdown NV
   populateDppEmployeeSelect();
 
   if ($dateEl) $dateEl.textContent = `📅 ${formatDateVN(dateStr)}`;
@@ -141,7 +135,6 @@ function _renderDayPreviewImmediate(dateStr) {
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
   const att = state.attendance.find(a => a.date === dateStr);
 
-  // Update avatar
   if ($avatar) {
     const name = emp?.full_name || emp?.username || '';
     $avatar.textContent = name ? name.charAt(0).toUpperCase() : '?';
@@ -154,7 +147,6 @@ function _renderDayPreviewImmediate(dateStr) {
       $editBtn.style.display = 'inline-flex';
       $editBtn.onclick = (e) => {
         e.stopPropagation();
-        // Modal có z-index 10000 (CSS) → nổi trên fullpage, không cần đóng
         openAttendanceModal(dateStr);
       };
     } else {
@@ -182,8 +174,8 @@ function buildDayPreviewBody(att, emp) {
   }
 
   const lines = [];
-  let rawMain = 0;   // ⭐ tổng công RAW (chưa cap)
-  let sumOT = 0;     // tổng OT từ ot_areas
+  let rawMain = 0;
+  let sumOT = 0;
 
   const addLine = (emoji, label, h, isOT, others) => {
     if (isOT) sumOT += h; else rawMain += h;
@@ -240,12 +232,10 @@ function buildDayPreviewBody(att, emp) {
     }
   }
 
-  // ⭐ Cap công ở DAILY_MAIN_CAP (8h), phần vượt chuyển OT
   const sumMain = Math.min(rawMain, DAILY_MAIN_CAP);
   const overflow = Math.max(0, rawMain - DAILY_MAIN_CAP);
   const finalOT = sumOT + overflow;
 
-  // Thêm line thông báo nếu có vượt
   const overflowLine = overflow > 0
     ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--border);color:var(--warning);font-weight:600">` +
         `<span>⚡ Vượt ${formatHours(DAILY_MAIN_CAP)}/ngày → chuyển OT</span>` +
@@ -1343,7 +1333,6 @@ export function renderCalendar() {
       attachCalendarSelect(el, el.dataset.date));
   }
 
-  // Update nút "Xem chi tiết"
   const $viewBtn = $('#viewDetailBtn');
   if ($viewBtn) {
     if (state.selectedViewDate && !state.selectionMode) {
@@ -1356,7 +1345,6 @@ export function renderCalendar() {
     }
   }
 
-  // Sync panel nếu đang fullpage
   const isFullpage = document.body.classList.contains('dpp-fullpage');
   if (isFullpage && state.selectedViewDate) {
     renderDayPreview(state.selectedViewDate);
@@ -1366,7 +1354,6 @@ export function renderCalendar() {
   }
 }
 
-/* touchstart + click với dedupe */
 function attachCalendarSelect(el, dateStr) {
   let lastFire = 0;
 
@@ -1384,12 +1371,10 @@ function attachCalendarSelect(el, dateStr) {
 
     const isFullpage = document.body.classList.contains('dpp-fullpage');
     if (isFullpage) {
-      // Trong fullpage: click ngày khác → update panel (không toggle)
       if (state.selectedViewDate !== dateStr) {
         setSelectedViewDate(dateStr);
       }
     } else {
-      // Ngoài fullpage: toggle chọn
       if (state.selectedViewDate === dateStr) {
         setSelectedViewDate(null);
       } else {
@@ -1429,6 +1414,17 @@ export function switchTab(name) {
     $('#excelMonth').value = `${y}-${String(m).padStart(2, '0')}`;
     import('./excel.js').then(e => e.loadExcelData()).catch(err => console.warn(err));
   }
+
+  // ⭐⭐⭐ LOAD ROOMS KHI CLICK TAB ⭐⭐⭐
+  if (name === 'rooms') {
+    import('./rooms.js')
+      .then(m => m.loadRooms())
+      .catch(err => {
+        console.warn('[rooms] Load fail:', err);
+        const wrap = $('#roomsList');
+        if (wrap) wrap.innerHTML = '<p class="hint" style="color:var(--danger)">⚠️ Không tải được danh sách phòng. Kiểm tra Console (F12).</p>';
+      });
+  }
 }
 
 export async function changeMonth(delta) {
@@ -1441,7 +1437,6 @@ export async function changeMonth(delta) {
   await loadAttendanceForMonth();
 
   if (wasFullpage) {
-    // ⭐ Giữ fullpage, auto-select ngày mặc định
     const y = d.getFullYear();
     const m = d.getMonth();
     const today = new Date();
