@@ -39,12 +39,12 @@ import { initExportModule } from './export.js';
 import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
+import { loadRooms, renderRooms } from './rooms.js'; // ⭐ Import rooms.js
 
-/* ⭐ BUILD MARKER — kiểm tra trong Console */
-const APP_BUILD = '2026-11-06-final-v1';
+/* ⭐ BUILD MARKER */
+const APP_BUILD = '2026-11-06-final-v2';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
-/* ⭐ Expose để debug trong console (F12) */
 if (typeof window !== 'undefined') {
   window.supabase = supabase;
   window.__diag = async () => {
@@ -60,7 +60,6 @@ if (typeof window !== 'undefined') {
   };
 }
 
-/* ⭐ Log auth events */
 const _authLog = [];
 function logAuth(event, session) {
   const entry = {
@@ -74,7 +73,6 @@ function logAuth(event, session) {
   console.log(`%c[Auth] ${event}`, 'color:#64d2ff', entry);
 }
 
-/* ⭐ Cờ "user chủ động bấm Logout" */
 let _explicitLogout = false;
 let _selfHealAttempts = 0;
 
@@ -83,7 +81,6 @@ function markExplicitLogout() {
   setTimeout(() => { _explicitLogout = false; }, 3000);
 }
 
-/* ⭐ Helper đọc ngày đang xem khu vực */
 function getAreasViewDate() {
   const $dp = $('#areasViewDate');
   if ($dp && $dp.value) return $dp.value;
@@ -108,7 +105,6 @@ async function reloadAreasForDate(dateStr) {
   }
 }
 
-/* ⭐ Auto-login từ "Lưu mật khẩu" */
 async function tryAutoLogin() {
   try {
     const saved = localStorage.getItem(LS_KEY);
@@ -132,7 +128,6 @@ async function tryAutoLogin() {
   }
 }
 
-/* ⭐ Kiểm tra session còn sống không */
 async function ensureSessionAlive() {
   try {
     const { data } = await supabase.auth.getSession();
@@ -265,6 +260,22 @@ function bindEvents() {
     if (e.target.id === 'bulkCopyModal') closeModal('bulkCopyModal');
   });
   $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
+
+  // Rooms Search & Filter
+  const roomsSearchEl = $('#roomsSearch');
+  if (roomsSearchEl) {
+    roomsSearchEl.addEventListener('input', (e) => {
+      state.roomsSearch = e.target.value;
+      renderRooms();
+    });
+  }
+  const roomsFilterEl = $('#roomsBuildingFilter');
+  if (roomsFilterEl) {
+    roomsFilterEl.addEventListener('change', (e) => {
+      state.roomsBuildingFilter = e.target.value;
+      renderRooms();
+    });
+  }
 
   const areasSearchEl = $('#areasSearch');
   if (areasSearchEl) {
