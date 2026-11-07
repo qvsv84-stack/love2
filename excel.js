@@ -170,7 +170,9 @@ export function openExcelActionModal(empId) {
 }
 
 /* ============ CAPTURE TABLE HTML ============ */
-function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title) {
+function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title, opts = {}) {
+  const hideNameColumn = !!opts.hideNameColumn;
+
   let html = '';
 
   if (title) {
@@ -179,7 +181,9 @@ function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title
   }
 
   html += '<table class="excel-capture-table"><thead><tr>';
-  html += '<th class="th-name">Nhân viên</th>';
+  if (!hideNameColumn) {
+    html += '<th class="th-name">Nhân viên</th>';
+  }
   for (let d = 1; d <= daysInMonth; d++) {
     const dow = new Date(year, month - 1, d).getDay();
     const cls = dow === 0 ? 'th-sunday' : '';
@@ -194,7 +198,9 @@ function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title
     let rowNC = '<tr class="row-nc">';
     let rowOT = '<tr class="row-ot">';
 
-    rowNC += `<td rowspan="2" class="td-name">${name}</td>`;
+    if (!hideNameColumn) {
+      rowNC += `<td rowspan="2" class="td-name">${name}</td>`;
+    }
 
     for (let d = 1; d <= daysInMonth; d++) {
       const att = empAtt[d];
@@ -215,8 +221,8 @@ function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title
   return html;
 }
 
-/* ============ CAPTURE PNG ============ */
-async function captureExcelPNG(profilesToCapture, title, filename) {
+/* ============ CAPTURE PNG (nhận opts) ============ */
+async function captureExcelPNG(profilesToCapture, title, filename, opts = {}) {
   try {
     await loadHtml2Canvas();
   } catch {
@@ -224,16 +230,20 @@ async function captureExcelPNG(profilesToCapture, title, filename) {
     return null;
   }
 
-  const y = state.excelMonth.getFullYear();
-  const m = state.excelMonth.getMonth() + 1;
+  const monthDate = opts.monthDate || state.excelMonth;
+  const y = monthDate.getFullYear();
+  const m = monthDate.getMonth() + 1;
   const daysInMonth = new Date(y, m, 0).getDate();
 
-  const attMap = buildAttMap();
+  const attMap = opts.attMap || buildAttMap();
 
   const captureArea = $('#excelCaptureArea');
   if (!captureArea) return null;
 
-  const tableHTML = buildCaptureTableHTML(profilesToCapture, attMap, y, m, daysInMonth, title);
+  const tableHTML = buildCaptureTableHTML(
+    profilesToCapture, attMap, y, m, daysInMonth, title,
+    { hideNameColumn: opts.hideNameColumn }
+  );
   captureArea.innerHTML = `
     <div style="display:inline-block;background:white;padding:0;">
       ${tableHTML}
@@ -266,6 +276,71 @@ async function captureExcelPNG(profilesToCapture, title, filename) {
     toast('Lỗi render ảnh: ' + err.message);
     return null;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ⭐ MỚI: Xuất 1 NV từ tab Lịch công — dùng chung logic
+   ═══════════════════════════════════════════════════════════════ */
+export async function exportMonthPNGForEmployee(empId, monthDate) {
+  if (!state.isAdmin) { toast('Chỉ admin được xuất'); return; }
+  if (!empId) { toast('Chọn nhân viên trước'); return; }
+
+  const emp = state.employees.find(e => e.id === empId);
+  if (!emp) { toast('Không tìm thấy nhân viên'); return; }
+
+  const targetMonth = monthDate || state.currentMonth;
+  const y = targetMonth.getFullYear();
+  const m = targetMonth.getMonth() + 1;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const start = `${y}-${pad(m)}-01`;
+  const end = `${y}-${pad(m)}-${pad(daysInMonth)}`;
+
+  // Ưu tiên dùng state.attendance nếu đúng NV + đúng tháng (tránh fetch lại)
+  let attList = null;
+  if (state.selectedEmployeeId === empId &&
+      state.currentMonth.getFullYear() === y &&
+      state.currentMonth.getMonth() === m - 1 &&
+      Array.isArray(state.attendance) && state.attendance.length > 0) {
+    attList = state.attendance;
+  }
+
+  if (!attList) {
+    const { data, error } = await supabase
+      .from('attendance').select('*')
+      .eq('employee_id', empId)
+      .gte('date', start).lte('date', end);
+    if (error) { toast('Lỗi: ' + error.message); return; }
+    attList = data || [];
+  }
+
+  // Build attMap cho riêng NV này
+  const attMap = { [empId]: {} };
+  for (const a of attList) {
+    if (!a.date.startsWith(`${y}-${pad(m)}`)) continue;
+    const day = Number(a.date.split('-')[2]);
+    attMap[empId][day] = a;
+  }
+
+  const name = emp.full_name || emp.username || 'NhanVien';
+  const safeName = name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯẠ-ỹ]/g, '');
+  const filename = `BangCong_${safeName}_${pad(m)}_${y}.png`;
+
+  toast('⏳ Đang tạo ảnh...');
+
+  const result = await captureExcelPNG(
+    [emp],
+    name,
+    filename,
+    {
+      hideNameColumn: true,   // ⭐ ẩn cột tên — chỉ giữ title ở trên
+      attMap,
+      monthDate: targetMonth,
+    }
+  );
+  if (!result) return;
+
+  downloadBlob(result.blob, result.filename);
+  toast('📷 Đã lưu ảnh: ' + result.filename);
 }
 
 /* ============ SAVE / SHARE ONE ============ */
