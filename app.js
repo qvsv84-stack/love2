@@ -37,6 +37,8 @@ import {
 import {
   loadExcelData, onExcelMonthChanged,
   saveExcelOne, shareExcelOne, saveExcelAll, shareExcelAll,
+  bulkCopySubmit,
+  exportMonthPNGForEmployee,
 } from './excel.js';
 
 import { initExportModule } from './export.js';
@@ -44,7 +46,7 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-const APP_BUILD = '2026-11-08-final-v10-copyfix';
+const APP_BUILD = '2026-11-08-final-v11-exportfix';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
 window.__APP_JS_LOADED__ = true;
@@ -68,6 +70,8 @@ if (typeof window !== 'undefined') {
     console.log('state.buildings:', state.buildings?.length || 0);
     console.log('state.floors:', state.floors?.length || 0);
     console.log('copyMode:', state.copyMode);
+    console.log('selectedEmployeeId:', state.selectedEmployeeId);
+    console.log('currentMonth:', state.currentMonth?.toISOString?.().slice(0, 7));
   };
 };
 
@@ -294,6 +298,23 @@ function bindEvents() {
     $bulkCopyBtn.addEventListener('click', handleBulkCopyBtnClick);
   }
 
+  // ⭐ NÚT XUẤT CÔNG THÁNG — dùng hàm từ excel.js
+  const $exportMonthBtn = $('#exportMonthBtn');
+  if ($exportMonthBtn) {
+    $exportMonthBtn.addEventListener('click', async () => {
+      if (!state.selectedEmployeeId) {
+        toast('Chọn nhân viên trước');
+        return;
+      }
+      try {
+        await exportMonthPNGForEmployee(state.selectedEmployeeId, state.currentMonth);
+      } catch (err) {
+        console.error('[exportMonth]', err);
+        toast('Lỗi xuất ảnh: ' + (err.message || 'không xác định'));
+      }
+    });
+  }
+
   const roomsSearchEl = $('#roomsSearch');
   if (roomsSearchEl) {
     roomsSearchEl.addEventListener('input', async (e) => {
@@ -382,8 +403,6 @@ function bindEvents() {
   });
 
   $('#exportExcelBtn').addEventListener('click', () => { if (state.exportModule) state.exportModule.openExportModal(); });
-
-  // ⭐ KHÔNG còn nút #syncHoursBtn (đã xoá khỏi HTML)
 
   $('#exportModal').addEventListener('click', (e) => { if (e.target.id === 'exportModal') closeModal('exportModal'); });
   $('#exportSubmitBtn').addEventListener('click', () => { if (state.exportModule) state.exportModule.doExport().catch(console.error); });
