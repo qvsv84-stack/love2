@@ -10,6 +10,8 @@ let _watchId = null;
 let _renderTimer = null;
 let _todayCheckins = [];
 let _recentLogs = [];
+let _anyCheckinInFlight = false;   // chặn double insert (auto + manual)
+let _autoCheckinCooldown = 0;      // tránh spam DB nếu auto insert lỗi
 
 function ensureState() {
   if (!state.checkinLocation) state.checkinLocation = null;
@@ -48,6 +50,7 @@ function startGPSWatch() {
       };
       state.checkinGpsError = null;
       scheduleRender();
+      tryAutoCheckin();
     },
     (err) => {
       let msg = 'Không lấy được vị trí';
@@ -184,6 +187,57 @@ function getCurrentState() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   AUTO CHECK-IN — tự chấm công khi vào phạm vi
+   ═══════════════════════════════════════════════════════════════ */
+async function tryAutoCheckin() {
+  if (_anyCheckinInFlight) return;
+  if (Date.now() < _autoCheckinCooldown) return;
+  if (!state.user?.id) return;
+  if (getCurrentState() !== 'need_in') return;      // đã chấm đến rồi thì thôi
+
+  const distInfo = getDistanceInfo();
+  if (!distInfo || !distInfo.inRange) return;       // chưa vào phạm vi
+
+  await doAutoCheckin();
+}
+
+async function doAutoCheckin() {
+  const loc = state.checkinLocation;
+  const pos = state.checkinUserPos;
+  if (!loc || !pos) return;
+
+  const dist = haversine(pos.lat, pos.lng, loc.lat, loc.lng);
+
+  _anyCheckinInFlight = true;
+  try {
+    const { error } = await supabase.from('cslx_checkins').insert({
+      employee_id:   state.user.id,
+      employee_name: getUserName(),
+      checkin_date:  toDateStr(new Date()),
+      type:          'in',
+      lat:           pos.lat,
+      lng:           pos.lng,
+      accuracy_m:    pos.accuracy,
+      distance_m:    dist,
+      device_info:   'AUTO · ' + (navigator.userAgent || '').slice(0, 180),
+    });
+    if (error) throw error;
+
+    try { navigator.vibrate([100, 50, 200]); } catch {}
+
+    await loadTodayCheckins();
+    await loadRecentLogs();
+    renderCheckin();
+    showSuccessModal('in', true);
+  } catch (err) {
+    console.error('[auto-checkin]', err);
+    _autoCheckinCooldown = Date.now() + 30_000;
+  } finally {
+    _anyCheckinInFlight = false;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    ENTRYPOINT
    ═══════════════════════════════════════════════════════════════ */
 export async function loadCheckinTab() {
@@ -206,6 +260,7 @@ export async function loadCheckinTab() {
 
   renderCheckin();
   bindModal();
+  tryAutoCheckin();
 }
 
 function renderLoading() {
@@ -493,6 +548,7 @@ function showConfirmModal(title, timeStr, dateStr, onConfirm) {
 }
 
 async function doCheckin(type) {
+  if (_anyCheckinInFlight) { toast('Đang xử lý, vui lòng đợi'); return; }
   if (!state.checkinUserPos || !state.checkinLocation) {
     toast('Đang tìm vị trí... vui lòng đợi thêm');
     return;
@@ -506,6 +562,7 @@ async function doCheckin(type) {
     return;
   }
 
+  _anyCheckinInFlight = true;
   try {
     const { error } = await supabase.from('cslx_checkins').insert({
       employee_id: state.user.id,
@@ -530,11 +587,15 @@ async function doCheckin(type) {
   } catch (err) {
     console.error('[checkin]', err);
     toast('Lỗi: ' + (err.message || 'không xác định'));
+  } finally {
+    _anyCheckinInFlight = false;
   }
 }
 
-function showSuccessModal(type) {
-  const title = type === 'in' ? 'CHẤM CÔNG ĐẾN THÀNH CÔNG' : 'CHẤM CÔNG VỀ THÀNH CÔNG';
+function showSuccessModal(type, isAuto = false) {
+  const title = type === 'in'
+    ? (isAuto ? 'ĐÃ TỰ ĐỘNG CHẤM CÔNG ĐẾN' : 'CHẤM CÔNG ĐẾN THÀNH CÔNG')
+    : 'CHẤM CÔNG VỀ THÀNH CÔNG';
   const now = new Date();
 
   let $m = document.getElementById('checkinSuccessModal');
@@ -547,6 +608,7 @@ function showSuccessModal(type) {
             <div id="checkinSuccessTitle" style="font-size:22px;font-weight:700;color:#15803d;margin-bottom:20px;line-height:1.3;"></div>
             <div id="checkinSuccessTime" style="font-size:24px;font-weight:700;color:var(--text);margin-bottom:8px;"></div>
             <div id="checkinSuccessDate" style="font-size:15px;color:var(--text-muted);"></div>
+            <div id="checkinSuccessNote" style="font-size:13px;color:#15803d;margin-top:14px;line-height:1.5;display:none;"></div>
           </div>
         </div>
       </div>`;
@@ -557,11 +619,22 @@ function showSuccessModal(type) {
   document.getElementById('checkinSuccessTitle').textContent = title;
   document.getElementById('checkinSuccessTime').textContent = formatTime(now.toISOString());
   document.getElementById('checkinSuccessDate').textContent = formatDateVN(now.toISOString());
+
+  const $note = document.getElementById('checkinSuccessNote');
+  if ($note) {
+    if (isAuto) {
+      $note.style.display = 'block';
+      $note.textContent = 'Hệ thống tự chấm công khi bạn vào trường.';
+    } else {
+      $note.style.display = 'none';
+    }
+  }
+
   $m.style.display = 'flex';
 
   setTimeout(() => {
     if ($m) $m.style.display = 'none';
-  }, 3500);
+  }, isAuto ? 4500 : 3500);
 }
 
 /* ═══════════════════════════════════════════════════════════════
