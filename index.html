@@ -152,6 +152,40 @@
     }
     .areas-bulk-actions .btn-bulk-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* ⭐ Copy mode button states */
+    #bulkCopyBtn.mode-source {
+      background: #fee2e2 !important;
+      color: #b91c1c !important;
+      border: 2px solid #dc2626 !important;
+      font-weight: 700 !important;
+    }
+    #bulkCopyBtn.mode-target {
+      background: #dcfce7 !important;
+      color: #15803d !important;
+      border: 2px solid #16a34a !important;
+      font-weight: 700 !important;
+    }
+
+    /* ⭐ Calendar cell copy highlight */
+    .cal-day.copy-source {
+      background: #fee2e2 !important;
+      box-shadow: inset 0 0 0 3px #dc2626 !important;
+      font-weight: 700 !important;
+    }
+    .cal-day.copy-source .day-num,
+    .cal-day.copy-source .day-hours {
+      color: #b91c1c !important;
+    }
+    .cal-day.copy-target {
+      background: #dcfce7 !important;
+      box-shadow: inset 0 0 0 3px #16a34a !important;
+      font-weight: 700 !important;
+    }
+    .cal-day.copy-target .day-num,
+    .cal-day.copy-target .day-hours {
+      color: #15803d !important;
+    }
+
     #viewDetailBtn { display: none; width: 100%; margin: 12px 0; padding: 12px 14px; background: linear-gradient(135deg, var(--ocean-500, #0ea5b7), var(--ocean-600, #0891b2)); color: #fff; border: none; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(14, 165, 183, 0.35); -webkit-tap-highlight-color: transparent; text-align: center; }
     #viewDetailBtn:active { transform: translateY(1px); }
 
@@ -319,13 +353,12 @@
         <div id="quickAttendanceRow" style="display:none; margin-bottom:12px">
           <button id="todayAttendanceBtn" class="btn-primary" style="width:100%">📝 Chấm công hôm nay</button>
         </div>
-        <div id="calendarActions" style="display:none">
+        <div id="calendarActions" style="display:none; flex-wrap:wrap; gap:8px;">
           <button id="selectionToggleBtn" class="btn-secondary">☑️ Chọn nhiều ngày</button>
           <button id="bulkCopyBtn" class="btn-secondary">📋 Copy ngày</button>
         </div>
         <div id="exportActionRow" style="display:none; margin-bottom:12px">
           <button id="exportExcelBtn" class="btn-secondary" style="width:100%">📥 Xuất Excel</button>
-          <button id="syncHoursBtn" class="btn-secondary" style="width:100%; margin-top:8px; background:#fef3c7;color:#92400e;border-color:#fbbf24;">🔄 Đồng bộ giờ công tháng này</button>
         </div>
 
         <div class="calendar-wrap">
@@ -372,7 +405,6 @@
           <button class="btn-create" data-create="night" id="createNightBtn">+ Thêm ca đêm</button>
         </div>
 
-        <!-- ⭐ BULK: Chọn nhân viên + Reset -->
         <div class="areas-bulk-row">
           <select id="areasBulkEmpSelect">
             <option value="">👤 Chọn nhân viên (gán nhanh nhiều tầng)</option>
@@ -380,7 +412,6 @@
           <button type="button" id="areasResetBtn" class="btn-reset">🗑 Reset</button>
         </div>
 
-        <!-- ⭐ BULK ACTIONS: Lưu / Huỷ khi đã chọn NV -->
         <div id="areasBulkActions" class="areas-bulk-actions">
           <span class="bulk-info" id="areasBulkInfo">Đang gán cho: —</span>
           <button type="button" id="areasBulkCancelBtn" class="btn-bulk-cancel">Huỷ</button>
@@ -580,22 +611,6 @@ select * from cslx_rooms limit 5;"></textarea>
           <button class="btn-secondary" data-close="attendanceModal" id="attCancelBtn">Huỷ</button>
           <button id="saveAttendanceBtn" class="btn-primary">Lưu</button>
           <button id="attEditBtn" class="btn-primary" style="display:none">✏️ Sửa</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="bulkCopyModal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header"><h3>📋 Copy chấm công</h3><button class="btn-close" data-close="bulkCopyModal">✕</button></div>
-        <div class="modal-body">
-          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.5">Copy toàn bộ chấm công của <strong>tất cả nhân viên</strong> từ ngày nguồn sang ngày đích.</p>
-          <div class="form-group"><label>Từ ngày (nguồn)</label><input type="date" id="bulkSourceDate" class="input" /></div>
-          <div class="form-group"><label>Sang ngày (đích)</label><input type="date" id="bulkTargetDate" class="input" /></div>
-          <p id="bulkCopyInfo" style="font-size:12px;color:var(--text-muted);margin-top:8px"></p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-close="bulkCopyModal">Huỷ</button>
-          <button id="bulkCopySubmit" class="btn-primary">Copy</button>
         </div>
       </div>
     </div>
@@ -817,7 +832,7 @@ select * from cslx_rooms limit 5;"></textarea>
   })();
   </script>
 
-  <script type="module" src="./app.js?v=21"></script>
+  <script type="module" src="./app.js?v=22"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
