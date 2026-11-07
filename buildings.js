@@ -1,4 +1,4 @@
-// buildings.js — Toà nhà, tầng, special areas, xem ngày cũ
+// buildings.js — Toà nhà, tầng, special areas, gán nhân viên vào tầng
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast,
@@ -13,9 +13,9 @@ function ensureState() {
   if (!Array.isArray(state.nightAssignments)) state.nightAssignments = [];
   if (!Array.isArray(state.sundayOtAssignments)) state.sundayOtAssignments = [];
   if (!(state.expandedBuildings instanceof Set)) state.expandedBuildings = new Set();
+  if (!state._assignCtx) state._assignCtx = null;
 }
 
-/* ⭐ Post-process: chia đều giờ cho external/night nếu cùng giờ + nhiều user */
 function processSharedAssigns(mapObj) {
   const arr = Object.values(mapObj);
   if (arr.length <= 1) return arr;
@@ -28,7 +28,6 @@ function processSharedAssigns(mapObj) {
     if (h > maxH) maxH = h;
   }
 
-  // Tất cả cùng giờ và count > 1 → chia đều
   if (hoursSet.size === 1 && arr.length > 1) {
     const perPerson = maxH / arr.length;
     return arr.map(a => ({ ...a, hours: perPerson, shared: arr.length }));
@@ -64,7 +63,6 @@ export async function loadBuildings() {
   renderBuildings();
 }
 
-/* ⭐ Đổi: nhận dateStr để xem ngày cũ */
 export async function loadDayAssignments(dateStr = null) {
   ensureState();
 
@@ -103,7 +101,7 @@ export async function loadDayAssignments(dateStr = null) {
         if (area.type === 'external') addSpecial(externalByEmp, a.employee_id, area.hours);
         else if (area.type === 'night') addSpecial(nightByEmp, a.employee_id, area.hours);
         else if (area.building_id && area.floor_id) {
-          const fid = area.floor_id;
+          const fid = String(area.floor_id);
           if (!mainUsersByFloor[fid]) mainUsersByFloor[fid] = new Set();
           mainUsersByFloor[fid].add(a.employee_id);
         }
@@ -116,7 +114,7 @@ export async function loadDayAssignments(dateStr = null) {
         else if (area.type === 'external') addSpecial(externalByEmp, a.employee_id, area.hours);
         else if (area.type === 'night') addSpecial(nightByEmp, a.employee_id, area.hours);
         else if (area.building_id && area.floor_id) {
-          const fid = area.floor_id;
+          const fid = String(area.floor_id);
           const h = area.hours;
           if (h != null && h !== '' && !isNaN(Number(h))) continue;
           if (!otAutoUsersByFloor[fid]) otAutoUsersByFloor[fid] = new Set();
@@ -136,10 +134,10 @@ export async function loadDayAssignments(dateStr = null) {
       for (const area of a.areas) {
         if (area.type === 'external' || area.type === 'night') continue;
         if (!area.building_id || !area.floor_id) continue;
-        const fid = area.floor_id;
+        const fid = String(area.floor_id);
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
 
-        const floor = state.floors.find(x => x.id === fid);
+        const floor = state.floors.find(x => String(x.id) === fid);
         const floorDefault = floor ? Number(floor.default_hours || 0) : 0;
         const cnt = mainUsersByFloor[fid]?.size || 1;
         const raw = floorDefault / cnt;
@@ -153,7 +151,7 @@ export async function loadDayAssignments(dateStr = null) {
       for (const area of a.ot_areas) {
         if (area.type === 'external' || area.type === 'night' || area.type === 'sunday_ot') continue;
         if (!area.building_id || !area.floor_id) continue;
-        const fid = area.floor_id;
+        const fid = String(area.floor_id);
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
 
         const h = area.hours;
@@ -161,7 +159,7 @@ export async function loadDayAssignments(dateStr = null) {
         let raw;
         if (isManual) raw = Number(h);
         else {
-          const floor = state.floors.find(x => x.id === fid);
+          const floor = state.floors.find(x => String(x.id) === fid);
           const floorDefault = floor ? Number(floor.default_hours || 0) : 0;
           const cnt = otAutoUsersByFloor[fid]?.size || 1;
           raw = floorDefault / cnt;
@@ -198,7 +196,6 @@ export async function loadDayAssignments(dateStr = null) {
   }
 
   state.floorAssignments = map;
-  // ⭐ FIX: chia đều giờ ca đêm/ngoại cảnh
   state.externalAssignments = processSharedAssigns(externalByEmp);
   state.nightAssignments = processSharedAssigns(nightByEmp);
   state.sundayOtAssignments = Object.values(sundayOtByEmp);
@@ -212,7 +209,6 @@ export async function loadDayAssignments(dateStr = null) {
   }
 }
 
-/* Compat: giữ tên cũ cho app.js */
 export async function loadTodayAssignments() {
   return loadDayAssignments(toDateStr(new Date()));
 }
@@ -226,7 +222,6 @@ export function renderBuildings() {
 
   updateCreateButtons();
 
-  // Sync date picker
   const $datePicker = $('#areasViewDate');
   if ($datePicker && !$datePicker.value) {
     $datePicker.value = state.areasViewDate || toDateStr(new Date());
@@ -284,7 +279,7 @@ export function renderBuildings() {
 
   const floorsWithPeople = new Set();
   for (const b of state.buildings) {
-    const floors = state.floors.filter(f => f.building_id === b.id);
+    const floors = state.floors.filter(f => b.id === f.building_id);
     for (const f of floors) {
       const assigns = state.floorAssignments[f.id] || [];
       const visible = assigns.filter(a => filteredEmpIds.has(a.employee_id));
@@ -359,7 +354,7 @@ export function renderBuildings() {
 
   const expanded = state.expandedBuildings;
   const buildingsHtml = state.buildings.map(b => {
-    const floors = state.floors.filter(f => f.building_id === b.id)
+    const floors = state.floors.filter(f => b.id === f.building_id)
       .sort((a, c) => a.floor_number - c.floor_number);
 
     const isExpanded = expanded.has(b.id);
@@ -399,11 +394,18 @@ export function renderBuildings() {
         ? `<span class="floor-people-count">${visible.length} người</span>`
         : `<span class="floor-people-count is-empty">Trống</span>`;
 
+      const assignBtn = state.isAdmin
+        ? `<button class="btn-assign-floor" data-assign-b="${b.id}" data-assign-f="${f.id}" style="padding:4px 10px;font-size:11px;background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">+ Gán</button>`
+        : '';
+
       return `
         <div class="floor-row${visible.length > 0 ? ' has-assignees' : ''}">
           <div class="floor-row-head">
             <span class="floor-name">${floorLabel(f.floor_number)} ${peopleBadge}</span>
-            <span class="floor-hours">${formatHours(f.default_hours)}</span>
+            <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+              <span class="floor-hours">${formatHours(f.default_hours)}</span>
+              ${assignBtn}
+            </span>
           </div>
           ${assigneesHtml}
         </div>`;
@@ -467,6 +469,15 @@ export function renderBuildings() {
       ev.stopPropagation();
       ev.preventDefault();
       jumpToEmployeeCalendar(el.dataset.jumpEmp);
+    });
+  });
+
+  // ⭐ Bind nút "Gán"
+  wrap.querySelectorAll('.btn-assign-floor').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      openAssignModal(btn.dataset.assignB, btn.dataset.assignF);
     });
   });
 }
@@ -590,6 +601,259 @@ function renderSimpleCard(opts) {
   `;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ⭐ GÁN NHÂN VIÊN VÀO TẦNG
+   ═══════════════════════════════════════════════════════════════ */
+export async function openAssignModal(buildingId, floorId) {
+  if (!state.isAdmin) { toast('Chỉ admin được gán'); return; }
+
+  const dateStr = state.areasViewDate || toDateStr(new Date());
+  const building = state.buildings.find(b => String(b.id) === String(buildingId));
+  const floor = state.floors.find(f => String(f.id) === String(floorId));
+  if (!building || !floor) { toast('Không tìm thấy tầng'); return; }
+
+  state._assignCtx = { buildingId, floorId, dateStr };
+
+  // Đọc toàn bộ attendance của ngày để biết ai đã có {B,F}
+  const { data: allAtt, error } = await supabase
+    .from('attendance')
+    .select('employee_id, areas, ot_areas, is_off, mode')
+    .eq('date', dateStr);
+  if (error) { toast('Lỗi tải: ' + error.message); return; }
+
+  // Set of employee_ids đang được gán vào tầng này
+  const assignedSet = new Set();
+  for (const a of (allAtt || [])) {
+    if (a.is_off) continue;
+    if (a.mode === 'leave' || a.mode === 'off') continue;
+    if (!Array.isArray(a.areas)) continue;
+    for (const area of a.areas) {
+      const t = area.type || 'building';
+      if (t !== 'building') continue;
+      if (String(area.building_id) === String(buildingId) && String(area.floor_id) === String(floorId)) {
+        assignedSet.add(a.employee_id);
+      }
+    }
+  }
+
+  // Title
+  const $title = $('#assignEmpTitle');
+  if ($title) $title.textContent = `Gán NV vào ${floorLabel(floor.floor_number)} — ${building.name}`;
+  const $sub = $('#assignEmpSubtitle');
+  if ($sub) $sub.textContent = `Ngày: ${formatDateVN(dateStr)} · Giờ mặc định tầng: ${formatHours(floor.default_hours)}`;
+
+  // Render list
+  renderAssignList(assignedSet);
+
+  // Bind search
+  const $search = $('#assignEmpSearch');
+  if ($search) {
+    $search.value = '';
+    $search.oninput = () => renderAssignList(assignedSet, $search.value);
+  }
+
+  // Bind save (chỉ bind 1 lần)
+  const $saveBtn = $('#assignEmpSaveBtn');
+  if ($saveBtn && !$saveBtn.dataset.bound) {
+    $saveBtn.dataset.bound = '1';
+    $saveBtn.addEventListener('click', saveAssignments);
+  }
+
+  openModal('assignEmployeeModal');
+}
+
+function renderAssignList(assignedSet, searchTerm = '') {
+  const $list = $('#assignEmpList');
+  if (!$list) return;
+
+  const term = (searchTerm || '').toLowerCase().trim();
+  const employees = (state.employees || [])
+    .filter(e => e.status !== 'inactive')
+    .filter(e => {
+      if (!term) return true;
+      const name = (e.full_name || '').toLowerCase();
+      const username = (e.username || '').toLowerCase();
+      const phone = (e.phone || '').toLowerCase();
+      return name.includes(term) || username.includes(term) || phone.includes(term);
+    })
+    .sort((a, b) => {
+      const an = (a.full_name || a.username || '').toLowerCase();
+      const bn = (b.full_name || b.username || '').toLowerCase();
+      return an.localeCompare(bn, 'vi');
+    });
+
+  if (!employees.length) {
+    $list.innerHTML = '<p class="hint" style="padding:16px;text-align:center;margin:0">Không có nhân viên phù hợp</p>';
+    return;
+  }
+
+  const roleMap = {
+    admin: 'Giám sát',
+    employee: 'Nhân viên',
+    temporary: 'Thời vụ',
+    external: 'Ngoại cảnh',
+  };
+
+  $list.innerHTML = employees.map(e => {
+    const name = e.full_name || e.username || '—';
+    const role = roleMap[e.role] || e.role || '';
+    const phone = e.phone || '';
+    const checked = assignedSet.has(e.id);
+    return `
+      <label style="display:flex;padding:10px 12px;border-bottom:1px solid var(--border);gap:10px;cursor:pointer;align-items:center;">
+        <input type="checkbox" data-emp-id="${e.id}" ${checked ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;accent-color:#0ea5b7;" />
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:1px;">
+            ${role}${phone ? ' · ' + phone : ''}
+          </div>
+        </div>
+        ${checked ? '<span style="font-size:11px;color:#16a34a;font-weight:600;flex-shrink:0;">✓ Đang gán</span>' : ''}
+      </label>
+    `;
+  }).join('');
+}
+
+async function saveAssignments() {
+  const ctx = state._assignCtx;
+  if (!ctx) { toast('Thiếu thông tin'); return; }
+  const { buildingId, floorId, dateStr } = ctx;
+
+  const checkedIds = new Set();
+  $$('#assignEmpList input[type="checkbox"]:checked').forEach(cb => {
+    checkedIds.add(cb.dataset.empId);
+  });
+
+  const $btn = $('#assignEmpSaveBtn');
+  if ($btn) { $btn.disabled = true; $btn.textContent = '⏳ Đang lưu...'; }
+
+  try {
+    // Fetch toàn bộ attendance ngày để biết ai đã có gì
+    const { data: allAtt, error: fetchErr } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('date', dateStr);
+    if (fetchErr) throw fetchErr;
+
+    const allActiveEmps = (state.employees || []).filter(e => e.status !== 'inactive');
+    const toUpsert = [];
+    const toDelete = [];
+
+    for (const emp of allActiveEmps) {
+      const existing = (allAtt || []).find(a => a.employee_id === emp.id);
+      const empChecked = checkedIds.has(emp.id);
+      const existingAreas = Array.isArray(existing?.areas) ? existing.areas : [];
+      const hasFloor = existingAreas.some(a =>
+        (a.type === 'building' || !a.type) &&
+        String(a.building_id) === String(buildingId) &&
+        String(a.floor_id) === String(floorId)
+      );
+
+      if (empChecked && !hasFloor) {
+        // Thêm tầng vào areas
+        const newAreas = [...existingAreas, { type: 'building', building_id: buildingId, floor_id: floorId, hours: null }];
+        toUpsert.push({
+          employee_id: emp.id,
+          date: dateStr,
+          areas: newAreas,
+          ot_areas: existing?.ot_areas || [],
+          mode: existing?.mode || 'default',
+          total_hours: Number(existing?.total_hours || 0),
+          ot_hours: Number(existing?.ot_hours || 0),
+          is_off: !!existing?.is_off,
+          manual_hours: existing?.manual_hours ?? null,
+        });
+      } else if (!empChecked && hasFloor) {
+        // Xoá tầng khỏi areas
+        const newAreas = existingAreas.filter(a =>
+          !((a.type === 'building' || !a.type) &&
+            String(a.building_id) === String(buildingId) &&
+            String(a.floor_id) === String(floorId))
+        );
+        const hasOt = Array.isArray(existing?.ot_areas) && existing.ot_areas.length > 0;
+        const hasManual = existing?.mode === 'manual' && Number(existing?.manual_hours) > 0;
+        const isLeaveOrOff = existing?.mode === 'leave' || existing?.mode === 'off' || existing?.is_off;
+
+        if (newAreas.length === 0 && !hasOt && !hasManual && !isLeaveOrOff) {
+          // Không còn gì → xoá record
+          toDelete.push(emp.id);
+        } else {
+          toUpsert.push({
+            employee_id: emp.id,
+            date: dateStr,
+            areas: newAreas,
+            ot_areas: existing?.ot_areas || [],
+            mode: existing?.mode || 'default',
+            total_hours: Number(existing?.total_hours || 0),
+            ot_hours: Number(existing?.ot_hours || 0),
+            is_off: !!existing?.is_off,
+            manual_hours: existing?.manual_hours ?? null,
+          });
+        }
+      }
+    }
+
+    if (!toUpsert.length && !toDelete.length) {
+      toast('Không có thay đổi');
+      closeModal('assignEmployeeModal');
+      if ($btn) { $btn.disabled = false; $btn.textContent = 'Lưu'; }
+      return;
+    }
+
+    // Execute
+    if (toUpsert.length) {
+      const { error } = await supabase.from('attendance').upsert(toUpsert, { onConflict: 'employee_id,date' });
+      if (error) throw error;
+    }
+    if (toDelete.length) {
+      const { error } = await supabase.from('attendance').delete().in('employee_id', toDelete).eq('date', dateStr);
+      if (error) throw error;
+    }
+
+    const upsertCount = toUpsert.length;
+    const deleteCount = toDelete.length;
+    toast(`✅ Đã lưu: ${upsertCount} cập nhật${deleteCount > 0 ? `, ${deleteCount} xoá` : ''}`);
+
+    closeModal('assignEmployeeModal');
+
+    // Refresh dữ liệu
+    try {
+      const core = await import('./core.js');
+      if (core.invalidateAttendanceCache) core.invalidateAttendanceCache();
+    } catch {}
+
+    await loadDayAssignments(dateStr);
+    renderBuildings();
+
+    // Recalc cho các nhân viên vừa thay đổi (nếu đang xem trong Lịch công)
+    try {
+      const changedIds = new Set([...toUpsert.map(u => u.employee_id), ...toDelete]);
+      const att = await import('./attendance.js');
+      if (att.invalidateDayAssignCache) att.invalidateDayAssignCache();
+
+      if (state.selectedEmployeeId && changedIds.has(state.selectedEmployeeId)) {
+        if (att.loadAttendanceForMonth) await att.loadAttendanceForMonth(true);
+        if (att.renderCalendar) att.renderCalendar();
+      }
+    } catch (err) { console.warn('[assign] recalc refresh:', err); }
+
+    if (state.salaryModule) state.salaryModule.invalidateCache();
+
+    // Gợi ý user: giờ công sẽ tự tính lại khi mở Lịch công của từng NV
+    setTimeout(() => {
+      toast('💡 Giờ công sẽ tự cập nhật khi mở Lịch công cho NV liên quan');
+    }, 1500);
+  } catch (err) {
+    console.error('[assign] save:', err);
+    toast('Lỗi lưu: ' + (err.message || 'không xác định'));
+  } finally {
+    if ($btn) { $btn.disabled = false; $btn.textContent = 'Lưu'; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SPECIAL AREAS — ngoại cảnh / ca đêm
+   ═══════════════════════════════════════════════════════════════ */
 let _editingSpecialType = null;
 
 export function openSpecialAreaModal(type) {
