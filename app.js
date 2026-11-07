@@ -40,7 +40,7 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-const APP_BUILD = '2026-11-07-final-v7-sync';
+const APP_BUILD = '2026-11-08-final-v8-assignfix';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
 window.__APP_JS_LOADED__ = true;
@@ -58,18 +58,13 @@ if (typeof window !== 'undefined') {
     const { data } = await supabase.auth.getSession();
     console.log('=== DIAG ===');
     console.log('session:', data.session ? `user=${data.session.user.email}` : 'null');
-    console.log('expires_at:', data.session?.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : 'null');
     console.log('state.user:', state.user?.email || 'null');
-    console.log('isAdmin:', state.isAdmin);
-    console.log('savedCreds:', !!localStorage.getItem(LS_KEY));
+    console.log('state.isAdmin:', state.isAdmin);
+    console.log('state.employees:', state.employees?.length || 0);
+    console.log('state.buildings:', state.buildings?.length || 0);
+    console.log('state.floors:', state.floors?.length || 0);
   };
-  window.__forceLogout = async () => {
-    console.log('Force logout...');
-    await supabase.auth.signOut().catch(() => {});
-    localStorage.clear();
-    location.reload();
-  };
-}
+};
 
 const _authLog = [];
 function logAuth(event, session) {
@@ -81,7 +76,6 @@ function logAuth(event, session) {
   };
   _authLog.push(entry);
   if (_authLog.length > 50) _authLog.shift();
-  console.log(`%c[Auth] ${event}`, 'color:#64d2ff', entry);
 }
 
 let _explicitLogout = false;
@@ -138,12 +132,8 @@ async function afterLoginRedirect() {
   }
 
   if (!state.user) return;
-  if (state.isAdmin) {
-    console.log('[App] Admin → tab Lịch công');
-    return;
-  }
+  if (state.isAdmin) return;
 
-  console.log('[App] Nhân viên → tab Chấm công');
   try {
     switchTab('checkin');
   } catch (err) {
@@ -179,10 +169,7 @@ async function tryAutoLogin() {
     if (!username || !password) return false;
     const email = username.includes('@') ? username : `${username}@${DEFAULT_DOMAIN}`;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      console.warn('[autoLogin] fail:', error.message);
-      return false;
-    }
+    if (error) return false;
     if (!state.user) {
       try {
         await onLoggedIn(data.user);
@@ -191,7 +178,6 @@ async function tryAutoLogin() {
     }
     return true;
   } catch (err) {
-    console.warn('[autoLogin] exception:', err);
     return false;
   }
 }
@@ -201,14 +187,11 @@ async function ensureSessionAlive() {
     const { data } = await supabase.auth.getSession();
     if (data?.session && !isSessionExpired(data.session)) return true;
     if (data?.session) {
-      console.log('[ensureSession] session hết hạn — refresh');
       const { data: refreshed, error } = await supabase.auth.refreshSession();
       if (!error && refreshed?.session) return true;
     }
-    console.warn('[ensureSession] refresh fail — thử auto-login');
     return await tryAutoLogin();
   } catch (err) {
-    console.warn('[ensureSession]', err);
     return false;
   }
 }
@@ -374,14 +357,13 @@ function bindEvents() {
 
   $('#exportExcelBtn').addEventListener('click', () => { if (state.exportModule) state.exportModule.openExportModal(); });
 
-  // ⭐ Nút đồng bộ giờ công tháng — tự tính lại toàn bộ record
   const $syncHoursBtn = $('#syncHoursBtn');
   if ($syncHoursBtn) {
     $syncHoursBtn.addEventListener('click', async () => {
       try {
         const m = await import('./attendance.js');
         if (typeof m.syncMonthHours !== 'function') {
-          toast('Chưa nâng cấp attendance.js — thiếu hàm syncMonthHours');
+          toast('Thiếu hàm syncMonthHours trong attendance.js');
           return;
         }
         await m.syncMonthHours();
@@ -505,11 +487,6 @@ function bindEvents() {
       showGuestView();
       return;
     }
-    if (event === 'TOKEN_REFRESHED') {
-      if (!session) {
-        console.warn('[TOKEN_REFRESHED] session null — có thể refresh thất bại');
-      }
-    }
   });
 
   document.addEventListener('visibilitychange', async () => {
@@ -523,9 +500,6 @@ function bindEvents() {
     if (state.user) ensureSessionAlive().catch(() => {});
   });
 
-  /* ⭐ Tự động ẩn các tab admin với nhân viên
-     - KHÔNG đụng: checkin, calendar, rooms
-  */
   let _lastAdminTabsState = null;
   setInterval(() => {
     const wantDisplay = state.isAdmin ? '' : 'none';
@@ -579,39 +553,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (existingSession && isSessionExpired(existingSession)) {
-      console.warn('[App] Session hết hạn — thử refresh');
       try {
         const { data: refreshed, error } = await withTimeout(
           supabase.auth.refreshSession(), 5000, { data: null, error: 'timeout' }
         );
         if (error || !refreshed?.session) {
-          console.warn('[App] Refresh fail — force logout');
           await forceLogout('Session expired & refresh failed');
           return;
         }
         existingSession = refreshed.session;
-        console.log('[App] ✅ Session refreshed OK');
       } catch (err) {
-        console.warn('[App] refresh exception:', err);
         await forceLogout('Refresh exception');
         return;
       }
     }
 
     if (!existingSession) {
-      console.log('[App] Không có session — thử auto-login');
       const restored = await withTimeout(tryAutoLogin(), 5000, false);
-      if (restored) {
-        console.log('[App] ✅ Auto-restored session');
-        return;
-      }
+      if (restored) return;
     }
 
-    console.log('[App] Gọi initAuth()');
     try {
       const result = await withTimeout(initAuth(), 8000, null);
       if (result === null) {
-        console.warn('[App] initAuth timeout — kiểm tra session');
         const { data } = await supabase.auth.getSession();
         if (!data.session || isSessionExpired(data.session)) {
           await forceLogout('initAuth timeout with expired session');
