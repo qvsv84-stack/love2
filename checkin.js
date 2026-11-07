@@ -1,10 +1,9 @@
-// checkin.js — Tab chấm công GPS (đơn giản cho nhân viên lớn tuổi)
+// checkin.js — Tab chấm công GPS + admin monitor + lịch sử
 import { supabase } from './supabase.js';
 import { state, $, toast, openModal, closeModal, toDateStr } from './core.js';
 
 const LOCATION_ID = 1;
 const DEFAULT_RADIUS = 150;
-const MAX_ACCURACY_WARN = 200;
 
 let _watchId = null;
 let _renderTimer = null;
@@ -20,6 +19,8 @@ let _audioCtx = null;
 let _checkingAdmin = false;
 let _unseenCheckinCount = 0;
 let _audioUnlockBound = false;
+
+let _historyDefaultEmpId = '';
 
 function ensureState() {
   if (!state.checkinLocation) state.checkinLocation = null;
@@ -191,6 +192,15 @@ function formatDuration(ms) {
   return `${h} giờ ${m} phút`;
 }
 
+function formatDurationShort(ms) {
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m}p`;
+  if (m === 0) return `${h}h`;
+  return `${h}h${m}p`;
+}
+
 function getUserName() {
   const emp = (state.employees || []).find(e => e.id === state.user?.id);
   return emp?.full_name || emp?.username || state.user?.email || '';
@@ -223,10 +233,8 @@ async function tryAutoCheckin() {
   if (Date.now() < _autoCheckinCooldown) return;
   if (!state.user?.id) return;
   if (getCurrentState() !== 'need_in') return;
-
   const distInfo = getDistanceInfo();
   if (!distInfo || !distInfo.inRange) return;
-
   await doAutoCheckin();
 }
 
@@ -234,9 +242,7 @@ async function doAutoCheckin() {
   const loc = state.checkinLocation;
   const pos = state.checkinUserPos;
   if (!loc || !pos) return;
-
   const dist = haversine(pos.lat, pos.lng, loc.lat, loc.lng);
-
   _anyCheckinInFlight = true;
   try {
     const { error } = await supabase.from('cslx_checkins').insert({
@@ -251,9 +257,7 @@ async function doAutoCheckin() {
       device_info:   'AUTO · ' + (navigator.userAgent || '').slice(0, 180),
     });
     if (error) throw error;
-
     try { navigator.vibrate([100, 50, 200]); } catch {}
-
     await loadTodayCheckins();
     await loadRecentLogs();
     renderCheckin();
@@ -366,9 +370,12 @@ function renderAdminTodaySection() {
 
   return `
     <div style="margin-top:24px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
         <div style="font-size:16px;font-weight:700;color:var(--text);">👥 Nhân viên hôm nay <span style="color:var(--ocean-600);">(${groups.length})</span></div>
-        <button id="adminRefreshBtn" type="button" style="padding:6px 12px;font-size:12px;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;">🔄</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button id="adminHistoryBtn" type="button" style="padding:6px 12px;font-size:12px;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">📜 Lịch sử</button>
+          <button id="adminRefreshBtn" type="button" style="padding:6px 12px;font-size:12px;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;">🔄</button>
+        </div>
       </div>
       <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
         ${rows}
@@ -404,9 +411,7 @@ async function checkAdminForNewCheckins() {
     await loadAdminTodayCheckins();
     const newOnes = _adminTodayCheckins.filter(c => !beforeIds.has(c.id) && c.employee_id !== state.user?.id);
     if (newOnes.length === 0) return;
-
     try { playCheckinSound(); } catch {}
-
     if (newOnes.length === 1) {
       const c = newOnes[0];
       const label = (c.type === 'out') ? 'về' : 'đến';
@@ -414,7 +419,6 @@ async function checkAdminForNewCheckins() {
     } else {
       toast(`🔔 ${newOnes.length} nhân viên vừa chấm công`);
     }
-
     const onCheckinTab = $('#tab-checkin')?.classList.contains('active');
     if (onCheckinTab) {
       _unseenCheckinCount = 0;
@@ -470,6 +474,215 @@ function stopAdminPolling() {
     clearInterval(_adminPollTimer);
     _adminPollTimer = null;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HISTORY MODAL — hôm nay + quá khứ (theo tháng)
+   ═══════════════════════════════════════════════════════════════ */
+function ensureHistoryModal() {
+  let $m = document.getElementById('checkinHistoryModal');
+  if ($m) return $m;
+
+  const html = `
+    <div id="checkinHistoryModal" class="modal-overlay" style="display:none;z-index:10001;align-items:center;justify-content:center;padding:12px;">
+      <div style="background:#fff;border-radius:18px;max-width:480px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0;">
+          <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--ocean-700);">📜 Lịch sử chấm công</h3>
+          <button id="historyCloseBtn" type="button" style="background:var(--ocean-50);border:none;width:32px;height:32px;border-radius:8px;font-size:15px;color:var(--text-muted);cursor:pointer;font-family:inherit;">✕</button>
+        </div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;">
+          <input type="month" id="historyMonthInput" class="input" style="flex:1;min-width:120px;padding:10px 12px;font-size:14px;" />
+          <select id="historyEmpSelect" class="input" style="flex:1;min-width:120px;padding:10px 12px;font-size:14px;display:none;">
+            <option value="">Tất cả NV</option>
+          </select>
+        </div>
+        <div id="historyContent" style="flex:1;overflow-y:auto;padding:12px 16px;-webkit-overflow-scrolling:touch;min-height:0;">
+          <div style="text-align:center;padding:40px;color:var(--text-muted);">⏳ Đang tải...</div>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;justify-content:center;gap:8px;">
+          <button id="historyTodayBtn" type="button" style="padding:10px 18px;font-size:13px;font-weight:600;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;">📍 Hôm nay</button>
+          <button id="historyCloseBtn2" type="button" style="padding:10px 18px;font-size:13px;font-weight:600;background:#fff;color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;">Đóng</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  $m = document.getElementById('checkinHistoryModal');
+
+  const closeFn = () => { $m.style.display = 'none'; };
+  document.getElementById('historyCloseBtn').onclick = closeFn;
+  document.getElementById('historyCloseBtn2').onclick = closeFn;
+  $m.onclick = (e) => { if (e.target === $m) closeFn(); };
+
+  document.getElementById('historyMonthInput').onchange = () => {
+    loadHistoryData().catch(err => console.warn('[history]', err));
+  };
+  document.getElementById('historyEmpSelect').onchange = () => {
+    loadHistoryData().catch(err => console.warn('[history]', err));
+  };
+  document.getElementById('historyTodayBtn').onclick = () => {
+    const now = new Date();
+    const mVal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const $mEl = document.getElementById('historyMonthInput');
+    if ($mEl) $mEl.value = mVal;
+    loadHistoryData().catch(err => console.warn('[history]', err));
+  };
+
+  return $m;
+}
+
+function openHistoryModal(defaultEmpId = '') {
+  _historyDefaultEmpId = defaultEmpId || '';
+  const $m = ensureHistoryModal();
+
+  const now = new Date();
+  const $month = document.getElementById('historyMonthInput');
+  if ($month && !$month.value) {
+    $month.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const $empSel = document.getElementById('historyEmpSelect');
+  if ($empSel) {
+    if (state.isAdmin) {
+      $empSel.style.display = 'block';
+      const emps = (state.employees || [])
+        .filter(e => e.status !== 'inactive')
+        .sort((a, b) => (a.full_name || a.username || '').localeCompare(b.full_name || b.username || '', 'vi'));
+      $empSel.innerHTML = '<option value="">Tất cả NV</option>' +
+        emps.map(e => `<option value="${e.id}">${e.full_name || e.username || ''}</option>`).join('');
+      $empSel.value = _historyDefaultEmpId || '';
+    } else {
+      $empSel.style.display = 'none';
+      $empSel.value = '';
+    }
+  }
+
+  $m.style.display = 'flex';
+  loadHistoryData().catch(err => {
+    console.warn('[history]', err);
+    const $c = document.getElementById('historyContent');
+    if ($c) $c.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">⚠ Lỗi tải dữ liệu</div>';
+  });
+}
+
+async function loadHistoryData() {
+  const $content = document.getElementById('historyContent');
+  if (!$content) return;
+
+  const $month = document.getElementById('historyMonthInput');
+  const $empSel = document.getElementById('historyEmpSelect');
+  const monthVal = $month?.value;
+  if (!monthVal) return;
+
+  const [y, mo] = monthVal.split('-').map(Number);
+  const lastDay = new Date(y, mo, 0).getDate();
+  const start = `${y}-${String(mo).padStart(2, '0')}-01`;
+  const end = `${y}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  // Employee chỉ xem của mình; Admin xem all hoặc 1 NV
+  let selEmpId = null;
+  if (!state.isAdmin) {
+    selEmpId = state.user?.id;
+  } else {
+    selEmpId = $empSel?.value || null;
+  }
+
+  if (!state.isAdmin && !selEmpId) {
+    $content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">Vui lòng đăng nhập</div>';
+    return;
+  }
+
+  $content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">⏳ Đang tải...</div>';
+
+  let query = supabase
+    .from('cslx_checkins')
+    .select('*')
+    .gte('checkin_date', start)
+    .lte('checkin_date', end)
+    .order('checkin_date', { ascending: false })
+    .order('checkin_at', { ascending: true });
+
+  if (selEmpId) query = query.eq('employee_id', selEmpId);
+
+  const { data, error } = await query;
+  if (error) {
+    $content.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;">⚠ Lỗi: ${error.message}</div>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    $content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">📭 Chưa có dữ liệu chấm công trong tháng này</div>';
+    return;
+  }
+
+  // Group: date → employee → {in, out}
+  const byDate = {};
+  for (const c of data) {
+    if (!byDate[c.checkin_date]) byDate[c.checkin_date] = {};
+    if (!byDate[c.checkin_date][c.employee_id]) {
+      byDate[c.checkin_date][c.employee_id] = {
+        employee_id: c.employee_id,
+        employee_name: c.employee_name || '—',
+        in: null,
+        out: null,
+      };
+    }
+    const rec = byDate[c.checkin_date][c.employee_id];
+    const t = c.type || 'in';
+    if (t === 'out') {
+      if (!rec.out) rec.out = c;
+    } else {
+      if (!rec.in) rec.in = c;
+    }
+  }
+
+  const todayStr = toDateStr(new Date());
+  const days = Object.keys(byDate).sort().reverse();
+  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+  $content.innerHTML = days.map(d => {
+    const dateObj = new Date(d + 'T00:00:00');
+    const dow = dayNames[dateObj.getDay()];
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const isToday = d === todayStr;
+    const empRecs = Object.values(byDate[d]).sort((a, b) => {
+      const ta = a.in ? new Date(a.in.checkin_at).getTime() : (a.out ? new Date(a.out.checkin_at).getTime() : 0);
+      const tb = b.in ? new Date(b.in.checkin_at).getTime() : (b.out ? new Date(b.out.checkin_at).getTime() : 0);
+      return ta - tb;
+    });
+
+    const dayHeaderStyle = isToday
+      ? 'background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#15803d;border-color:#86efac;'
+      : 'background:var(--ocean-50);color:var(--ocean-700);border-color:var(--ocean-200);';
+
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700;margin-bottom:8px;border:1px solid;${dayHeaderStyle}">
+          ${isToday ? '📍 Hôm nay · ' : ''}${dow}, ${dd}/${mm}/${dateObj.getFullYear()}
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+          ${empRecs.map(r => {
+            const inTime = r.in ? formatHHMM(r.in.checkin_at) : null;
+            const outTime = r.out ? formatHHMM(r.out.checkin_at) : null;
+            let durText = '';
+            if (r.in && r.out) {
+              const ms = new Date(r.out.checkin_at) - new Date(r.in.checkin_at);
+              durText = ` <span style="color:#0f766e;font-weight:600;">(${formatDurationShort(ms)})</span>`;
+            }
+            return `
+              <div style="padding:10px 12px;border-bottom:1px solid var(--border);">
+                <div style="font-weight:600;font-size:13px;color:var(--text);margin-bottom:4px;">${r.employee_name}</div>
+                <div style="font-size:12.5px;color:var(--text-muted);line-height:1.6;">
+                  ${inTime ? `🟢 Đến <strong style="color:#16a34a;">${inTime}</strong>` : '<span style="color:#94a3b8;">— Chưa đến</span>'}
+                  ${outTime ? ` · 🔵 Về <strong style="color:#0891b2;">${outTime}</strong>${durText}` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -655,7 +868,10 @@ function renderCheckin() {
       ${actionHtml}
       ${adminTodayHtml}
       <div style="margin-top:32px;">
-        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;">📅 Gần đây</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;">
+          <div style="font-size:16px;font-weight:700;color:var(--text);">📅 Gần đây</div>
+          <button id="recentHistoryBtn" type="button" style="padding:6px 12px;font-size:12px;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">📜 Lịch sử →</button>
+        </div>
         ${logsHtml}
       </div>
     </div>
@@ -693,6 +909,18 @@ function renderCheckin() {
       }
     };
   }
+
+  // Nút lịch sử ở section admin — mở với all NV
+  const $adminHistory = $('#adminHistoryBtn');
+  if ($adminHistory) {
+    $adminHistory.onclick = () => openHistoryModal('');
+  }
+
+  // Nút lịch sử ở section "Gần đây" — mở với chính mình
+  const $recentHistory = $('#recentHistoryBtn');
+  if ($recentHistory) {
+    $recentHistory.onclick = () => openHistoryModal(state.user?.id || '');
+  }
 }
 
 function updateLiveStatus() {
@@ -702,7 +930,6 @@ function updateLiveStatus() {
   if (!loc) return;
   const distInfo = getDistanceInfo();
   if (!distInfo) return;
-
   const wasInRange = $card.textContent.includes('ĐÃ ĐẾN TRƯỜNG');
   if (wasInRange !== distInfo.inRange) {
     renderCheckin();
@@ -767,7 +994,6 @@ function handleActionClick() {
   const now = new Date();
   const nowStr = formatTime(now.toISOString());
   const dateStr = formatDateVN(now.toISOString());
-
   if (currentState === 'need_in') {
     showConfirmModal('CHẤM CÔNG ĐẾN', nowStr, dateStr, () => doCheckin('in'));
   } else if (currentState === 'need_out') {
@@ -800,12 +1026,10 @@ function showConfirmModal(title, timeStr, dateStr, onConfirm) {
     document.body.insertAdjacentHTML('beforeend', html);
     $m = document.getElementById('checkinConfirmModal');
   }
-
   document.getElementById('checkinConfirmTitle').textContent = title;
   document.getElementById('checkinConfirmTime').textContent = timeStr;
   document.getElementById('checkinConfirmDate').textContent = dateStr;
   $m.style.display = 'flex';
-
   document.getElementById('checkinConfirmCancel').onclick = () => { $m.style.display = 'none'; };
   document.getElementById('checkinConfirmOk').onclick = () => { $m.style.display = 'none'; onConfirm(); };
 }
@@ -819,12 +1043,10 @@ async function doCheckin(type) {
   const loc = state.checkinLocation;
   const pos = state.checkinUserPos;
   const dist = haversine(pos.lat, pos.lng, loc.lat, loc.lng);
-
   if (dist > loc.radius_m) {
     toast(`Bạn đang cách ${Math.round(dist)} mét — chưa đến trường`);
     return;
   }
-
   _anyCheckinInFlight = true;
   try {
     const { error } = await supabase.from('cslx_checkins').insert({
@@ -839,11 +1061,8 @@ async function doCheckin(type) {
       device_info: (navigator.userAgent || '').slice(0, 200),
     });
     if (error) throw error;
-
     try { navigator.vibrate([100, 50, 200]); } catch {}
-
     showSuccessModal(type);
-
     await loadTodayCheckins();
     await loadRecentLogs();
     renderCheckin();
@@ -860,7 +1079,6 @@ function showSuccessModal(type, isAuto = false) {
     ? (isAuto ? 'ĐÃ TỰ ĐỘNG CHẤM CÔNG ĐẾN' : 'CHẤM CÔNG ĐẾN THÀNH CÔNG')
     : 'CHẤM CÔNG VỀ THÀNH CÔNG';
   const now = new Date();
-
   let $m = document.getElementById('checkinSuccessModal');
   if (!$m) {
     const html = `
@@ -878,11 +1096,9 @@ function showSuccessModal(type, isAuto = false) {
     document.body.insertAdjacentHTML('beforeend', html);
     $m = document.getElementById('checkinSuccessModal');
   }
-
   document.getElementById('checkinSuccessTitle').textContent = title;
   document.getElementById('checkinSuccessTime').textContent = formatTime(now.toISOString());
   document.getElementById('checkinSuccessDate').textContent = formatDateVN(now.toISOString());
-
   const $note = document.getElementById('checkinSuccessNote');
   if ($note) {
     if (isAuto) {
@@ -892,26 +1108,18 @@ function showSuccessModal(type, isAuto = false) {
       $note.style.display = 'none';
     }
   }
-
   $m.style.display = 'flex';
-
-  setTimeout(() => {
-    if ($m) $m.style.display = 'none';
-  }, isAuto ? 4500 : 3500);
+  setTimeout(() => { if ($m) $m.style.display = 'none'; }, isAuto ? 4500 : 3500);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SETTINGS (chỉ admin)
+   SETTINGS
    ═══════════════════════════════════════════════════════════════ */
 function openSettingsModal() {
   if (!state.isAdmin) return;
-  if (!state.checkinUserPos) {
-    toast('Đang tìm vị trí, đợi thêm vài giây');
-    return;
-  }
+  if (!state.checkinUserPos) { toast('Đang tìm vị trí, đợi thêm vài giây'); return; }
   const pos = state.checkinUserPos;
   const currentRadius = state.checkinLocation?.radius_m || DEFAULT_RADIUS;
-
   const $coords = $('#checkinUpdateCoords');
   if ($coords) {
     $coords.innerHTML = `<div>${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}</div>
@@ -919,7 +1127,6 @@ function openSettingsModal() {
   }
   const $radius = $('#checkinRadiusInput');
   if ($radius) $radius.value = currentRadius;
-
   openModal('checkinUpdateModal');
 }
 
@@ -930,10 +1137,8 @@ async function handleConfirmUpdateLocation() {
     toast('Bán kính phải từ 20 đến 1000 mét');
     return;
   }
-
   const $btn = $('#checkinUpdateConfirmBtn');
   if ($btn) { $btn.disabled = true; $btn.textContent = '⏳ Đang lưu...'; }
-
   try {
     const pos = state.checkinUserPos;
     const { error } = await supabase
@@ -947,9 +1152,7 @@ async function handleConfirmUpdateLocation() {
         updated_by_name: getUserName(),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' });
-
     if (error) throw error;
-
     toast(`Đã cập nhật · Bán kính ${radius} mét`);
     closeModal('checkinUpdateModal');
     await loadLocation();
