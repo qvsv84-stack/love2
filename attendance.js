@@ -1468,3 +1468,156 @@ export async function changeMonth(delta) {
 
   renderCalendar();
 }
+/* ═══════════════════════════════════════════════════════════════
+   ⭐ SYNC MONTH HOURS — Tính lại total_hours + ot_hours
+   cho TẤT CẢ record trong tháng hiện tại.
+   Chỉ chạy 1 lần khi đã nâng cấp logic tính giờ.
+   ═══════════════════════════════════════════════════════════════ */
+export async function syncMonthHours() {
+  if (!state.isAdmin) { toast('Chỉ admin được đồng bộ'); return; }
+
+  const y = state.currentMonth.getFullYear();
+  const m = state.currentMonth.getMonth() + 1;
+  const start = `${y}-${String(m).padStart(2,'0')}-01`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const end = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+
+  const ok = confirm(
+    `Đồng bộ giờ công tháng ${m}/${y}?\n\n` +
+    `Sẽ quét TOÀN BỘ record của MỌI nhân viên, tính lại giờ công + OT theo logic mới (auto chia pool), ` +
+    `rồi ghi lại vào DB.\n\nRecord chế độ "Thủ công" (nhập tay) sẽ được giữ nguyên.`
+  );
+  if (!ok) return;
+
+  toast('⏳ Đang tải dữ liệu tháng...');
+
+  // Đảm bảo buildings + floors đã load
+  if (!state.buildings?.length || !state.floors?.length) {
+    try {
+      const b = await import('./buildings.js');
+      await b.loadBuildings();
+    } catch (err) { console.warn('[sync] buildings:', err); }
+  }
+
+  // Fetch TOÀN BỘ records của tháng (mọi nhân viên)
+  const { data: allRecords, error } = await supabase
+    .from('attendance').select('*')
+    .gte('date', start).lte('date', end);
+  if (error) { toast('Lỗi tải: ' + error.message); return; }
+  if (!allRecords?.length) { toast('Không có dữ liệu tháng này'); return; }
+
+  // Group theo ngày (cần pool theo từng ngày)
+  const byDate = {};
+  for (const r of allRecords) {
+    if (!byDate[r.date]) byDate[r.date] = [];
+    byDate[r.date].push(r);
+  }
+
+  // Backup state để restore sau
+  const savePool = state.dayAssignments;
+  const saveEmpId = state.selectedEmployeeId;
+  const saveBatchDates = state.batchDates;
+  state.batchDates = null; // tắt batch mode để calcEntryActualHours dùng pool
+
+  const updates = [];
+  let checkedTotal = 0;
+
+  for (const [date, records] of Object.entries(byDate)) {
+    // Set pool cho ngày này = tất cả record cùng ngày
+    state.dayAssignments = records.map(r => ({
+      employee_id: r.employee_id,
+      areas: r.areas || [],
+      ot_areas: r.ot_areas || [],
+    }));
+
+    for (const r of records) {
+      checkedTotal++;
+      // Skip: off / leave / manual không có areas
+      if (r.is_off) continue;
+      if (r.mode === 'leave' || r.mode === 'off') continue;
+      if (r.mode === 'manual' && (!r.areas || r.areas.length === 0)) continue;
+
+      // Set employee context để getPoolForEntry loại trừ đúng self
+      state.selectedEmployeeId = r.employee_id;
+
+      let rawMain = 0, rawOT = 0;
+
+      if (Array.isArray(r.areas)) {
+        for (const a of r.areas) {
+          const t = a.type || 'building';
+          if (t === 'building') {
+            if (a.building_id && a.floor_id) rawMain += calcEntryActualHours(a);
+          } else if (t === 'external' || t === 'night') {
+            rawMain += calcEntryActualHours(a);
+          }
+        }
+      }
+      if (Array.isArray(r.ot_areas)) {
+        for (const a of r.ot_areas) {
+          const t = a.type || 'building';
+          if (t === 'sunday_ot') rawOT += Number(a.hours || 0);
+          else if (t === 'building') {
+            if (a.building_id && a.floor_id) rawOT += calcEntryActualHours(a);
+          } else {
+            rawOT += calcEntryActualHours(a);
+          }
+        }
+      }
+
+      // Cap main ở 8h, dư → OT (khớp với buildEmployeePayload)
+      const newTotal = Math.min(rawMain, DAILY_MAIN_CAP);
+      const newOT = rawOT + Math.max(0, rawMain - DAILY_MAIN_CAP);
+
+      const oldTotal = Number(r.total_hours || 0);
+      const oldOT = Number(r.ot_hours || 0);
+
+      if (Math.abs(newTotal - oldTotal) > 0.01 || Math.abs(newOT - oldOT) > 0.01) {
+        updates.push({
+          id: r.id,
+          total_hours: Math.round(newTotal * 100) / 100,
+          ot_hours: Math.round(newOT * 100) / 100,
+        });
+      }
+    }
+  }
+
+  // Restore state
+  state.dayAssignments = savePool;
+  state.selectedEmployeeId = saveEmpId;
+  state.batchDates = saveBatchDates;
+
+  if (!updates.length) {
+    toast(`✅ Đã kiểm tra ${checkedTotal} records — tất cả đều đúng, không cần sửa`);
+    return;
+  }
+
+  toast(`⏳ Sửa ${updates.length}/${checkedTotal} records sai...`);
+
+  // Batch update — mỗi lần 100 record, gửi song song
+  const BATCH_SIZE = 100;
+  let done = 0;
+  for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+    const chunk = updates.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      chunk.map(u => supabase.from('attendance').update({
+        total_hours: u.total_hours,
+        ot_hours: u.ot_hours,
+      }).eq('id', u.id))
+    );
+    const failed = results.find(r => r.error);
+    if (failed) {
+      toast(`Lỗi tại batch ${Math.floor(i / BATCH_SIZE) + 1}: ${failed.error.message}`);
+      break;
+    }
+    done += chunk.length;
+  }
+
+  toast(`✅ Đã sửa ${done}/${checkedTotal} records`);
+
+  // Refresh toàn bộ cache
+  invalidateAttendanceCache();
+  invalidateDayAssignCache();
+  if (state.selectedEmployeeId) await loadAttendanceForMonth(true);
+  renderCalendar();
+  if (state.salaryModule) state.salaryModule.invalidateCache();
+}
