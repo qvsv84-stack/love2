@@ -40,13 +40,11 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-const APP_BUILD = '2026-11-07-final-v6-default-checkin';
+const APP_BUILD = '2026-11-07-final-v7-sync';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
-/* ⭐ Đánh dấu app.js đã load (cho timeout guard HTML) */
 window.__APP_JS_LOADED__ = true;
 
-/* ⭐ Global error handler */
 window.addEventListener('error', (e) => {
   console.error('[GLOBAL ERROR]', e.message, e.filename, e.lineno);
 });
@@ -132,26 +130,19 @@ async function forceLogout(reason) {
   showGuestView();
 }
 
-/* ⭐⭐⭐ ĐIỀU HƯỚNG SAU KHI LOGIN ⭐⭐⭐
-   - Nhân viên → tab Chấm công
-   - Admin → tab Lịch công (mặc định của HTML)
-*/
 async function afterLoginRedirect() {
-  // Đợi state.user và employees load xong (onLoggedIn async)
   const start = Date.now();
   while (Date.now() - start < 4000) {
     if (state.user && (state.employees?.length > 0 || state.isAdmin)) break;
     await new Promise(r => setTimeout(r, 150));
   }
 
-  if (!state.user) return; // chưa login
+  if (!state.user) return;
   if (state.isAdmin) {
-    // Admin → giữ tab calendar (mặc định HTML)
     console.log('[App] Admin → tab Lịch công');
     return;
   }
 
-  // Nhân viên → tab Chấm công
   console.log('[App] Nhân viên → tab Chấm công');
   try {
     switchTab('checkin');
@@ -247,7 +238,6 @@ function bindEvents() {
     _selfHealAttempts = 0;
     try {
       await onLoggedIn(data.user);
-      // ⭐ Nhân viên → tab Chấm công
       setTimeout(afterLoginRedirect, 200);
     } catch (err) {
       console.error('[login] onLoggedIn failed:', err);
@@ -383,6 +373,25 @@ function bindEvents() {
   });
 
   $('#exportExcelBtn').addEventListener('click', () => { if (state.exportModule) state.exportModule.openExportModal(); });
+
+  // ⭐ Nút đồng bộ giờ công tháng — tự tính lại toàn bộ record
+  const $syncHoursBtn = $('#syncHoursBtn');
+  if ($syncHoursBtn) {
+    $syncHoursBtn.addEventListener('click', async () => {
+      try {
+        const m = await import('./attendance.js');
+        if (typeof m.syncMonthHours !== 'function') {
+          toast('Chưa nâng cấp attendance.js — thiếu hàm syncMonthHours');
+          return;
+        }
+        await m.syncMonthHours();
+      } catch (err) {
+        console.error('[sync]', err);
+        toast('Lỗi: ' + (err.message || 'không xác định'));
+      }
+    });
+  }
+
   $('#exportModal').addEventListener('click', (e) => { if (e.target.id === 'exportModal') closeModal('exportModal'); });
   $('#exportSubmitBtn').addEventListener('click', () => { if (state.exportModule) state.exportModule.doExport().catch(console.error); });
   $$('input[name="exportScope"]').forEach(r => {
@@ -423,11 +432,11 @@ function bindEvents() {
   if ($sundayHours) $sundayHours.addEventListener('input', updatePreview);
 
   $('#addMainAreaBtn').addEventListener('click', () => {
-    state.modalAreas.push({ type: 'building', building_id: '', floor_id: '', hours: null });
+    state.modalAreas.push({ type: 'building', building_id: '', floor_id: '' });
     renderMainAreaPicker(); updatePreview();
   });
   $('#addOtAreaBtn').addEventListener('click', () => {
-    state.modalOtAreas.push({ type: 'building', building_id: '', floor_id: '', hours: null });
+    state.modalOtAreas.push({ type: 'building', building_id: '', floor_id: '' });
     renderOtAreaPicker(); updatePreview();
   });
   $('#saveAttendanceBtn').addEventListener('click', saveAttendance);
@@ -466,7 +475,6 @@ function bindEvents() {
       if (!state.user || state.user.id !== session.user.id) {
         try {
           await onLoggedIn(session.user);
-          // ⭐ Nhân viên → tab Chấm công
           setTimeout(afterLoginRedirect, 200);
         } catch (err) { console.warn('[SIGNED_IN]', err); }
       }
@@ -515,10 +523,8 @@ function bindEvents() {
     if (state.user) ensureSessionAlive().catch(() => {});
   });
 
-  /* ⭐ Tự động ẨN các tab admin với nhân viên
-     - KHÔNG đụng vào tab "checkin" (vẫn hiện với mọi user)
-     - KHÔNG đụng vào tab "calendar" (vẫn hiện với mọi user)
-     - KHÔNG đụng vào tab "rooms" (vẫn hiện với mọi user)
+  /* ⭐ Tự động ẩn các tab admin với nhân viên
+     - KHÔNG đụng: checkin, calendar, rooms
   */
   let _lastAdminTabsState = null;
   setInterval(() => {
@@ -612,7 +618,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
       }
-      // ⭐ Sau initAuth, nếu có user thì điều hướng về tab đúng
       if (state.user) {
         setTimeout(afterLoginRedirect, 200);
       }
