@@ -13,40 +13,40 @@ function ensureSpecialState() {
   if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
-/* ⭐ COPY MODE STATE */
+/* ═══════════════════════════════════════════════════════════════
+   COPY MODE STATE
+   ═══════════════════════════════════════════════════════════════ */
 function ensureCopyState() {
   if (state.copyMode === undefined) state.copyMode = 'off';
   if (state.copySourceDate === undefined) state.copySourceDate = null;
   if (!(state.copyTargetDates instanceof Set)) state.copyTargetDates = new Set();
 }
 
-/* ⭐ Cập nhật UI của nút Copy */
 export function updateBulkCopyBtn() {
   ensureCopyState();
   const $btn = $('#bulkCopyBtn');
   if (!$btn) return;
 
   $btn.classList.remove('mode-source', 'mode-target');
+  $btn.disabled = false;
 
   if (state.copyMode === 'pick-source') {
     $btn.textContent = '📋 Chọn ngày nguồn';
     $btn.classList.add('mode-source');
   } else if (state.copyMode === 'pick-targets') {
-    $btn.textContent = '✅ Áp dụng copy';
+    $btn.textContent = `✅ Áp dụng copy (${state.copyTargetDates.size})`;
     $btn.classList.add('mode-target');
   } else {
     $btn.textContent = '📋 Copy ngày';
   }
 }
 
-/* ⭐ Handler khi bấm nút Copy */
 export function handleBulkCopyBtnClick() {
   ensureCopyState();
 
   if (!state.isAdmin) { toast('Chỉ admin được dùng copy ngày'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
 
-  // Thoát selection mode nếu đang bật
   if (state.selectionMode) exitSelectionMode();
 
   if (state.copyMode === 'off') {
@@ -85,7 +85,6 @@ export function handleBulkCopyBtnClick() {
   }
 }
 
-/* ⭐ Reset copy mode */
 export function exitCopyMode() {
   ensureCopyState();
   state.copyMode = 'off';
@@ -94,7 +93,6 @@ export function exitCopyMode() {
   updateBulkCopyBtn();
 }
 
-/* ⭐ Thực thi copy */
 async function executeBulkCopy() {
   const empId = state.selectedEmployeeId;
   const sourceDate = state.copySourceDate;
@@ -109,7 +107,6 @@ async function executeBulkCopy() {
   if ($btn) $btn.disabled = true;
 
   try {
-    // Fetch data ngày nguồn
     const { data: src, error: srcErr } = await supabase
       .from('attendance')
       .select('*')
@@ -123,7 +120,6 @@ async function executeBulkCopy() {
       return;
     }
 
-    // Check ngày target đã có data chưa
     const { data: existing, error: exErr } = await supabase
       .from('attendance')
       .select('date')
@@ -148,7 +144,6 @@ async function executeBulkCopy() {
       }
     }
 
-    // Build payloads — copy areas/ot_areas/mode/manual_hours/is_off/total_hours/ot_hours
     const payloads = targets.map(date => ({
       employee_id: empId,
       date,
@@ -168,7 +163,6 @@ async function executeBulkCopy() {
 
     toast(`✅ Đã copy từ ${formatDateVN(sourceDate)} sang ${targets.length} ngày`);
 
-    // Reset copy mode
     state.copyMode = 'off';
     state.copySourceDate = null;
     state.copyTargetDates.clear();
@@ -178,7 +172,6 @@ async function executeBulkCopy() {
     invalidateDayAssignCache();
     if (state.salaryModule) state.salaryModule.invalidateCache();
 
-    // Reload + tự tính lại giờ theo pool ngày đích
     await loadAttendanceForMonth(true);
     renderCalendar();
   } catch (err) {
@@ -189,7 +182,9 @@ async function executeBulkCopy() {
   }
 }
 
-/* ⭐ Cache day assignments */
+/* ═══════════════════════════════════════════════════════════════
+   CACHE DAY ASSIGNMENTS
+   ═══════════════════════════════════════════════════════════════ */
 const _dayAssignCache = new Map();
 let _previewToken = 0;
 let _dppEmpBound = false;
@@ -209,6 +204,9 @@ export function invalidateDayAssignCache() {
   _dayAssignCache.clear();
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   SELECTED VIEW DATE + DAY PREVIEW
+   ═══════════════════════════════════════════════════════════════ */
 export function setSelectedViewDate(dateStr) {
   const newVal = dateStr || null;
   if (state.selectedViewDate === newVal) return;
@@ -250,7 +248,7 @@ function bindDppEmployeeSelect() {
     if (!newId) return;
     if (newId === state.selectedEmployeeId) return;
 
-    exitCopyMode();
+    if (state.copyMode !== 'off') exitCopyMode();
     state.selectedEmployeeId = newId;
     const $main = $('#employeeSelect');
     if ($main) $main.value = newId;
@@ -585,6 +583,9 @@ async function loadDayAssignments(dateStr) {
   } catch { return []; }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   CONFLICT HELPERS
+   ═══════════════════════════════════════════════════════════════ */
 function getConflictsForFloor(floorId, excludeEmpId) {
   if (!floorId || !Array.isArray(state.dayAssignments)) return [];
   const empIds = new Set();
@@ -627,6 +628,9 @@ function getConflictsForSpecialType(type, excludeEmpId) {
   });
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   SUMMARY
+   ═══════════════════════════════════════════════════════════════ */
 export function updateSummary() {
   const emp = state.employees.find(e => e.id === state.selectedEmployeeId);
 
@@ -694,6 +698,9 @@ export function updateSummary() {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   POOL HELPERS
+   ═══════════════════════════════════════════════════════════════ */
 async function getPreviousAttendance(employeeId, beforeDate) {
   const { data, error } = await supabase
     .from('attendance').select('*')
@@ -792,6 +799,9 @@ function updateEntryHints() {
   });
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   SUMMARY HTML (modal đọc)
+   ═══════════════════════════════════════════════════════════════ */
 function buildSummaryHTML(template) {
   if (!template) return '';
 
@@ -915,11 +925,15 @@ function applySundayToggle(dateStr, batchDates) {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   OPEN MODAL
+   ═══════════════════════════════════════════════════════════════ */
 export async function openAttendanceModal(dateStr, batchDates = null) {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
 
-  exitCopyMode();
+  if (state.copyMode !== 'off') exitCopyMode();
+
   _previewToken++;
   ensureSpecialState();
   state.editingDate = dateStr;
@@ -1038,6 +1052,9 @@ function showBatchNote(batchDates) {
   } else el.style.display = 'none';
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   MODAL CONTENT
+   ═══════════════════════════════════════════════════════════════ */
 function openSupervisorModeContent(template) {
   let mode = 'default', otH = 0;
   if (template) {
@@ -1122,6 +1139,9 @@ function openEmployeeModeContent(template) {
   toggleSundayOtSection(isSundayOt);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   AREA PICKER (có nút thêm tầng)
+   ═══════════════════════════════════════════════════════════════ */
 function renderAreaPickerInto(wrapId, areasState, isOt) {
   const rerender = () => renderAreaPickerInto(wrapId, areasState, isOt);
   const wrap = $('#' + wrapId);
@@ -1300,6 +1320,9 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
 export function renderMainAreaPicker() { renderAreaPickerInto('mainAreaPicker', state.modalAreas, false); }
 export function renderOtAreaPicker() { renderAreaPickerInto('otAreaPicker', state.modalOtAreas, true); }
 
+/* ═══════════════════════════════════════════════════════════════
+   TOGGLE SECTIONS
+   ═══════════════════════════════════════════════════════════════ */
 export function toggleModeSections(mode) {
   const m = $('#manualHoursGroup'); if (m) m.style.display = mode === 'manual' ? 'block' : 'none';
   const a = $('#mainAreaSection'); if (a) a.style.display = mode === 'default' ? 'block' : 'none';
@@ -1317,6 +1340,9 @@ export function toggleSupOtGroup(mode) {
   const g = $('#supOtGroup'); if (g) g.style.display = mode === 'ot' ? 'block' : 'none';
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   COMPUTE / PREVIEW
+   ═══════════════════════════════════════════════════════════════ */
 function getSelectedMode() { return document.querySelector('input[name="attMode"]:checked')?.value || 'default'; }
 function getSelectedSupMode() { return document.querySelector('input[name="supMode"]:checked')?.value || 'default'; }
 function isSundayOtChecked() { const $c = $('#sundayOtCheck'); return !!($c && $c.checked); }
@@ -1394,6 +1420,9 @@ export function updatePreview() {
   updateEntryHints();
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   PAYLOAD BUILDERS
+   ═══════════════════════════════════════════════════════════════ */
 function buildSupervisorPayload() {
   const mode = getSelectedSupMode();
   const isOff = mode === 'off', isLeave = mode === 'leave';
@@ -1488,9 +1517,12 @@ function buildEmployeePayload() {
     is_off: false, mode: 'default', manual_hours: null,
     areas: validAreas.map(a => serializeArea(a)),
     ot_areas: otAreas,
-    };
+  };
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   SAVE
+   ═══════════════════════════════════════════════════════════════ */
 export async function saveAttendance() {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) return;
@@ -1555,11 +1587,13 @@ export async function saveAttendance() {
   closeModal('attendanceModal');
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   SELECTION MODE
+   ═══════════════════════════════════════════════════════════════ */
 export function toggleSelectionMode() {
   if (state.selectionMode) exitSelectionMode();
   else {
     ensureCopyState();
-    // ⭐ Tắt copy mode nếu đang bật
     if (state.copyMode !== 'off') {
       state.copyMode = 'off';
       state.copySourceDate = null;
@@ -1569,7 +1603,6 @@ export function toggleSelectionMode() {
 
     state.selectionMode = true;
     state.selectedDates.clear();
-
     state.selectedViewDate = null;
     closeDayPreview();
 
@@ -1605,7 +1638,7 @@ export function updateSelectionCount() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   RENDER CALENDAR — có highlight copy source/target
+   RENDER CALENDAR
    ═══════════════════════════════════════════════════════════════ */
 export function renderCalendar() {
   ensureCopyState();
@@ -1641,10 +1674,8 @@ export function renderCalendar() {
     }
     if (dateStr === todayStr) cls += ' today';
 
-    // Selection mode
     if (state.selectionMode && state.selectedDates.has(dateStr)) cls += ' selected';
 
-    // ⭐ Copy mode highlight
     if (state.copyMode === 'pick-targets') {
       if (state.copySourceDate === dateStr) cls += ' copy-source';
       else if (state.copyTargetDates.has(dateStr)) cls += ' copy-target';
@@ -1652,7 +1683,6 @@ export function renderCalendar() {
       if (state.copySourceDate === dateStr) cls += ' copy-source';
     }
 
-    // Selected view (không bật khi đang copy mode)
     if (!state.selectionMode && state.copyMode === 'off' && state.selectedViewDate === dateStr) cls += ' selected-view';
 
     html += `<div class="${cls}" data-date="${dateStr}">
@@ -1662,7 +1692,6 @@ export function renderCalendar() {
   }
   grid.innerHTML = html;
 
-  // Attach handlers
   if (state.selectionMode) {
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
       el.addEventListener('click', () => toggleDateSelection(el.dataset.date)));
@@ -1674,7 +1703,6 @@ export function renderCalendar() {
       attachCalendarSelect(el, el.dataset.date));
   }
 
-  // Nút "Xem chi tiết"
   const $viewBtn = $('#viewDetailBtn');
   if ($viewBtn) {
     if (state.selectedViewDate && !state.selectionMode && state.copyMode === 'off') {
@@ -1687,10 +1715,8 @@ export function renderCalendar() {
     }
   }
 
-  // ⭐ Sync nút Copy
   updateBulkCopyBtn();
 
-  // Sync fullpage panel
   const isFullpage = document.body.classList.contains('dpp-fullpage');
   if (isFullpage && state.selectedViewDate) {
     renderDayPreview(state.selectedViewDate);
@@ -1733,7 +1759,6 @@ function attachCalendarSelect(el, dateStr) {
   el.addEventListener('click', (e) => handle(e));
 }
 
-/* ⭐ Handler riêng cho copy mode */
 function attachCopySelect(el, dateStr) {
   let lastFire = 0;
 
@@ -1750,12 +1775,10 @@ function attachCopySelect(el, dateStr) {
     try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
 
     if (state.copyMode === 'pick-source') {
-      // Bấm lần 1 → chọn source. Bấm cùng ngày lần 2 → bỏ chọn
       if (state.copySourceDate === dateStr) {
         state.copySourceDate = null;
       } else {
         state.copySourceDate = dateStr;
-        // Tự chuyển sang bước chọn targets
         state.copyMode = 'pick-targets';
         toast(`📌 Đã chọn nguồn: ${formatDateVN(dateStr)}. Bấm chọn các ngày đích`);
       }
@@ -1782,8 +1805,10 @@ function attachCopySelect(el, dateStr) {
   el.addEventListener('click', (e) => handle(e));
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   SWITCH TAB + CHANGE MONTH
+   ═══════════════════════════════════════════════════════════════ */
 export function switchTab(name) {
-  // ⭐ Reset copy mode khi rời tab calendar
   if (name !== 'calendar' && state.copyMode !== 'off') {
     exitCopyMode();
   }
@@ -1862,7 +1887,6 @@ export function switchTab(name) {
 }
 
 export async function changeMonth(delta) {
-  // ⭐ Reset copy mode khi đổi tháng
   if (state.copyMode !== 'off') {
     exitCopyMode();
     toast('Đã thoát chế độ copy do đổi tháng');
