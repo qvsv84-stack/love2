@@ -14,26 +14,8 @@ function ensureState() {
   if (!Array.isArray(state.sundayOtAssignments)) state.sundayOtAssignments = [];
   if (!(state.expandedBuildings instanceof Set)) state.expandedBuildings = new Set();
   if (!state._assignCtx) state._assignCtx = null;
-}
-
-function processSharedAssigns(mapObj) {
-  const arr = Object.values(mapObj);
-  if (arr.length <= 1) return arr;
-
-  const hoursSet = new Set();
-  let maxH = 0;
-  for (const a of arr) {
-    const h = Number(a.hours);
-    hoursSet.add(h);
-    if (h > maxH) maxH = h;
-  }
-
-  if (hoursSet.size === 1 && arr.length > 1) {
-    const perPerson = maxH / arr.length;
-    return arr.map(a => ({ ...a, hours: perPerson, shared: arr.length }));
-  }
-
-  return arr.map(a => ({ ...a, shared: arr.length }));
+  if (!state._bulkAssignments) state._bulkAssignments = new Set();
+  if (state.areasBulkEmpId === undefined) state.areasBulkEmpId = null;
 }
 
 export async function loadBuildings() {
@@ -50,7 +32,6 @@ export async function loadBuildings() {
     state.floors = floors || [];
   } else state.floors = [];
 
-  // ⭐ FIX #4: Auto-expand toà đầu tiên để user thấy ngay nút "+ Gán"
   if (state.buildings.length > 0 && state.expandedBuildings.size === 0) {
     state.expandedBuildings.add(state.buildings[0].id);
   }
@@ -68,6 +49,7 @@ export async function loadBuildings() {
   renderBuildings();
 }
 
+/* ⭐ FIX #2: Tính đúng giờ external/night theo pool + default_hours */
 export async function loadDayAssignments(dateStr = null) {
   ensureState();
 
@@ -90,34 +72,50 @@ export async function loadDayAssignments(dateStr = null) {
 
   const mainUsersByFloor = {};
   const otAutoUsersByFloor = {};
-  const externalByEmp = {};
-  const nightByEmp = {};
-  const sundayOtByEmp = {};
 
-  const addSpecial = (mapObj, empId, hours) => {
-    if (!mapObj[empId]) mapObj[empId] = { employee_id: empId, hours: 0 };
-    mapObj[empId].hours += Number(hours || 0);
+  const externalDefault = Number(state.specialAreas?.external?.default_hours || 0);
+  const nightDefault = Number(state.specialAreas?.night?.default_hours || 0);
+
+  /* ⭐ FIX: Tính pool external/night theo default_hours + count */
+  const specialPools = {
+    external: { users: new Set(), maxHours: 0, defaultH: externalDefault },
+    night: { users: new Set(), maxHours: 0, defaultH: nightDefault },
   };
 
+  // Pass 1: đếm users + max hours cho external/night + đếm floor
   for (const a of data) {
     if (Array.isArray(a.areas)) {
       for (const area of a.areas) {
-        if (area.type === 'external') addSpecial(externalByEmp, a.employee_id, area.hours);
-        else if (area.type === 'night') addSpecial(nightByEmp, a.employee_id, area.hours);
-        else if (area.building_id && area.floor_id) {
+        const t = area.type || 'building';
+        if (t === 'external' || t === 'night') {
+          const info = specialPools[t];
+          if (!info.users.has(a.employee_id)) {
+            info.users.add(a.employee_id);
+            const h = (area.hours != null && !isNaN(Number(area.hours)) && Number(area.hours) > 0)
+              ? Number(area.hours)
+              : info.defaultH;
+            if (h > info.maxHours) info.maxHours = h;
+          }
+        } else if (area.building_id && area.floor_id) {
           const fid = String(area.floor_id);
           if (!mainUsersByFloor[fid]) mainUsersByFloor[fid] = new Set();
           mainUsersByFloor[fid].add(a.employee_id);
         }
       }
     }
-
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
-        if (area.type === 'sunday_ot') addSpecial(sundayOtByEmp, a.employee_id, area.hours);
-        else if (area.type === 'external') addSpecial(externalByEmp, a.employee_id, area.hours);
-        else if (area.type === 'night') addSpecial(nightByEmp, a.employee_id, area.hours);
-        else if (area.building_id && area.floor_id) {
+        const t = area.type || 'building';
+        if (t === 'external' || t === 'night') {
+          const info = specialPools[t];
+          if (!info.users.has(a.employee_id)) {
+            info.users.add(a.employee_id);
+            const h = (area.hours != null && !isNaN(Number(area.hours)) && Number(area.hours) > 0)
+              ? Number(area.hours)
+              : info.defaultH;
+            if (h > info.maxHours) info.maxHours = h;
+          }
+        } else if (t === 'building' && area.building_id && area.floor_id) {
           const fid = String(area.floor_id);
           const h = area.hours;
           if (h != null && h !== '' && !isNaN(Number(h))) continue;
@@ -128,6 +126,40 @@ export async function loadDayAssignments(dateStr = null) {
     }
   }
 
+  // Pass 2: build external/night/sunday_ot arrays
+  const externalByEmp = {};
+  const nightByEmp = {};
+  const sundayOtByEmp = {};
+  const empSpecialDone = {};
+
+  for (const a of data) {
+    const empId = a.employee_id;
+    const empAreas = [...(a.areas || []), ...(a.ot_areas || [])];
+
+    for (const area of empAreas) {
+      const t = area.type || 'building';
+
+      if (t === 'sunday_ot') {
+        if (!sundayOtByEmp[empId]) sundayOtByEmp[empId] = { employee_id: empId, hours: 0 };
+        sundayOtByEmp[empId].hours += Number(area.hours || 0);
+        continue;
+      }
+
+      if (t === 'external' || t === 'night') {
+        if (empSpecialDone[empId]?.[t]) continue;
+        if (!empSpecialDone[empId]) empSpecialDone[empId] = {};
+        empSpecialDone[empId][t] = true;
+
+        const info = specialPools[t];
+        const count = info.users.size;
+        const perPerson = count > 0 ? info.maxHours / count : info.defaultH;
+        const map = t === 'external' ? externalByEmp : nightByEmp;
+        map[empId] = { employee_id: empId, hours: perPerson, shared: count };
+      }
+    }
+  }
+
+  // Pass 3: build floor assignments (main + OT)
   const map = {};
 
   for (const a of data) {
@@ -136,7 +168,8 @@ export async function loadDayAssignments(dateStr = null) {
 
     if (Array.isArray(a.areas)) {
       for (const area of a.areas) {
-        if (area.type === 'external' || area.type === 'night') continue;
+        const t = area.type || 'building';
+        if (t === 'external' || t === 'night') continue;
         if (!area.building_id || !area.floor_id) continue;
         const fid = String(area.floor_id);
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
@@ -153,7 +186,8 @@ export async function loadDayAssignments(dateStr = null) {
 
     if (Array.isArray(a.ot_areas)) {
       for (const area of a.ot_areas) {
-        if (area.type === 'external' || area.type === 'night' || area.type === 'sunday_ot') continue;
+        const t = area.type || 'building';
+        if (t === 'external' || t === 'night' || t === 'sunday_ot') continue;
         if (!area.building_id || !area.floor_id) continue;
         const fid = String(area.floor_id);
         if (!perFloor[fid]) perFloor[fid] = { main: 0, ot: 0 };
@@ -190,18 +224,14 @@ export async function loadDayAssignments(dateStr = null) {
         existing.main_hours += h.main;
         existing.ot_hours += h.ot;
       } else {
-        map[fid].push({
-          employee_id: a.employee_id,
-          main_hours: h.main,
-          ot_hours: h.ot,
-        });
+        map[fid].push({ employee_id: a.employee_id, main_hours: h.main, ot_hours: h.ot });
       }
     }
   }
 
   state.floorAssignments = map;
-  state.externalAssignments = processSharedAssigns(externalByEmp);
-  state.nightAssignments = processSharedAssigns(nightByEmp);
+  state.externalAssignments = Object.values(externalByEmp);
+  state.nightAssignments = Object.values(nightByEmp);
   state.sundayOtAssignments = Object.values(sundayOtByEmp);
 
   const hint = $('#areasHint');
@@ -217,6 +247,27 @@ export async function loadTodayAssignments() {
   return loadDayAssignments(toDateStr(new Date()));
 }
 
+/* ⭐ Populate dropdown bulk assign */
+function populateBulkEmpSelect() {
+  const $sel = document.getElementById('areasBulkEmpSelect');
+  if (!$sel) return;
+
+  const emps = (state.employees || [])
+    .filter(e => e.status !== 'inactive')
+    .sort((a, b) => {
+      const an = (a.full_name || a.username || '').toLowerCase();
+      const bn = (b.full_name || b.username || '').toLowerCase();
+      return an.localeCompare(bn, 'vi');
+    });
+
+  const wantCount = emps.length + 1;
+  if ($sel.querySelectorAll('option').length !== wantCount) {
+    $sel.innerHTML = '<option value="">👤 Chọn nhân viên (gán nhanh nhiều tầng)</option>' +
+      emps.map(e => `<option value="${e.id}">${e.full_name || e.username || ''}</option>`).join('');
+  }
+  $sel.value = state.areasBulkEmpId || '';
+}
+
 export function renderBuildings() {
   ensureState();
 
@@ -225,6 +276,11 @@ export function renderBuildings() {
   if (!wrap) return;
 
   updateCreateButtons();
+  populateBulkEmpSelect();
+
+  // ⭐ Show/hide bulk actions row
+  const $bulkActions = document.getElementById('areasBulkActions');
+  if ($bulkActions) $bulkActions.style.display = state.areasBulkEmpId ? 'flex' : 'none';
 
   const $datePicker = $('#areasViewDate');
   if ($datePicker && !$datePicker.value) {
@@ -247,6 +303,7 @@ export function renderBuildings() {
 
   const search = (state.areasSearch || '').toLowerCase().trim();
   const roleFilter = state.areasRoleFilter || 'all';
+  const bulkMode = !!state.areasBulkEmpId;
 
   const filteredEmpIds = new Set();
   state.employees.filter(e => {
@@ -326,6 +383,7 @@ export function renderBuildings() {
     accentColor: '#15803d',
     avatarGrad: '#16a34a, #15803d',
     filteredEmpIds,
+    bulkMode,
   });
 
   const nightHtml = renderSpecialCard({
@@ -340,6 +398,7 @@ export function renderBuildings() {
     accentColor: '#4338ca',
     avatarGrad: '#6366f1, #4338ca',
     filteredEmpIds,
+    bulkMode,
   });
 
   const sundayOtHtml = state.sundayOtAssignments.length > 0
@@ -398,9 +457,15 @@ export function renderBuildings() {
         ? `<span class="floor-people-count">${visible.length} người</span>`
         : `<span class="floor-people-count is-empty">Trống</span>`;
 
-      const assignBtn = state.isAdmin
-        ? `<button type="button" class="btn-assign-floor" data-assign-b="${b.id}" data-assign-f="${f.id}" style="padding:4px 10px;font-size:11px;background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">+ Gán</button>`
-        : '';
+      // ⭐ FIX #3: Checkbox khi ở bulk mode, button khi bình thường
+      let assignControl = '';
+      if (bulkMode) {
+        const key = String(f.id);
+        const isChecked = state._bulkAssignments?.has(key) || false;
+        assignControl = `<input type="checkbox" class="bulk-assign-check" data-key="${key}" ${isChecked ? 'checked' : ''} style="width:22px;height:22px;cursor:pointer;accent-color:#0ea5b7;margin:0;flex-shrink:0;" />`;
+      } else if (state.isAdmin) {
+        assignControl = `<button type="button" class="btn-assign-floor" data-assign-b="${b.id}" data-assign-f="${f.id}" style="padding:4px 10px;font-size:11px;background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">+ Gán</button>`;
+      }
 
       return `
         <div class="floor-row${visible.length > 0 ? ' has-assignees' : ''}">
@@ -408,7 +473,7 @@ export function renderBuildings() {
             <span class="floor-name">${floorLabel(f.floor_number)} ${peopleBadge}</span>
             <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
               <span class="floor-hours">${formatHours(f.default_hours)}</span>
-              ${assignBtn}
+              ${assignControl}
             </span>
           </div>
           ${assigneesHtml}
@@ -461,29 +526,38 @@ export function renderBuildings() {
     btn.addEventListener('click', () => deleteSpecialArea(btn.dataset.specialDelete)));
 
   wrap.querySelectorAll('[data-phone]').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      ev.preventDefault();
-      showPhoneAction(el.dataset.phone);
-    });
+    el.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); showPhoneAction(el.dataset.phone); });
   });
 
   wrap.querySelectorAll('[data-jump-emp]').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      ev.preventDefault();
-      jumpToEmployeeCalendar(el.dataset.jumpEmp);
-    });
+    el.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); jumpToEmployeeCalendar(el.dataset.jumpEmp); });
   });
 
   wrap.querySelectorAll('.btn-assign-floor').forEach(btn => {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       ev.preventDefault();
-      const bid = btn.dataset.assignB;
-      const fid = btn.dataset.assignF;
-      console.log('[assign] Click nút gán — building:', bid, 'floor:', fid);
-      openAssignModal(bid, fid);
+      openAssignModal(btn.dataset.assignB, btn.dataset.assignF);
+    });
+  });
+
+  // ⭐ FIX #3: Bind checkboxes cho bulk mode
+  wrap.querySelectorAll('.bulk-assign-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (!(state._bulkAssignments instanceof Set)) state._bulkAssignments = new Set();
+      const key = cb.dataset.key;
+      if (cb.checked) state._bulkAssignments.add(key);
+      else state._bulkAssignments.delete(key);
+    });
+  });
+
+  // ⭐ Bind checkbox cho external/night (nếu ở bulk mode)
+  wrap.querySelectorAll('.bulk-assign-special').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (!(state._bulkAssignments instanceof Set)) state._bulkAssignments = new Set();
+      const key = cb.dataset.key;
+      if (cb.checked) state._bulkAssignments.add(key);
+      else state._bulkAssignments.delete(key);
     });
   });
 }
@@ -491,24 +565,11 @@ export function renderBuildings() {
 function updateCreateButtons() {
   const $ext = $('#createExternalBtn');
   const $night = $('#createNightBtn');
-
   if ($ext) {
-    if (state.specialAreas.external) {
-      $ext.textContent = '⚙️ Sửa ngoại cảnh';
-      $ext.dataset.mode = 'edit';
-    } else {
-      $ext.textContent = '+ Thêm ngoại cảnh';
-      $ext.dataset.mode = 'create';
-    }
+    $ext.textContent = state.specialAreas.external ? '⚙️ Sửa ngoại cảnh' : '+ Thêm ngoại cảnh';
   }
   if ($night) {
-    if (state.specialAreas.night) {
-      $night.textContent = '⚙️ Sửa ca đêm';
-      $night.dataset.mode = 'edit';
-    } else {
-      $night.textContent = '+ Thêm ca đêm';
-      $night.dataset.mode = 'create';
-    }
+    $night.textContent = state.specialAreas.night ? '⚙️ Sửa ca đêm' : '+ Thêm ca đêm';
   }
 }
 
@@ -516,6 +577,7 @@ function renderSpecialCard(opts) {
   const {
     type, record, items, emoji, title,
     colorStart, colorEnd, borderColor, accentColor, avatarGrad, filteredEmpIds,
+    bulkMode,
   } = opts;
 
   if (!record) return '';
@@ -545,13 +607,24 @@ function renderSpecialCard(opts) {
          Chưa có nhân viên nào làm ${title.toLowerCase()}.
        </p>`;
 
+  // ⭐ Checkbox bulk mode cho external/night
+  let bulkCheckbox = '';
+  if (bulkMode) {
+    const key = `__${type}__`;
+    const isChecked = state._bulkAssignments?.has(key) || false;
+    bulkCheckbox = `<input type="checkbox" class="bulk-assign-special" data-key="${key}" ${isChecked ? 'checked' : ''} style="width:22px;height:22px;cursor:pointer;accent-color:${accentColor};margin:0;flex-shrink:0;" />`;
+  }
+
   return `
     <div class="building-card" style="border-color:${borderColor};background:linear-gradient(135deg, ${colorStart}, ${colorEnd})">
       <div class="building-header" style="background:transparent">
         <div class="building-header-left">
           <span class="building-name" style="color:${accentColor}">${emoji} ${title}</span>
         </div>
-        <div class="building-header-right">${headerRight}</div>
+        <div class="building-header-right" style="display:flex;gap:10px;align-items:center;">
+          ${headerRight}
+          ${bulkCheckbox}
+        </div>
       </div>
       <div style="padding:0 16px 8px;color:${accentColor};font-size:12px;font-weight:600">
         📌 Giờ mặc định: ${formatHours(record.default_hours)}
@@ -598,543 +671,4 @@ function renderSimpleCard(opts) {
                   <span class="assignee-name" data-jump-emp="${emp.id}" title="Xem lịch công">${name}</span>
                   ${emp.phone ? `<span class="assignee-phone"><a class="phone-link" data-phone="${emp.phone}" href="javascript:void(0)">${emp.phone}</a></span>` : ''}
                 </div>
-                <span style="margin-left:auto;font-weight:700;color:${accentColor};font-size:13px">${formatHours(item.hours)}</span>
-              </div>`;
-          }).join('')}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ⭐ GÁN NHÂN VIÊN — tự tạo modal + load employees nếu cần
-   ═══════════════════════════════════════════════════════════════ */
-export async function openAssignModal(buildingId, floorId) {
-  console.log('[assign] openAssignModal called — building:', buildingId, 'floor:', floorId);
-
-  if (!state.isAdmin) { toast('Chỉ admin được gán'); return; }
-
-  // ⭐ FIX #1: Đảm bảo state.employees đã load
-  if (!state.employees || state.employees.length === 0) {
-    console.log('[assign] state.employees rỗng → đang load...');
-    toast('⏳ Đang tải danh sách nhân viên...');
-    try {
-      const empMod = await import('./employees.js');
-      if (empMod.loadEmployees) await empMod.loadEmployees();
-      else if (empMod.loadPublicEmployees) await empMod.loadPublicEmployees();
-    } catch (err) {
-      console.warn('[assign] load employees fail:', err);
-    }
-    if (!state.employees || state.employees.length === 0) {
-      toast('❌ Không tải được danh sách nhân viên');
-      return;
-    }
-  }
-
-  const dateStr = state.areasViewDate || toDateStr(new Date());
-  const building = state.buildings.find(b => String(b.id) === String(buildingId));
-  const floor = state.floors.find(f => String(f.id) === String(floorId));
-  if (!building || !floor) {
-    console.error('[assign] Không tìm thấy building/floor', { buildingId, floorId, buildings: state.buildings.length, floors: state.floors.length });
-    toast('Không tìm thấy tầng');
-    return;
-  }
-
-  // ⭐ FIX #2: Ensure modal có đủ element (xoá + tạo lại nếu cũ thiếu)
-  ensureAssignModal();
-
-  state._assignCtx = { buildingId, floorId, dateStr };
-
-  const { data: allAtt, error } = await supabase
-    .from('attendance')
-    .select('employee_id, areas, ot_areas, is_off, mode')
-    .eq('date', dateStr);
-  if (error) { toast('Lỗi tải: ' + error.message); return; }
-
-  const assignedSet = new Set();
-  for (const a of (allAtt || [])) {
-    if (a.is_off) continue;
-    if (a.mode === 'leave' || a.mode === 'off') continue;
-    if (!Array.isArray(a.areas)) continue;
-    for (const area of a.areas) {
-      const t = area.type || 'building';
-      if (t !== 'building') continue;
-      if (String(area.building_id) === String(buildingId) && String(area.floor_id) === String(floorId)) {
-        assignedSet.add(a.employee_id);
-      }
-    }
-  }
-
-  const $title = document.getElementById('assignEmpTitle');
-  if ($title) $title.textContent = `Gán NV vào ${floorLabel(floor.floor_number)} — ${building.name}`;
-  const $sub = document.getElementById('assignEmpSubtitle');
-  if ($sub) $sub.textContent = `Ngày: ${formatDateVN(dateStr)} · Giờ mặc định tầng: ${formatHours(floor.default_hours)}`;
-
-  renderAssignList(assignedSet);
-
-  const $search = document.getElementById('assignEmpSearch');
-  if ($search) {
-    $search.value = '';
-    $search.oninput = () => renderAssignList(assignedSet, $search.value);
-  }
-
-  const $saveBtn = document.getElementById('assignEmpSaveBtn');
-  if ($saveBtn) {
-    $saveBtn.disabled = false;
-    $saveBtn.textContent = 'Lưu';
-    $saveBtn.onclick = saveAssignments;
-  }
-
-  const $modal = document.getElementById('assignEmployeeModal');
-  if ($modal) {
-    $modal.style.display = 'flex';
-    $modal.style.alignItems = 'center';
-    $modal.style.justifyContent = 'center';
-  }
-
-  console.log('[assign] Mở modal OK — employees:', state.employees.length, 'đã gán:', assignedSet.size);
-}
-
-/* ⭐ FIX #2: Check đủ element, thiếu thì xoá + tạo lại */
-function ensureAssignModal() {
-  const $modal = document.getElementById('assignEmployeeModal');
-  const requiredIds = [
-    'assignEmpTitle', 'assignEmpSubtitle', 'assignEmpSearch',
-    'assignEmpList', 'assignEmpSaveBtn', 'assignEmpCloseBtn', 'assignEmpCancelBtn'
-  ];
-
-  if ($modal) {
-    const missing = requiredIds.filter(id => !document.getElementById(id));
-    if (missing.length === 0) {
-      console.log('[assign] Modal đã có đủ element');
-      return;
-    }
-    console.log('[assign] Modal cũ thiếu element:', missing, '→ xoá và tạo lại');
-    $modal.remove();
-  }
-
-  console.log('[assign] Tạo modal mới');
-
-  const html = `
-    <div id="assignEmployeeModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;padding:20px;box-sizing:border-box;">
-      <div style="background:#fff;border-radius:14px;max-width:460px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
-          <h3 id="assignEmpTitle" style="margin:0;font-size:16px;font-weight:700;color:#111827;">Gán nhân viên</h3>
-          <button type="button" id="assignEmpCloseBtn" style="background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280;padding:0;width:32px;height:32px;line-height:1;border-radius:6px;">✕</button>
-        </div>
-        <div style="padding:14px 18px;overflow-y:auto;flex:1;">
-          <p id="assignEmpSubtitle" style="font-size:13px;color:#6b7280;margin:0 0 12px 0;line-height:1.5;"></p>
-          <input type="text" id="assignEmpSearch" placeholder="🔍 Tìm tên hoặc số điện thoại..." autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:10px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:14px;outline:none;" />
-          <div id="assignEmpList" style="max-height:380px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;"></div>
-          <p style="font-size:11.5px;color:#6b7280;margin:10px 0 0 0;line-height:1.5;">
-            💡 Tick = gán vào tầng này. Bỏ tick = xoá khỏi tầng. Nếu NV đã làm tầng khác cùng ngày → vẫn giữ nguyên (thêm tầng).
-          </p>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid #e5e7eb;flex-shrink:0;">
-          <button type="button" id="assignEmpCancelBtn" style="padding:10px 18px;font-family:inherit;font-size:14px;border:1px solid #e5e7eb;background:#fff;border-radius:8px;cursor:pointer;font-weight:600;color:#374151;">Huỷ</button>
-          <button type="button" id="assignEmpSaveBtn" style="padding:10px 18px;font-family:inherit;font-size:14px;background:#0ea5b7;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Lưu</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.insertAdjacentHTML('beforeend', html);
-
-  const closeModalDirect = () => {
-    const $m = document.getElementById('assignEmployeeModal');
-    if ($m) $m.style.display = 'none';
-  };
-  document.getElementById('assignEmpCloseBtn').onclick = closeModalDirect;
-  document.getElementById('assignEmpCancelBtn').onclick = closeModalDirect;
-  document.getElementById('assignEmployeeModal').addEventListener('click', (e) => {
-    if (e.target.id === 'assignEmployeeModal') closeModalDirect();
-  });
-}
-
-function renderAssignList(assignedSet, searchTerm = '') {
-  const $list = document.getElementById('assignEmpList');
-  if (!$list) {
-    console.error('[assign] #assignEmpList không tồn tại');
-    return;
-  }
-
-  console.log('[assign] renderAssignList — total:', state.employees?.length || 0, 'search:', searchTerm);
-
-  const term = (searchTerm || '').toLowerCase().trim();
-  const employees = (state.employees || [])
-    .filter(e => e.status !== 'inactive')
-    .filter(e => {
-      if (!term) return true;
-      const name = (e.full_name || '').toLowerCase();
-      const username = (e.username || '').toLowerCase();
-      const phone = (e.phone || '').toLowerCase();
-      return name.includes(term) || username.includes(term) || phone.includes(term);
-    })
-    .sort((a, b) => {
-      const an = (a.full_name || a.username || '').toLowerCase();
-      const bn = (b.full_name || b.username || '').toLowerCase();
-      return an.localeCompare(bn, 'vi');
-    });
-
-  if (!employees.length) {
-    $list.innerHTML = '<p style="padding:16px;text-align:center;margin:0;color:#6b7280;font-size:13px;">Không có nhân viên phù hợp</p>';
-    return;
-  }
-
-  const roleMap = {
-    admin: 'Giám sát',
-    employee: 'Nhân viên',
-    temporary: 'Thời vụ',
-    external: 'Ngoại cảnh',
-  };
-
-  $list.innerHTML = employees.map(e => {
-    const name = e.full_name || e.username || '—';
-    const role = roleMap[e.role] || e.role || '';
-    const phone = e.phone || '';
-    const checked = assignedSet.has(e.id);
-    return `
-      <label style="display:flex;padding:10px 12px;border-bottom:1px solid #f3f4f6;gap:10px;cursor:pointer;align-items:center;">
-        <input type="checkbox" data-emp-id="${e.id}" ${checked ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;accent-color:#0ea5b7;cursor:pointer;" />
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${name}</div>
-          <div style="font-size:11.5px;color:#6b7280;margin-top:1px;">
-            ${role}${phone ? ' · ' + phone : ''}
-          </div>
-        </div>
-        ${checked ? '<span style="font-size:11px;color:#16a34a;font-weight:600;flex-shrink:0;">✓ Đang gán</span>' : ''}
-      </label>
-    `;
-  }).join('');
-}
-
-async function saveAssignments() {
-  const ctx = state._assignCtx;
-  if (!ctx) { toast('Thiếu thông tin'); return; }
-  const { buildingId, floorId, dateStr } = ctx;
-
-  console.log('[assign] saveAssignments — building:', buildingId, 'floor:', floorId, 'date:', dateStr);
-
-  const checkedIds = new Set();
-  document.querySelectorAll('#assignEmpList input[type="checkbox"]:checked').forEach(cb => {
-    checkedIds.add(cb.dataset.empId);
-  });
-  console.log('[assign] Đã tick:', checkedIds.size, 'nhân viên');
-
-  const $btn = document.getElementById('assignEmpSaveBtn');
-  if ($btn) { $btn.disabled = true; $btn.textContent = '⏳ Đang lưu...'; }
-
-  try {
-    const { data: allAtt, error: fetchErr } = await supabase
-      .from('attendance')
-      .select('*')
-      .eq('date', dateStr);
-    if (fetchErr) throw fetchErr;
-
-    const allActiveEmps = (state.employees || []).filter(e => e.status !== 'inactive');
-    const toUpsert = [];
-    const toDelete = [];
-
-    for (const emp of allActiveEmps) {
-      const existing = (allAtt || []).find(a => a.employee_id === emp.id);
-      const empChecked = checkedIds.has(emp.id);
-      const existingAreas = Array.isArray(existing?.areas) ? existing.areas : [];
-      const hasFloor = existingAreas.some(a =>
-        (a.type === 'building' || !a.type) &&
-        String(a.building_id) === String(buildingId) &&
-        String(a.floor_id) === String(floorId)
-      );
-
-      if (empChecked && !hasFloor) {
-        const newAreas = [...existingAreas, { type: 'building', building_id: buildingId, floor_id: floorId, hours: null }];
-        toUpsert.push({
-          employee_id: emp.id,
-          date: dateStr,
-          areas: newAreas,
-          ot_areas: existing?.ot_areas || [],
-          mode: existing?.mode || 'default',
-          total_hours: Number(existing?.total_hours || 0),
-          ot_hours: Number(existing?.ot_hours || 0),
-          is_off: !!existing?.is_off,
-          manual_hours: existing?.manual_hours ?? null,
-        });
-      } else if (!empChecked && hasFloor) {
-        const newAreas = existingAreas.filter(a =>
-          !((a.type === 'building' || !a.type) &&
-            String(a.building_id) === String(buildingId) &&
-            String(a.floor_id) === String(floorId))
-        );
-        const hasOt = Array.isArray(existing?.ot_areas) && existing.ot_areas.length > 0;
-        const hasManual = existing?.mode === 'manual' && Number(existing?.manual_hours) > 0;
-        const isLeaveOrOff = existing?.mode === 'leave' || existing?.mode === 'off' || existing?.is_off;
-
-        if (newAreas.length === 0 && !hasOt && !hasManual && !isLeaveOrOff) {
-          toDelete.push(emp.id);
-        } else {
-          toUpsert.push({
-            employee_id: emp.id,
-            date: dateStr,
-            areas: newAreas,
-            ot_areas: existing?.ot_areas || [],
-            mode: existing?.mode || 'default',
-            total_hours: Number(existing?.total_hours || 0),
-            ot_hours: Number(existing?.ot_hours || 0),
-            is_off: !!existing?.is_off,
-            manual_hours: existing?.manual_hours ?? null,
-          });
-        }
-      }
-    }
-
-    console.log('[assign] Cần upsert:', toUpsert.length, 'xoá:', toDelete.length);
-
-    if (!toUpsert.length && !toDelete.length) {
-      toast('Không có thay đổi');
-      const $m = document.getElementById('assignEmployeeModal');
-      if ($m) $m.style.display = 'none';
-      if ($btn) { $btn.disabled = false; $btn.textContent = 'Lưu'; }
-      return;
-    }
-
-    if (toUpsert.length) {
-      const { error } = await supabase.from('attendance').upsert(toUpsert, { onConflict: 'employee_id,date' });
-      if (error) throw error;
-    }
-    if (toDelete.length) {
-      const { error } = await supabase.from('attendance').delete().in('employee_id', toDelete).eq('date', dateStr);
-      if (error) throw error;
-    }
-
-    toast(`✅ Đã lưu: ${toUpsert.length} cập nhật${toDelete.length > 0 ? `, ${toDelete.length} xoá` : ''}`);
-
-    const $m = document.getElementById('assignEmployeeModal');
-    if ($m) $m.style.display = 'none';
-
-    try {
-      const core = await import('./core.js');
-      if (core.invalidateAttendanceCache) core.invalidateAttendanceCache();
-    } catch {}
-
-    await loadDayAssignments(dateStr);
-    renderBuildings();
-
-    try {
-      const changedIds = new Set([...toUpsert.map(u => u.employee_id), ...toDelete]);
-      const att = await import('./attendance.js');
-      if (att.invalidateDayAssignCache) att.invalidateDayAssignCache();
-
-      if (state.selectedEmployeeId && changedIds.has(state.selectedEmployeeId)) {
-        if (att.loadAttendanceForMonth) await att.loadAttendanceForMonth(true);
-        if (att.renderCalendar) att.renderCalendar();
-      }
-    } catch (err) { console.warn('[assign] recalc refresh:', err); }
-
-    if (state.salaryModule) state.salaryModule.invalidateCache();
-
-    setTimeout(() => {
-      toast('💡 Giờ công sẽ tự cập nhật khi mở Lịch công cho NV liên quan');
-    }, 1500);
-  } catch (err) {
-    console.error('[assign] save:', err);
-    toast('Lỗi lưu: ' + (err.message || 'không xác định'));
-  } finally {
-    if ($btn) { $btn.disabled = false; $btn.textContent = 'Lưu'; }
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SPECIAL AREAS
-   ═══════════════════════════════════════════════════════════════ */
-let _editingSpecialType = null;
-
-export function openSpecialAreaModal(type) {
-  if (!state.isAdmin) { toast('Chỉ Giám sát được tạo khu vực'); return; }
-  ensureState();
-
-  _editingSpecialType = type;
-  const existing = state.specialAreas[type];
-
-  const titleMap = {
-    external: existing ? 'Sửa Ngoại cảnh' : 'Tạo Ngoại cảnh',
-    night: existing ? 'Sửa Ca đêm' : 'Tạo Ca đêm',
-  };
-  const placeholderMap = {
-    external: 'VD: Ngoại cảnh',
-    night: 'VD: Ca đêm',
-  };
-
-  $('#specialAreaTitle').textContent = titleMap[type] || 'Khu vực đặc biệt';
-  $('#specialAreaName').value = existing?.name || (type === 'external' ? 'Ngoại cảnh' : 'Ca đêm');
-  $('#specialAreaName').placeholder = placeholderMap[type];
-  $('#specialAreaHours').value = existing?.default_hours ?? 8;
-  $('#specialAreaError').textContent = '';
-  openModal('specialAreaModal');
-}
-
-export async function saveSpecialArea() {
-  if (!state.isAdmin) return;
-  if (!_editingSpecialType) return;
-
-  const name = $('#specialAreaName').value.trim();
-  const hours = Number($('#specialAreaHours').value);
-  const errEl = $('#specialAreaError');
-  errEl.textContent = '';
-
-  if (name.length < 2) { errEl.textContent = 'Tên quá ngắn'; return; }
-  if (isNaN(hours) || hours < 0 || hours > 24) {
-    errEl.textContent = 'Giờ phải từ 0 đến 24';
-    return;
-  }
-
-  const btn = $('#saveSpecialAreaBtn');
-  btn.disabled = true; btn.textContent = 'Đang lưu...';
-
-  const existing = state.specialAreas[_editingSpecialType];
-
-  let error;
-  if (existing) {
-    const res = await supabase.from('special_areas').update({ name, default_hours: hours }).eq('id', existing.id);
-    error = res.error;
-  } else {
-    const res = await supabase.from('special_areas').insert({ type: _editingSpecialType, name, default_hours: hours });
-    error = res.error;
-  }
-
-  btn.disabled = false; btn.textContent = 'Lưu';
-
-  if (error) {
-    errEl.textContent = error.message || 'Lưu thất bại';
-    return;
-  }
-
-  toast(existing ? 'Đã cập nhật ✓' : 'Đã tạo mới ✓');
-  closeModal('specialAreaModal');
-  await loadBuildings();
-
-  if (state.salaryModule) state.salaryModule.invalidateCache();
-  const attendance = await import('./attendance.js');
-  attendance.updateSummary();
-}
-
-export async function deleteSpecialArea(type) {
-  if (!state.isAdmin) return;
-  ensureState();
-  const existing = state.specialAreas[type];
-  if (!existing) return;
-
-  const title = type === 'external' ? 'Ngoại cảnh' : 'Ca đêm';
-  const ok = confirm(
-    `Xoá "${title}"?\n\n• Chỉ xoá cấu hình khu vực\n• Dữ liệu chấm công cũ vẫn được giữ nguyên\n\nTiếp tục?`
-  );
-  if (!ok) return;
-
-  const { error } = await supabase.from('special_areas').delete().eq('id', existing.id);
-  if (error) { toast('Xoá thất bại: ' + error.message); return; }
-
-  toast('🗑 Đã xoá');
-  await loadBuildings();
-}
-
-export async function jumpToEmployeeCalendar(empId) {
-  const emp = state.employees.find(e => e.id === empId);
-  if (!emp) { toast('Không tìm thấy nhân viên'); return; }
-
-  state.selectedEmployeeId = empId;
-  const sel = $('#employeeSelect');
-  if (sel) sel.value = empId;
-
-  const attendance = await import('./attendance.js');
-  attendance.switchTab('calendar');
-  await attendance.loadAttendanceForMonth();
-  attendance.renderCalendar();
-
-  toast(`📅 Đang xem lịch của ${emp.full_name || emp.username || ''}`);
-}
-
-export async function deleteBuilding(id) {
-  if (!confirm('Xoá toà nhà này và tất cả tầng?')) return;
-  const { error } = await supabase.from('buildings').delete().eq('id', id);
-  if (error) { toast('Xoá thất bại'); return; }
-  toast('Đã xoá');
-
-  const { invalidateAttendanceCache } = await import('./core.js');
-  invalidateAttendanceCache();
-  if (state.salaryModule) state.salaryModule.invalidateCache();
-
-  state.expandedBuildings?.delete(id);
-  await loadBuildings();
-  const attendance = await import('./attendance.js');
-  await attendance.loadAttendanceForMonth();
-  attendance.renderCalendar();
-}
-
-export async function saveBuilding() {
-  if (!state.isAdmin) { toast('Chỉ Giám sát được thêm toà nhà'); return; }
-  const name = $('#buildingName').value.trim();
-  const count = parseInt($('#buildingFloors').value, 10);
-  const noGround = $('#noGroundFloor').checked;
-
-  if (!name) { toast('Nhập tên toà nhà'); return; }
-  if (!count || count < 1) { toast('Số tầng lầu không hợp lệ'); return; }
-  if (count > 50) { toast('Tối đa 50 tầng lầu'); return; }
-
-  const { data: b, error } = await supabase.from('buildings').insert({ name }).select().single();
-  if (error) { toast('Lỗi: ' + error.message); return; }
-
-  const startFloor = noGround ? 1 : 0;
-  const floors = [];
-  for (let i = 0; i < count; i++) {
-    floors.push({ building_id: b.id, floor_number: startFloor + i, default_hours: 8 });
-  }
-  const { error: e2 } = await supabase.from('floors').insert(floors);
-  if (e2) { toast('Lỗi tạo tầng: ' + e2.message); return; }
-
-  toast(`Đã tạo ${name} với ${floors.length} mặt bằng`);
-  closeModal('buildingModal');
-  $('#buildingName').value = '';
-  $('#buildingFloors').value = '1';
-  $('#noGroundFloor').checked = false;
-  if (state.salaryModule) state.salaryModule.invalidateCache();
-  await loadBuildings();
-}
-
-export function openFloorSetup(buildingId) {
-  state.floorSetupBuildingId = buildingId;
-  const b = state.buildings.find(x => x.id === buildingId);
-  $('#floorModalTitle').textContent = `Setup giờ tầng — ${b?.name || ''}`;
-
-  const floors = state.floors.filter(f => f.building_id === buildingId)
-    .sort((a, c) => a.floor_number - c.floor_number);
-
-  $('#floorsForm').innerHTML = floors.map(f => `
-    <div class="floor-form-row" data-id="${f.id}">
-      <span>${floorLabel(f.floor_number)}</span>
-      <input type="number" class="hours-input" min="0" max="24" step="0.5"
-        value="${f.default_hours ?? 8}" placeholder="Giờ" />
-    </div>`).join('') || '<p class="hint">Chưa có tầng.</p>';
-
-  openModal('floorModal');
-}
-
-export async function saveFloors() {
-  const updates = [];
-  $$('#floorsForm .floor-form-row').forEach(row => {
-    const id = row.dataset.id;
-    const val = Number(row.querySelector('input').value || 0);
-    updates.push(supabase.from('floors').update({ default_hours: val }).eq('id', id));
-  });
-  const results = await Promise.all(updates);
-  const failed = results.find(r => r.error);
-  if (failed) { toast('Lỗi lưu: ' + failed.error.message); return; }
-  toast('Đã lưu giờ tầng ✓');
-  closeModal('floorModal');
-
-  const { invalidateAttendanceCache } = await import('./core.js');
-  invalidateAttendanceCache();
-  if (state.salaryModule) state.salaryModule.invalidateCache();
-
-  await loadBuildings();
-  const attendance = await import('./attendance.js');
-  await attendance.loadAttendanceForMonth();
-  attendance.renderCalendar();
-}
+                <span style="margin-left:auto;font-weight:700;color
