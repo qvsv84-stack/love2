@@ -1423,7 +1423,6 @@ export function switchTab(name) {
         if (wrap) wrap.innerHTML = '<p class="hint" style="color:var(--danger)">⚠️ Không tải được danh sách phòng.</p>';
       });
   }
-  // ⭐ SQL TAB
   if (name === 'sql') {
     if (!state.isAdmin) {
       toast('Chỉ admin được chạy SQL');
@@ -1439,6 +1438,21 @@ export function switchTab(name) {
           $out.style.display = 'block';
           $out.innerHTML = '<span style="color:#f87171">❌ Không load được sql-runner.js</span>';
         }
+      });
+  }
+  // ⭐ CHECKIN TAB
+  if (name === 'checkin') {
+    if (!state.isAdmin) {
+      toast('Chỉ admin được dùng tab check-in');
+      switchTab('calendar');
+      return;
+    }
+    import('./checkin.js')
+      .then(m => m.loadCheckinTab())
+      .catch(err => {
+        console.warn('[checkin] Load fail:', err);
+        const $root = $('#checkinRoot');
+        if ($root) $root.innerHTML = '<p class="hint" style="color:var(--danger);padding:16px;">⚠️ Không tải được check-in: ' + (err.message || 'lỗi') + '</p>';
       });
   }
 }
