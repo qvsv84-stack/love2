@@ -17,6 +17,10 @@ import {
   loadBuildings, loadDayAssignments, loadTodayAssignments, renderBuildings,
   saveBuilding, saveFloors,
   openSpecialAreaModal, saveSpecialArea,
+  handleBulkSelectChange,
+  saveBulkAssignments,
+  cancelBulkAssign,
+  handleResetAreasData,
 } from './buildings.js';
 
 import {
@@ -40,7 +44,7 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-const APP_BUILD = '2026-11-08-final-v8-assignfix';
+const APP_BUILD = '2026-11-08-final-v9-bulkreset';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
 window.__APP_JS_LOADED__ = true;
@@ -152,6 +156,11 @@ async function reloadAreasForDate(dateStr) {
   state.areasViewDate = dateStr;
   const $dp = $('#areasViewDate');
   if ($dp && $dp.value !== dateStr) $dp.value = dateStr;
+
+  // Reset bulk mode khi đổi ngày
+  state.areasBulkEmpId = null;
+  state._bulkAssignments = new Set();
+
   try {
     const b = await import('./buildings.js');
     await b.loadDayAssignments(dateStr);
@@ -340,6 +349,30 @@ function bindEvents() {
       if (state.areasViewDate === today) return;
       await reloadAreasForDate(today);
     });
+  }
+
+  // ⭐ FIX #3: Bind dropdown Chọn NV (bulk assign)
+  const $bulkEmpSelect = $('#areasBulkEmpSelect');
+  if ($bulkEmpSelect) {
+    $bulkEmpSelect.addEventListener('change', handleBulkSelectChange);
+  }
+
+  // ⭐ FIX #3: Bind nút Lưu gán
+  const $bulkSaveBtn = $('#areasBulkSaveBtnTop');
+  if ($bulkSaveBtn) {
+    $bulkSaveBtn.addEventListener('click', saveBulkAssignments);
+  }
+
+  // ⭐ FIX #3: Bind nút Huỷ bulk
+  const $bulkCancelBtn = $('#areasBulkCancelBtn');
+  if ($bulkCancelBtn) {
+    $bulkCancelBtn.addEventListener('click', cancelBulkAssign);
+  }
+
+  // ⭐ FIX #3: Bind nút Reset
+  const $resetBtn = $('#areasResetBtn');
+  if ($resetBtn) {
+    $resetBtn.addEventListener('click', handleResetAreasData);
   }
 
   const $createBuildingBtn = document.querySelector('[data-create="building"]');
