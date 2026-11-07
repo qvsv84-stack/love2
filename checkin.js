@@ -1,4 +1,4 @@
-// checkin.js — Tab chấm công GPS + admin monitor + lịch sử (chọn ngày cụ thể)
+// checkin.js — Tab chấm công GPS + admin monitor + lịch sử (đã tối ưu UX)
 import { supabase } from './supabase.js';
 import { state, $, toast, openModal, closeModal, toDateStr } from './core.js';
 
@@ -8,7 +8,6 @@ const DEFAULT_RADIUS = 150;
 let _watchId = null;
 let _renderTimer = null;
 let _todayCheckins = [];
-let _recentLogs = [];
 let _anyCheckinInFlight = false;
 let _autoCheckinCooldown = 0;
 
@@ -123,18 +122,6 @@ async function loadTodayCheckins() {
   _todayCheckins = data || [];
 }
 
-async function loadRecentLogs() {
-  if (!state.user?.id) return;
-  const { data, error } = await supabase
-    .from('cslx_checkins')
-    .select('*')
-    .eq('employee_id', state.user.id)
-    .order('checkin_at', { ascending: false })
-    .limit(20);
-  if (error) { console.error(error); _recentLogs = []; return; }
-  _recentLogs = data || [];
-}
-
 async function loadAdminTodayCheckins() {
   if (!state.isAdmin) { _adminTodayCheckins = []; return; }
   const today = toDateStr(new Date());
@@ -161,10 +148,21 @@ function formatTime(iso) {
   } catch { return '—'; }
 }
 
+// Compact HH:MM cho header / admin rows
 function formatHHMM(iso) {
   try {
     const d = new Date(iso);
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  } catch { return '—'; }
+}
+
+function formatHHMMPeriod(iso) {
+  try {
+    const d = new Date(iso);
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const period = h < 12 ? 'sáng' : (h < 18 ? 'chiều' : 'tối');
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
   } catch { return '—'; }
 }
 
@@ -173,6 +171,13 @@ function formatDateVN(iso) {
     const d = new Date(iso);
     const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
     return `${days[d.getDay()]}, ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  } catch { return '—'; }
+}
+
+function formatDateCompact(iso) {
+  try {
+    const d = new Date(iso);
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
   } catch { return '—'; }
 }
 
@@ -259,7 +264,6 @@ async function doAutoCheckin() {
     if (error) throw error;
     try { navigator.vibrate([100, 50, 200]); } catch {}
     await loadTodayCheckins();
-    await loadRecentLogs();
     renderCheckin();
     showSuccessModal('in', true);
   } catch (err) {
@@ -370,13 +374,7 @@ function renderAdminTodaySection() {
 
   return `
     <div style="margin-top:24px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
-        <div style="font-size:16px;font-weight:700;color:var(--text);">👥 Nhân viên hôm nay <span style="color:var(--ocean-600);">(${groups.length})</span></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button id="adminHistoryBtn" type="button" style="padding:6px 12px;font-size:12px;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">📜 Lịch sử</button>
-          <button id="adminRefreshBtn" type="button" style="padding:6px 12px;font-size:12px;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;">🔄</button>
-        </div>
-      </div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px;">👥 Nhân viên hôm nay <span style="color:var(--ocean-600);">(${groups.length})</span></div>
       <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
         ${rows}
       </div>
@@ -477,7 +475,7 @@ function stopAdminPolling() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HISTORY MODAL — tháng / ngày cụ thể
+   HISTORY MODAL
    ═══════════════════════════════════════════════════════════════ */
 function ensureHistoryModal() {
   let $m = document.getElementById('checkinHistoryModal');
@@ -520,14 +518,12 @@ function ensureHistoryModal() {
   document.getElementById('historyCloseBtn2').onclick = closeFn;
   $m.onclick = (e) => { if (e.target === $m) closeFn(); };
 
-  // Đổi tháng → clear date → load
   document.getElementById('historyMonthInput').onchange = () => {
     const $date = document.getElementById('historyDateInput');
     if ($date) $date.value = '';
     loadHistoryData().catch(err => console.warn('[history]', err));
   };
 
-  // Chọn date → sync month → load
   document.getElementById('historyDateInput').onchange = () => {
     const $date = document.getElementById('historyDateInput');
     const $month = document.getElementById('historyMonthInput');
@@ -568,7 +564,6 @@ function openHistoryModal(defaultEmpId = '') {
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  // Reset về trạng thái sạch mỗi lần mở
   const $month = document.getElementById('historyMonthInput');
   if ($month) $month.value = currentMonthStr;
 
@@ -617,15 +612,12 @@ async function loadHistoryData() {
     return;
   }
 
-  // Build query
   let query = supabase.from('cslx_checkins').select('*');
 
   if (dateVal) {
-    // Xem 1 ngày cụ thể
     query = query.eq('checkin_date', dateVal);
     if ($hint) $hint.textContent = `🎯 Đang xem ngày ${formatDateShort(dateVal)}`;
   } else {
-    // Xem cả tháng
     const [y, mo] = monthVal.split('-').map(Number);
     const lastDay = new Date(y, mo, 0).getDate();
     const start = `${y}-${String(mo).padStart(2, '0')}-01`;
@@ -634,7 +626,6 @@ async function loadHistoryData() {
     if ($hint) $hint.textContent = `📅 Đang xem cả tháng ${String(mo).padStart(2, '0')}/${y}`;
   }
 
-  // Employee filter
   let selEmpId = null;
   if (!state.isAdmin) {
     selEmpId = state.user?.id;
@@ -664,7 +655,6 @@ async function loadHistoryData() {
     return;
   }
 
-  // Group: date → employee → {in, out}
   const byDate = {};
   for (const c of data) {
     if (!byDate[c.checkin_date]) byDate[c.checkin_date] = {};
@@ -756,7 +746,7 @@ export async function loadCheckinTab() {
 
   renderLoading();
 
-  const tasks = [loadLocation(), loadTodayCheckins(), loadRecentLogs()];
+  const tasks = [loadLocation(), loadTodayCheckins()];
   if (state.isAdmin) tasks.push(loadAdminTodayCheckins());
   await Promise.all(tasks);
 
@@ -789,7 +779,7 @@ function renderLoading() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   RENDER
+   RENDER — tối ưu, bỏ "Gần đây" + gộp nút Lịch sử
    ═══════════════════════════════════════════════════════════════ */
 function renderCheckin() {
   const $root = $('#checkinRoot');
@@ -797,20 +787,17 @@ function renderCheckin() {
 
   const userName = getUserName();
   const now = new Date();
-  const nowStr = formatTime(now.toISOString());
-  const dateStr = formatDateVN(now.toISOString());
   const currentState = getCurrentState();
   const loc = state.checkinLocation;
   const pos = state.checkinUserPos;
   const err = state.checkinGpsError;
   const distInfo = getDistanceInfo();
 
+  // ⭐ Header gọn: tên (to) + 1 dòng date·time ngắn
   const headerHtml = `
     <div style="text-align:center;margin-bottom:20px;">
-      <div style="font-size:15px;color:var(--text-muted);">Xin chào</div>
-      <div style="font-size:22px;font-weight:700;color:var(--text);margin-top:2px;line-height:1.3;">${userName}</div>
-      <div style="font-size:14px;color:var(--text-muted);margin-top:8px;">${dateStr}</div>
-      <div style="font-size:16px;font-weight:600;color:var(--ocean-700);margin-top:2px;">${nowStr}</div>
+      <div style="font-size:22px;font-weight:700;color:var(--text);line-height:1.3;">${userName}</div>
+      <div style="font-size:14px;color:var(--text-muted);margin-top:6px;">${formatDateCompact(now.toISOString())} · ${formatHHMMPeriod(now.toISOString())}</div>
     </div>`;
 
   let statusHtml = '';
@@ -871,7 +858,7 @@ function renderCheckin() {
       </button>`;
   } else if (currentState === 'need_out') {
     const can = !!(loc && pos && distInfo && distInfo.inRange);
-    const inTime = _todayCheckins[0] ? formatTime(_todayCheckins[0].checkin_at) : '—';
+    const inTime = _todayCheckins[0] ? formatHHMMPeriod(_todayCheckins[0].checkin_at) : '—';
     actionHtml = `
       <div style="margin-top:16px;padding:16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;text-align:center;font-size:15px;color:var(--text);line-height:1.6;">
         Hôm nay đã chấm công lúc<br>
@@ -886,8 +873,8 @@ function renderCheckin() {
         CHẤM CÔNG VỀ
       </button>`;
   } else {
-    const inTime = _todayCheckins[0] ? formatTime(_todayCheckins[0].checkin_at) : '—';
-    const outTime = _todayCheckins[1] ? formatTime(_todayCheckins[1].checkin_at) : '—';
+    const inTime = _todayCheckins[0] ? formatHHMMPeriod(_todayCheckins[0].checkin_at) : '—';
+    const outTime = _todayCheckins[1] ? formatHHMMPeriod(_todayCheckins[1].checkin_at) : '—';
     const totalMs = _todayCheckins.length >= 2
       ? new Date(_todayCheckins[1].checkin_at) - new Date(_todayCheckins[0].checkin_at)
       : 0;
@@ -904,7 +891,6 @@ function renderCheckin() {
   }
 
   const adminTodayHtml = state.isAdmin ? renderAdminTodaySection() : '';
-  const logsHtml = renderRecentLogs(_recentLogs);
 
   const adminBtn = state.isAdmin
     ? `<button id="checkinSettingsBtn" style="position:absolute;top:12px;right:12px;padding:8px 14px;font-size:13px;background:#fff;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;color:var(--text-muted);box-shadow:0 1px 3px rgba(0,0,0,0.05);">⚙️ Cài đặt</button>`
@@ -917,12 +903,11 @@ function renderCheckin() {
       ${statusHtml}
       ${actionHtml}
       ${adminTodayHtml}
-      <div style="margin-top:32px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;">
-          <div style="font-size:16px;font-weight:700;color:var(--text);">📅 Gần đây</div>
-          <button id="recentHistoryBtn" type="button" style="padding:6px 12px;font-size:12px;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">📜 Lịch sử →</button>
-        </div>
-        ${logsHtml}
+      <div style="margin-top:24px;">
+        <button id="openHistoryBtn" type="button"
+          style="width:100%;padding:16px 20px;font-size:15px;font-weight:700;background:#fff;color:var(--ocean-700);border:1.5px solid var(--ocean-200);border-radius:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+          📜 Xem lịch sử chấm công
+        </button>
       </div>
     </div>
   `;
@@ -946,29 +931,10 @@ function renderCheckin() {
   const $settings = $('#checkinSettingsBtn');
   if ($settings) $settings.onclick = openSettingsModal;
 
-  const $adminRefresh = $('#adminRefreshBtn');
-  if ($adminRefresh) {
-    $adminRefresh.onclick = async () => {
-      $adminRefresh.disabled = true;
-      $adminRefresh.textContent = '⏳';
-      try {
-        await loadAdminTodayCheckins();
-        renderCheckin();
-      } catch (err) {
-        console.warn('[admin refresh]', err);
-      }
-    };
-  }
-
-  const $adminHistory = $('#adminHistoryBtn');
-  if ($adminHistory) {
-    $adminHistory.onclick = () => openHistoryModal('');
-  }
-
-  // ⭐ Mặc định "Tất cả NV" thay vì chính mình
-  const $recentHistory = $('#recentHistoryBtn');
-  if ($recentHistory) {
-    $recentHistory.onclick = () => openHistoryModal('');
+  // ⭐ 1 nút Lịch sử duy nhất cho mọi role, mặc định "Tất cả NV" cho admin
+  const $history = $('#openHistoryBtn');
+  if ($history) {
+    $history.onclick = () => openHistoryModal('');
   }
 }
 
@@ -991,48 +957,6 @@ function updateLiveStatus() {
       $strong.textContent = `${remaining} mét`;
     }
   }
-}
-
-function renderRecentLogs(logs) {
-  if (!logs.length) {
-    return `<div style="padding:24px 16px;background:#fff;border:1px solid var(--border);border-radius:12px;text-align:center;font-size:15px;color:var(--text-muted);">
-      Chưa có lần chấm công nào
-    </div>`;
-  }
-
-  const byDate = {};
-  logs.forEach(l => {
-    if (!byDate[l.checkin_date]) byDate[l.checkin_date] = [];
-    byDate[l.checkin_date].push(l);
-  });
-
-  const dates = Object.keys(byDate).sort().reverse().slice(0, 5);
-  const todayStr = toDateStr(new Date());
-
-  return `<div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
-    ${dates.map(d => {
-      const dayLogs = byDate[d].slice().sort((a, b) => new Date(a.checkin_at) - new Date(b.checkin_at));
-      const ins = dayLogs.filter(l => l.type === 'in' || l.type === undefined || l.type === null);
-      const outs = dayLogs.filter(l => l.type === 'out');
-      const inTime = ins[0] ? formatTime(ins[0].checkin_at) : null;
-      const outTime = outs[0] ? formatTime(outs[0].checkin_at) : null;
-
-      let summary = '';
-      if (inTime && outTime) {
-        const totalMs = new Date(outs[0].checkin_at) - new Date(ins[0].checkin_at);
-        summary = `<div style="font-size:14px;color:#15803d;margin-top:4px;line-height:1.6;">Đến ${inTime} · Về ${outTime}<br>Tổng ${formatDuration(totalMs)}</div>`;
-      } else if (inTime) {
-        summary = `<div style="font-size:14px;color:#d97706;margin-top:4px;">Đến ${inTime} · Chưa chấm về</div>`;
-      }
-
-      const dateLabel = d === todayStr ? 'Hôm nay' : formatDateShort(d);
-
-      return `<div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-        <div style="font-size:15px;font-weight:700;color:var(--text);">${dateLabel}</div>
-        ${summary}
-      </div>`;
-    }).join('')}
-  </div>`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1113,7 +1037,6 @@ async function doCheckin(type) {
     try { navigator.vibrate([100, 50, 200]); } catch {}
     showSuccessModal(type);
     await loadTodayCheckins();
-    await loadRecentLogs();
     renderCheckin();
   } catch (err) {
     console.error('[checkin]', err);
