@@ -13,6 +13,183 @@ function ensureSpecialState() {
   if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
+/* ⭐ COPY MODE STATE */
+function ensureCopyState() {
+  if (state.copyMode === undefined) state.copyMode = 'off';
+  if (state.copySourceDate === undefined) state.copySourceDate = null;
+  if (!(state.copyTargetDates instanceof Set)) state.copyTargetDates = new Set();
+}
+
+/* ⭐ Cập nhật UI của nút Copy */
+export function updateBulkCopyBtn() {
+  ensureCopyState();
+  const $btn = $('#bulkCopyBtn');
+  if (!$btn) return;
+
+  $btn.classList.remove('mode-source', 'mode-target');
+
+  if (state.copyMode === 'pick-source') {
+    $btn.textContent = '📋 Chọn ngày nguồn';
+    $btn.classList.add('mode-source');
+  } else if (state.copyMode === 'pick-targets') {
+    $btn.textContent = '✅ Áp dụng copy';
+    $btn.classList.add('mode-target');
+  } else {
+    $btn.textContent = '📋 Copy ngày';
+  }
+}
+
+/* ⭐ Handler khi bấm nút Copy */
+export function handleBulkCopyBtnClick() {
+  ensureCopyState();
+
+  if (!state.isAdmin) { toast('Chỉ admin được dùng copy ngày'); return; }
+  if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
+
+  // Thoát selection mode nếu đang bật
+  if (state.selectionMode) exitSelectionMode();
+
+  if (state.copyMode === 'off') {
+    state.copyMode = 'pick-source';
+    state.copySourceDate = null;
+    state.copyTargetDates.clear();
+    state.selectedViewDate = null;
+    closeDayPreview();
+    updateBulkCopyBtn();
+    renderCalendar();
+    toast('📍 Bấm vào 1 ngày để chọn làm nguồn');
+    return;
+  }
+
+  if (state.copyMode === 'pick-source') {
+    if (!state.copySourceDate) {
+      toast('Bấm vào 1 ngày để chọn làm nguồn trước');
+      return;
+    }
+    state.copyMode = 'pick-targets';
+    updateBulkCopyBtn();
+    renderCalendar();
+    toast('🎯 Bấm chọn các ngày đích, rồi bấm nút xanh để copy');
+    return;
+  }
+
+  if (state.copyMode === 'pick-targets') {
+    if (state.copyTargetDates.size === 0) {
+      toast('Chọn ít nhất 1 ngày đích');
+      return;
+    }
+    executeBulkCopy().catch(err => {
+      console.error('[bulkCopy]', err);
+      toast('Lỗi: ' + (err.message || 'không xác định'));
+    });
+  }
+}
+
+/* ⭐ Reset copy mode */
+export function exitCopyMode() {
+  ensureCopyState();
+  state.copyMode = 'off';
+  state.copySourceDate = null;
+  state.copyTargetDates.clear();
+  updateBulkCopyBtn();
+}
+
+/* ⭐ Thực thi copy */
+async function executeBulkCopy() {
+  const empId = state.selectedEmployeeId;
+  const sourceDate = state.copySourceDate;
+  const targets = [...state.copyTargetDates].filter(d => d !== sourceDate);
+
+  if (!sourceDate || targets.length === 0) {
+    toast('Thiếu ngày nguồn hoặc đích');
+    return;
+  }
+
+  const $btn = $('#bulkCopyBtn');
+  if ($btn) $btn.disabled = true;
+
+  try {
+    // Fetch data ngày nguồn
+    const { data: src, error: srcErr } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('employee_id', empId)
+      .eq('date', sourceDate)
+      .maybeSingle();
+    if (srcErr) throw srcErr;
+    if (!src) {
+      toast(`❌ Ngày nguồn ${formatDateVN(sourceDate)} không có data để copy`);
+      if ($btn) $btn.disabled = false;
+      return;
+    }
+
+    // Check ngày target đã có data chưa
+    const { data: existing, error: exErr } = await supabase
+      .from('attendance')
+      .select('date')
+      .eq('employee_id', empId)
+      .in('date', targets);
+    if (exErr) throw exErr;
+
+    const existingDates = new Set((existing || []).map(r => r.date));
+    const willOverwrite = targets.filter(d => existingDates.has(d));
+
+    if (willOverwrite.length > 0) {
+      const preview = willOverwrite.slice(0, 5).map(d => formatDateVN(d)).join(', ');
+      const more = willOverwrite.length > 5 ? ` +${willOverwrite.length - 5} ngày` : '';
+      const ok = confirm(
+        `⚠️ ${willOverwrite.length}/${targets.length} ngày đã có data sẽ bị GHI ĐÈ:\n\n` +
+        `${preview}${more}\n\n` +
+        `Copy data từ ${formatDateVN(sourceDate)} sang ${targets.length} ngày?\n\nKhông thể hoàn tác!`
+      );
+      if (!ok) {
+        if ($btn) $btn.disabled = false;
+        return;
+      }
+    }
+
+    // Build payloads — copy areas/ot_areas/mode/manual_hours/is_off/total_hours/ot_hours
+    const payloads = targets.map(date => ({
+      employee_id: empId,
+      date,
+      areas: Array.isArray(src.areas) ? JSON.parse(JSON.stringify(src.areas)) : [],
+      ot_areas: Array.isArray(src.ot_areas) ? JSON.parse(JSON.stringify(src.ot_areas)) : [],
+      mode: src.mode || 'default',
+      manual_hours: src.manual_hours ?? null,
+      is_off: !!src.is_off,
+      total_hours: Number(src.total_hours || 0),
+      ot_hours: Number(src.ot_hours || 0),
+    }));
+
+    const { error: upErr } = await supabase
+      .from('attendance')
+      .upsert(payloads, { onConflict: 'employee_id,date' });
+    if (upErr) throw upErr;
+
+    toast(`✅ Đã copy từ ${formatDateVN(sourceDate)} sang ${targets.length} ngày`);
+
+    // Reset copy mode
+    state.copyMode = 'off';
+    state.copySourceDate = null;
+    state.copyTargetDates.clear();
+    updateBulkCopyBtn();
+
+    invalidateAttendanceCache(empId);
+    invalidateDayAssignCache();
+    if (state.salaryModule) state.salaryModule.invalidateCache();
+
+    // Reload + tự tính lại giờ theo pool ngày đích
+    await loadAttendanceForMonth(true);
+    renderCalendar();
+  } catch (err) {
+    console.error('[bulkCopy]', err);
+    toast('Lỗi copy: ' + (err.message || 'không xác định'));
+  } finally {
+    if ($btn) $btn.disabled = false;
+  }
+}
+
+/* ⭐ Cache day assignments */
 const _dayAssignCache = new Map();
 let _previewToken = 0;
 let _dppEmpBound = false;
@@ -73,6 +250,7 @@ function bindDppEmployeeSelect() {
     if (!newId) return;
     if (newId === state.selectedEmployeeId) return;
 
+    exitCopyMode();
     state.selectedEmployeeId = newId;
     const $main = $('#employeeSelect');
     if ($main) $main.value = newId;
@@ -253,7 +431,7 @@ export function openSelectedDate() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ⭐ LOAD + TỰ ĐỘNG TÍNH LẠI + AUTO SYNC DB
+   LOAD + TỰ ĐỘNG TÍNH LẠI + AUTO SYNC DB
    ═══════════════════════════════════════════════════════════════ */
 export async function loadAttendanceForMonth(forceRefresh = false) {
   if (!state.selectedEmployeeId) { state.attendance = []; return; }
@@ -741,6 +919,7 @@ export async function openAttendanceModal(dateStr, batchDates = null) {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
 
+  exitCopyMode();
   _previewToken++;
   ensureSpecialState();
   state.editingDate = dateStr;
@@ -943,7 +1122,6 @@ function openEmployeeModeContent(template) {
   toggleSundayOtSection(isSundayOt);
 }
 
-/* ⭐ Render picker — không có ô nhập giờ; có nút "➕ Thêm tầng khác" */
 function renderAreaPickerInto(wrapId, areasState, isOt) {
   const rerender = () => renderAreaPickerInto(wrapId, areasState, isOt);
   const wrap = $('#' + wrapId);
@@ -1012,11 +1190,9 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       `;
     }
 
-    // ⭐ NÚT "➕ Thêm tầng khác" — chỉ hiện khi là building và đã chọn toà
     let addFloorBtnHtml = '';
     if (type === 'building' && entry.building_id) {
       const buildingName = state.buildings.find(x => String(x.id) === String(entry.building_id))?.name || '';
-      // Đếm số tầng hiện tại của cùng toà trong areasState
       const sameCount = areasState.filter(a => a.type === 'building' && String(a.building_id) === String(entry.building_id)).length;
       if (sameCount < 10) {
         addFloorBtnHtml = `
@@ -1085,7 +1261,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
     });
   });
 
-  // ⭐ Handler cho nút "➕ Thêm tầng khác"
   wrap.querySelectorAll('.add-floor-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -1094,14 +1269,12 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       const cur = areasState[idx];
       if (!cur || !cur.building_id) return;
 
-      // Đếm số tầng hiện tại của toà này
       const sameCount = areasState.filter(a => a.type === 'building' && String(a.building_id) === String(cur.building_id)).length;
       if (sameCount >= 10) {
         toast('Tối đa 10 tầng cho 1 toà');
         return;
       }
 
-      // Push entry mới cùng toà, chưa chọn tầng
       areasState.push({
         type: 'building',
         building_id: cur.building_id,
@@ -1110,7 +1283,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       rerender();
       updatePreview();
 
-      // Scroll xuống entry mới + focus select tầng
       setTimeout(() => {
         const newEl = wrap.querySelector(`.area-entry[data-idx="${areasState.length - 1}"]`);
         if (newEl) {
@@ -1316,7 +1488,7 @@ function buildEmployeePayload() {
     is_off: false, mode: 'default', manual_hours: null,
     areas: validAreas.map(a => serializeArea(a)),
     ot_areas: otAreas,
-  };
+    };
 }
 
 export async function saveAttendance() {
@@ -1325,8 +1497,11 @@ export async function saveAttendance() {
 
   if (!state.batchDates && state.editingDate) {
     if (!_dayAssignCache.has(state.editingDate)) {
-      try { await getDayAssignments(state.editingDate); }
-      catch (err) { console.warn('[save] load day assignments fail:', err); }
+      try {
+        await getDayAssignments(state.editingDate);
+      } catch (err) {
+        console.warn('[save] load day assignments fail:', err);
+      }
     } else {
       state.dayAssignments = _dayAssignCache.get(state.editingDate) || [];
     }
@@ -1383,10 +1558,21 @@ export async function saveAttendance() {
 export function toggleSelectionMode() {
   if (state.selectionMode) exitSelectionMode();
   else {
+    ensureCopyState();
+    // ⭐ Tắt copy mode nếu đang bật
+    if (state.copyMode !== 'off') {
+      state.copyMode = 'off';
+      state.copySourceDate = null;
+      state.copyTargetDates.clear();
+      updateBulkCopyBtn();
+    }
+
     state.selectionMode = true;
     state.selectedDates.clear();
+
     state.selectedViewDate = null;
     closeDayPreview();
+
     const bar = $('#selectionBar'); if (bar) bar.style.display = 'block';
     const btn = $('#selectionToggleBtn');
     if (btn) { btn.textContent = '✕ Thoát chọn'; btn.classList.add('active'); }
@@ -1418,7 +1604,12 @@ export function updateSelectionCount() {
   const d = $('#deleteSelectionBtn'); if (d) d.disabled = n === 0;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   RENDER CALENDAR — có highlight copy source/target
+   ═══════════════════════════════════════════════════════════════ */
 export function renderCalendar() {
+  ensureCopyState();
+
   const y = state.currentMonth.getFullYear();
   const m = state.currentMonth.getMonth();
   const $ml = $('#monthLabel'); if ($ml) $ml.textContent = `Tháng ${m + 1}/${y}`;
@@ -1449,8 +1640,20 @@ export function renderCalendar() {
       }
     }
     if (dateStr === todayStr) cls += ' today';
+
+    // Selection mode
     if (state.selectionMode && state.selectedDates.has(dateStr)) cls += ' selected';
-    if (!state.selectionMode && state.selectedViewDate === dateStr) cls += ' selected-view';
+
+    // ⭐ Copy mode highlight
+    if (state.copyMode === 'pick-targets') {
+      if (state.copySourceDate === dateStr) cls += ' copy-source';
+      else if (state.copyTargetDates.has(dateStr)) cls += ' copy-target';
+    } else if (state.copyMode === 'pick-source') {
+      if (state.copySourceDate === dateStr) cls += ' copy-source';
+    }
+
+    // Selected view (không bật khi đang copy mode)
+    if (!state.selectionMode && state.copyMode === 'off' && state.selectedViewDate === dateStr) cls += ' selected-view';
 
     html += `<div class="${cls}" data-date="${dateStr}">
       <span class="day-num">${d}</span>
@@ -1459,17 +1662,22 @@ export function renderCalendar() {
   }
   grid.innerHTML = html;
 
+  // Attach handlers
   if (state.selectionMode) {
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
       el.addEventListener('click', () => toggleDateSelection(el.dataset.date)));
+  } else if (state.copyMode === 'pick-source' || state.copyMode === 'pick-targets') {
+    grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
+      attachCopySelect(el, el.dataset.date));
   } else if (state.isAdmin) {
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(el =>
       attachCalendarSelect(el, el.dataset.date));
   }
 
+  // Nút "Xem chi tiết"
   const $viewBtn = $('#viewDetailBtn');
   if ($viewBtn) {
-    if (state.selectedViewDate && !state.selectionMode) {
+    if (state.selectedViewDate && !state.selectionMode && state.copyMode === 'off') {
       $viewBtn.style.display = 'block';
       $viewBtn.textContent = `👁 Xem chi tiết ngày ${formatDateVN(state.selectedViewDate)}`;
       $viewBtn.onclick = () => openDayPreview();
@@ -1479,6 +1687,10 @@ export function renderCalendar() {
     }
   }
 
+  // ⭐ Sync nút Copy
+  updateBulkCopyBtn();
+
+  // Sync fullpage panel
   const isFullpage = document.body.classList.contains('dpp-fullpage');
   if (isFullpage && state.selectedViewDate) {
     renderDayPreview(state.selectedViewDate);
@@ -1490,28 +1702,92 @@ export function renderCalendar() {
 
 function attachCalendarSelect(el, dateStr) {
   let lastFire = 0;
+
   const handle = (e) => {
     const now = Date.now();
     if (now - lastFire < 400) return;
     lastFire = now;
+
     if (e) {
       if (e.cancelable) e.preventDefault();
       if (e.stopPropagation) e.stopPropagation();
     }
+
     try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
+
     const isFullpage = document.body.classList.contains('dpp-fullpage');
     if (isFullpage) {
-      if (state.selectedViewDate !== dateStr) setSelectedViewDate(dateStr);
+      if (state.selectedViewDate !== dateStr) {
+        setSelectedViewDate(dateStr);
+      }
     } else {
-      if (state.selectedViewDate === dateStr) setSelectedViewDate(null);
-      else setSelectedViewDate(dateStr);
+      if (state.selectedViewDate === dateStr) {
+        setSelectedViewDate(null);
+      } else {
+        setSelectedViewDate(dateStr);
+      }
     }
   };
+
+  el.addEventListener('touchstart', (e) => handle(e), { passive: false });
+  el.addEventListener('click', (e) => handle(e));
+}
+
+/* ⭐ Handler riêng cho copy mode */
+function attachCopySelect(el, dateStr) {
+  let lastFire = 0;
+
+  const handle = (e) => {
+    const now = Date.now();
+    if (now - lastFire < 400) return;
+    lastFire = now;
+
+    if (e) {
+      if (e.cancelable) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+    }
+
+    try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
+
+    if (state.copyMode === 'pick-source') {
+      // Bấm lần 1 → chọn source. Bấm cùng ngày lần 2 → bỏ chọn
+      if (state.copySourceDate === dateStr) {
+        state.copySourceDate = null;
+      } else {
+        state.copySourceDate = dateStr;
+        // Tự chuyển sang bước chọn targets
+        state.copyMode = 'pick-targets';
+        toast(`📌 Đã chọn nguồn: ${formatDateVN(dateStr)}. Bấm chọn các ngày đích`);
+      }
+      renderCalendar();
+      return;
+    }
+
+    if (state.copyMode === 'pick-targets') {
+      if (dateStr === state.copySourceDate) {
+        toast('Không thể chọn chính ngày nguồn làm đích');
+        return;
+      }
+      if (state.copyTargetDates.has(dateStr)) {
+        state.copyTargetDates.delete(dateStr);
+      } else {
+        state.copyTargetDates.add(dateStr);
+      }
+      renderCalendar();
+      return;
+    }
+  };
+
   el.addEventListener('touchstart', (e) => handle(e), { passive: false });
   el.addEventListener('click', (e) => handle(e));
 }
 
 export function switchTab(name) {
+  // ⭐ Reset copy mode khi rời tab calendar
+  if (name !== 'calendar' && state.copyMode !== 'off') {
+    exitCopyMode();
+  }
+
   if (name !== 'checkin') {
     import('./checkin.js').then(m => {
       try { m.stopCheckinWatch(); } catch {}
@@ -1571,7 +1847,10 @@ export function switchTab(name) {
       });
   }
   if (name === 'checkin') {
-    if (!state.user) { switchTab('calendar'); return; }
+    if (!state.user) {
+      switchTab('calendar');
+      return;
+    }
     import('./checkin.js')
       .then(m => m.loadCheckinTab())
       .catch(err => {
@@ -1583,11 +1862,18 @@ export function switchTab(name) {
 }
 
 export async function changeMonth(delta) {
+  // ⭐ Reset copy mode khi đổi tháng
+  if (state.copyMode !== 'off') {
+    exitCopyMode();
+    toast('Đã thoát chế độ copy do đổi tháng');
+  }
+
   const d = new Date(state.currentMonth);
   d.setMonth(d.getMonth() + delta);
   state.currentMonth = d;
 
   const wasFullpage = document.body.classList.contains('dpp-fullpage');
+
   await loadAttendanceForMonth();
 
   if (wasFullpage) {
@@ -1605,125 +1891,4 @@ export async function changeMonth(delta) {
   }
 
   renderCalendar();
-}
-
-export async function syncMonthHours() {
-  if (!state.isAdmin) { toast('Chỉ admin được đồng bộ'); return; }
-
-  const y = state.currentMonth.getFullYear();
-  const m = state.currentMonth.getMonth() + 1;
-  const start = `${y}-${String(m).padStart(2,'0')}-01`;
-  const lastDay = new Date(y, m, 0).getDate();
-  const end = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-
-  if (!confirm(`Đồng bộ giờ công tháng ${m}/${y}?\n\nSẽ quét TOÀN BỘ record của MỌI nhân viên.`)) return;
-
-  toast('⏳ Đang tải...');
-
-  if (!state.buildings?.length || !state.floors?.length) {
-    try {
-      const b = await import('./buildings.js');
-      await b.loadBuildings();
-    } catch (err) { console.warn('[sync] load fail:', err); }
-  }
-  if (!state.floors?.length) { toast('❌ Chưa tải được danh sách tầng'); return; }
-
-  const { data: allRecords, error } = await supabase
-    .from('attendance').select('*')
-    .gte('date', start).lte('date', end);
-  if (error) { toast('Lỗi: ' + error.message); return; }
-  if (!allRecords?.length) { toast('Không có dữ liệu tháng này'); return; }
-
-  const byDate = {};
-  for (const r of allRecords) {
-    if (!byDate[r.date]) byDate[r.date] = [];
-    byDate[r.date].push(r);
-  }
-
-  const savePool = state.dayAssignments;
-  const saveEmpId = state.selectedEmployeeId;
-  const saveBatchDates = state.batchDates;
-  state.batchDates = null;
-
-  const updates = [];
-  let checked = 0;
-
-  for (const [date, records] of Object.entries(byDate)) {
-    state.dayAssignments = records.map(r => ({
-      employee_id: r.employee_id,
-      areas: r.areas || [],
-      ot_areas: r.ot_areas || [],
-    }));
-
-    for (const r of records) {
-      checked++;
-      if (r.is_off) continue;
-      if (r.mode === 'leave' || r.mode === 'off') continue;
-      if (r.mode === 'manual' && (!r.areas || r.areas.length === 0)) continue;
-
-      state.selectedEmployeeId = r.employee_id;
-
-      let rawMain = 0, rawOT = 0;
-      for (const a of r.areas || []) {
-        const t = a.type || 'building';
-        if (t === 'building') {
-          if (!a.building_id || !a.floor_id) continue;
-          rawMain += calcEntryActualHours(a);
-        } else {
-          rawMain += calcEntryActualHours(a);
-        }
-      }
-      for (const a of r.ot_areas || []) {
-        const t = a.type || 'building';
-        if (t === 'sunday_ot') { rawOT += Number(a.hours || 0); continue; }
-        if (t === 'building') {
-          if (!a.building_id || !a.floor_id) continue;
-          rawOT += calcEntryActualHours(a);
-        } else {
-          rawOT += calcEntryActualHours(a);
-        }
-      }
-
-      const newTotal = Math.round(Math.min(rawMain, DAILY_MAIN_CAP) * 100) / 100;
-      const newOT = Math.round((rawOT + Math.max(0, rawMain - DAILY_MAIN_CAP)) * 100) / 100;
-      const oldTotal = Number(r.total_hours || 0);
-      const oldOT = Number(r.ot_hours || 0);
-
-      if (Math.abs(newTotal - oldTotal) > 0.01 || Math.abs(newOT - oldOT) > 0.01) {
-        updates.push({ id: r.id, total_hours: newTotal, ot_hours: newOT });
-      }
-    }
-  }
-
-  state.dayAssignments = savePool;
-  state.selectedEmployeeId = saveEmpId;
-  state.batchDates = saveBatchDates;
-
-  if (!updates.length) { toast(`Đã kiểm tra ${checked} records — tất cả đã đúng`); return; }
-
-  toast(`⏳ Sửa ${updates.length}/${checked} records...`);
-
-  const BATCH = 50;
-  let done = 0, failed = 0;
-  for (let i = 0; i < updates.length; i += BATCH) {
-    const chunk = updates.slice(i, i + BATCH);
-    const results = await Promise.all(
-      chunk.map(u => supabase.from('attendance').update({
-        total_hours: u.total_hours,
-        ot_hours: u.ot_hours,
-      }).eq('id', u.id))
-    );
-    for (const res of results) {
-      if (res.error) { failed++; console.error('[sync]', res.error); }
-      else done++;
-    }
-  }
-
-  toast(`✅ Sửa ${done} records${failed > 0 ? `, lỗi ${failed}` : ''}`);
-
-  invalidateAttendanceCache();
-  invalidateDayAssignCache();
-  if (state.selectedEmployeeId) await loadAttendanceForMonth(true);
-  renderCalendar();
-  if (state.salaryModule) state.salaryModule.invalidateCache();
 }
