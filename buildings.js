@@ -50,6 +50,11 @@ export async function loadBuildings() {
     state.floors = floors || [];
   } else state.floors = [];
 
+  // ⭐ FIX #4: Auto-expand toà đầu tiên để user thấy ngay nút "+ Gán"
+  if (state.buildings.length > 0 && state.expandedBuildings.size === 0) {
+    state.expandedBuildings.add(state.buildings[0].id);
+  }
+
   const { data: special, error: e2 } = await supabase.from('special_areas').select('*');
   if (!e2 && special) {
     state.specialAreas = { external: null, night: null };
@@ -85,7 +90,6 @@ export async function loadDayAssignments(dateStr = null) {
 
   const mainUsersByFloor = {};
   const otAutoUsersByFloor = {};
-
   const externalByEmp = {};
   const nightByEmp = {};
   const sundayOtByEmp = {};
@@ -604,20 +608,40 @@ function renderSimpleCard(opts) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ⭐ GÁN NHÂN VIÊN — tự tạo modal, không phụ thuộc HTML
+   ⭐ GÁN NHÂN VIÊN — tự tạo modal + load employees nếu cần
    ═══════════════════════════════════════════════════════════════ */
 export async function openAssignModal(buildingId, floorId) {
+  console.log('[assign] openAssignModal called — building:', buildingId, 'floor:', floorId);
+
   if (!state.isAdmin) { toast('Chỉ admin được gán'); return; }
+
+  // ⭐ FIX #1: Đảm bảo state.employees đã load
+  if (!state.employees || state.employees.length === 0) {
+    console.log('[assign] state.employees rỗng → đang load...');
+    toast('⏳ Đang tải danh sách nhân viên...');
+    try {
+      const empMod = await import('./employees.js');
+      if (empMod.loadEmployees) await empMod.loadEmployees();
+      else if (empMod.loadPublicEmployees) await empMod.loadPublicEmployees();
+    } catch (err) {
+      console.warn('[assign] load employees fail:', err);
+    }
+    if (!state.employees || state.employees.length === 0) {
+      toast('❌ Không tải được danh sách nhân viên');
+      return;
+    }
+  }
 
   const dateStr = state.areasViewDate || toDateStr(new Date());
   const building = state.buildings.find(b => String(b.id) === String(buildingId));
   const floor = state.floors.find(f => String(f.id) === String(floorId));
   if (!building || !floor) {
-    console.error('[assign] Không tìm thấy building/floor', { buildingId, floorId });
+    console.error('[assign] Không tìm thấy building/floor', { buildingId, floorId, buildings: state.buildings.length, floors: state.floors.length });
     toast('Không tìm thấy tầng');
     return;
   }
 
+  // ⭐ FIX #2: Ensure modal có đủ element (xoá + tạo lại nếu cũ thiếu)
   ensureAssignModal();
 
   state._assignCtx = { buildingId, floorId, dateStr };
@@ -669,11 +693,28 @@ export async function openAssignModal(buildingId, floorId) {
     $modal.style.justifyContent = 'center';
   }
 
-  console.log('[assign] Mở modal — building:', buildingId, 'floor:', floorId, 'date:', dateStr);
+  console.log('[assign] Mở modal OK — employees:', state.employees.length, 'đã gán:', assignedSet.size);
 }
 
+/* ⭐ FIX #2: Check đủ element, thiếu thì xoá + tạo lại */
 function ensureAssignModal() {
-  if (document.getElementById('assignEmployeeModal')) return;
+  const $modal = document.getElementById('assignEmployeeModal');
+  const requiredIds = [
+    'assignEmpTitle', 'assignEmpSubtitle', 'assignEmpSearch',
+    'assignEmpList', 'assignEmpSaveBtn', 'assignEmpCloseBtn', 'assignEmpCancelBtn'
+  ];
+
+  if ($modal) {
+    const missing = requiredIds.filter(id => !document.getElementById(id));
+    if (missing.length === 0) {
+      console.log('[assign] Modal đã có đủ element');
+      return;
+    }
+    console.log('[assign] Modal cũ thiếu element:', missing, '→ xoá và tạo lại');
+    $modal.remove();
+  }
+
+  console.log('[assign] Tạo modal mới');
 
   const html = `
     <div id="assignEmployeeModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;padding:20px;box-sizing:border-box;">
@@ -712,7 +753,12 @@ function ensureAssignModal() {
 
 function renderAssignList(assignedSet, searchTerm = '') {
   const $list = document.getElementById('assignEmpList');
-  if (!$list) return;
+  if (!$list) {
+    console.error('[assign] #assignEmpList không tồn tại');
+    return;
+  }
+
+  console.log('[assign] renderAssignList — total:', state.employees?.length || 0, 'search:', searchTerm);
 
   const term = (searchTerm || '').toLowerCase().trim();
   const employees = (state.employees || [])
@@ -767,10 +813,13 @@ async function saveAssignments() {
   if (!ctx) { toast('Thiếu thông tin'); return; }
   const { buildingId, floorId, dateStr } = ctx;
 
+  console.log('[assign] saveAssignments — building:', buildingId, 'floor:', floorId, 'date:', dateStr);
+
   const checkedIds = new Set();
   document.querySelectorAll('#assignEmpList input[type="checkbox"]:checked').forEach(cb => {
     checkedIds.add(cb.dataset.empId);
   });
+  console.log('[assign] Đã tick:', checkedIds.size, 'nhân viên');
 
   const $btn = document.getElementById('assignEmpSaveBtn');
   if ($btn) { $btn.disabled = true; $btn.textContent = '⏳ Đang lưu...'; }
@@ -836,6 +885,8 @@ async function saveAssignments() {
         }
       }
     }
+
+    console.log('[assign] Cần upsert:', toUpsert.length, 'xoá:', toDelete.length);
 
     if (!toUpsert.length && !toDelete.length) {
       toast('Không có thay đổi');
