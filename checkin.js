@@ -1,4 +1,4 @@
-// checkin.js — Tab chấm công GPS + admin monitor + lịch sử (tối ưu UX)
+// checkin.js — Tab chấm công GPS + admin monitor + lịch sử + xoá (test)
 import { supabase } from './supabase.js';
 import { state, $, toast, openModal, closeModal, toDateStr } from './core.js';
 
@@ -20,7 +20,7 @@ let _unseenCheckinCount = 0;
 let _audioUnlockBound = false;
 
 let _historyDefaultEmpId = '';
-let _historyMode = 'day'; // 'day' | 'month'
+let _historyMode = 'day';
 
 function ensureState() {
   if (!state.checkinLocation) state.checkinLocation = null;
@@ -231,6 +231,79 @@ function getCurrentState() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   DELETE HELPERS (admin only)
+   ═══════════════════════════════════════════════════════════════ */
+async function deleteCheckinsByEmpDate(empId, empName, dateStr) {
+  if (!state.isAdmin) { toast('Chỉ admin được xoá'); return false; }
+  if (!empId || !dateStr) return false;
+
+  const ok = confirm(
+    `⚠️ Xoá TẤT CẢ chấm công của\n\n` +
+    `👤 "${empName || 'NV'}"\n` +
+    `📅 ngày ${formatDateShort(dateStr)}\n\n` +
+    `Bao gồm cả đến và về.\nKhông thể hoàn tác!`
+  );
+  if (!ok) return false;
+
+  const { error } = await supabase
+    .from('cslx_checkins')
+    .delete()
+    .eq('employee_id', empId)
+    .eq('checkin_date', dateStr);
+
+  if (error) {
+    toast('Lỗi xoá: ' + error.message);
+    return false;
+  }
+  toast('🗑 Đã xoá');
+  return true;
+}
+
+async function deleteAllTodayCheckins() {
+  if (!state.isAdmin) return;
+  const today = toDateStr(new Date());
+  const count = _adminTodayCheckins.length;
+  if (count === 0) { toast('Không có dữ liệu để xoá'); return; }
+
+  const ok = confirm(
+    `⚠️ Xoá TẤT CẢ ${count} chấm công hôm nay?\n\n` +
+    `📅 Ngày ${formatDateShort(today)}\n` +
+    `👥 Bao gồm mọi nhân viên.\n\n` +
+    `Không thể hoàn tác!`
+  );
+  if (!ok) return;
+
+  const { error } = await supabase
+    .from('cslx_checkins')
+    .delete()
+    .eq('checkin_date', today);
+
+  if (error) {
+    toast('Lỗi xoá: ' + error.message);
+    return;
+  }
+  toast(`🗑 Đã xoá ${count} chấm công hôm nay`);
+
+  await loadAdminTodayCheckins();
+  await loadTodayCheckins();
+  renderCheckin();
+}
+
+async function refreshAfterDelete(dateStr, empId) {
+  await loadAdminTodayCheckins();
+  if (empId === state.user?.id) {
+    await loadTodayCheckins();
+  } else {
+    await loadTodayCheckins();
+  }
+  renderCheckin();
+  const today = toDateStr(new Date());
+  if (dateStr === today) {
+    // already refreshed by renderCheckin
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    AUTO CHECK-IN
    ═══════════════════════════════════════════════════════════════ */
 async function tryAutoCheckin() {
@@ -346,6 +419,7 @@ function groupAdminCheckins() {
 function renderAdminTodaySection() {
   if (!state.isAdmin) return '';
   const groups = groupAdminCheckins();
+  const today = toDateStr(new Date());
 
   const rows = groups.length > 0
     ? groups.map(g => {
@@ -354,6 +428,7 @@ function renderAdminTodaySection() {
         const isComplete = !!(g.in && g.out);
         const name = g.employee_name || '—';
         const initial = name.charAt(0).toUpperCase();
+        const safeName = name.replace(/"/g, '&quot;');
         return `
           <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);">
             <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0ea5b7,#0a6b7a);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${initial}</div>
@@ -367,10 +442,21 @@ function renderAdminTodaySection() {
             ${isComplete
               ? '<span style="font-size:11px;padding:3px 8px;background:#dcfce7;color:#15803d;border-radius:20px;font-weight:600;white-space:nowrap;">✓ Xong</span>'
               : '<span style="font-size:11px;padding:3px 8px;background:#fef3c7;color:#b45309;border-radius:20px;font-weight:600;white-space:nowrap;">Đang làm</span>'}
+            <button class="admin-del-btn" type="button"
+              data-del-emp="${g.employee_id}"
+              data-del-name="${safeName}"
+              data-del-date="${today}"
+              title="Xoá chấm công hôm nay"
+              style="width:32px;height:32px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;">🗑</button>
           </div>
         `;
       }).join('')
     : `<div style="padding:22px 16px;text-align:center;color:var(--text-muted);font-size:14px;">Chưa có nhân viên nào chấm công hôm nay</div>`;
+
+  const bulkBtn = groups.length > 0
+    ? `<button id="adminBulkDeleteBtn" type="button"
+        style="width:100%;margin-top:8px;padding:11px 14px;font-size:13px;font-weight:600;background:#fff;color:#dc2626;border:1.5px solid #fecaca;border-radius:10px;cursor:pointer;font-family:inherit;">🗑 Xoá tất cả hôm nay</button>`
+    : '';
 
   return `
     <div style="margin-top:24px;">
@@ -378,8 +464,47 @@ function renderAdminTodaySection() {
       <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
         ${rows}
       </div>
+      ${bulkBtn}
     </div>
   `;
+}
+
+function bindAdminDeleteButtons() {
+  if (!state.isAdmin) return;
+  document.querySelectorAll('.admin-del-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const empId = btn.dataset.delEmp;
+      const empName = btn.dataset.delName;
+      const dateStr = btn.dataset.delDate;
+      try {
+        const ok = await deleteCheckinsByEmpDate(empId, empName, dateStr);
+        if (ok) {
+          await loadAdminTodayCheckins();
+          await loadTodayCheckins();
+          renderCheckin();
+        }
+      } finally {
+        btn.disabled = false;
+      }
+    };
+  });
+
+  const $bulkBtn = document.getElementById('adminBulkDeleteBtn');
+  if ($bulkBtn) {
+    $bulkBtn.onclick = async () => {
+      if ($bulkBtn.disabled) return;
+      $bulkBtn.disabled = true;
+      $bulkBtn.textContent = '⏳ Đang xoá...';
+      try {
+        await deleteAllTodayCheckins();
+      } finally {
+        const b = document.getElementById('adminBulkDeleteBtn');
+        if (b) { b.disabled = false; b.textContent = '🗑 Xoá tất cả hôm nay'; }
+      }
+    };
+  }
 }
 
 function updateCheckinTabBadge() {
@@ -475,7 +600,7 @@ function stopAdminPolling() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HISTORY MODAL — 1 date picker + toggle Ngày/Tháng
+   HISTORY MODAL
    ═══════════════════════════════════════════════════════════════ */
 function updateHistoryModeUI() {
   const $btnDay = document.getElementById('historyModeDay');
@@ -540,7 +665,6 @@ function ensureHistoryModal() {
   document.getElementById('historyCloseBtn2').onclick = closeFn;
   $m.onclick = (e) => { if (e.target === $m) closeFn(); };
 
-  // Đổi ngày → load theo mode hiện tại
   document.getElementById('historyDateInput').onchange = () => {
     updateHistoryModeUI();
     loadHistoryData().catch(err => console.warn('[history]', err));
@@ -550,7 +674,6 @@ function ensureHistoryModal() {
     loadHistoryData().catch(err => console.warn('[history]', err));
   };
 
-  // Toggle mode
   document.getElementById('historyModeDay').onclick = () => {
     _historyMode = 'day';
     updateHistoryModeUI();
@@ -616,7 +739,6 @@ async function loadHistoryData() {
   if (_historyMode === 'day') {
     query = query.eq('checkin_date', dateVal);
   } else {
-    // Cả tháng của dateVal
     const [y, mo] = dateVal.split('-').map(Number);
     const lastDay = new Date(y, mo, 0).getDate();
     const start = `${y}-${String(mo).padStart(2, '0')}-01`;
@@ -709,13 +831,24 @@ async function loadHistoryData() {
               const ms = new Date(r.out.checkin_at) - new Date(r.in.checkin_at);
               durText = ` <span style="color:#0f766e;font-weight:600;">(${formatDurationShort(ms)})</span>`;
             }
+            const safeName = (r.employee_name || '').replace(/"/g, '&quot;');
             return `
-              <div style="padding:10px 12px;border-bottom:1px solid var(--border);">
-                <div style="font-weight:600;font-size:13px;color:var(--text);margin-bottom:4px;">${r.employee_name}</div>
-                <div style="font-size:12.5px;color:var(--text-muted);line-height:1.6;">
-                  ${inTime ? `🟢 Đến <strong style="color:#16a34a;">${inTime}</strong>` : '<span style="color:#94a3b8;">— Chưa đến</span>'}
-                  ${outTime ? ` · 🔵 Về <strong style="color:#0891b2;">${outTime}</strong>${durText}` : ''}
+              <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:600;font-size:13px;color:var(--text);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.employee_name}</div>
+                  <div style="font-size:12.5px;color:var(--text-muted);line-height:1.6;">
+                    ${inTime ? `🟢 Đến <strong style="color:#16a34a;">${inTime}</strong>` : '<span style="color:#94a3b8;">— Chưa đến</span>'}
+                    ${outTime ? ` · 🔵 Về <strong style="color:#0891b2;">${outTime}</strong>${durText}` : ''}
+                  </div>
                 </div>
+                ${state.isAdmin ? `
+                  <button class="hist-del-btn" type="button"
+                    data-hist-del-emp="${r.employee_id}"
+                    data-hist-del-name="${safeName}"
+                    data-hist-del-date="${d}"
+                    title="Xoá chấm công NV này trong ngày"
+                    style="width:32px;height:32px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;">🗑</button>
+                ` : ''}
               </div>
             `;
           }).join('')}
@@ -723,6 +856,31 @@ async function loadHistoryData() {
       </div>
     `;
   }).join('');
+
+  // Bind delete buttons trong history
+  if (state.isAdmin) {
+    document.querySelectorAll('.hist-del-btn').forEach(btn => {
+      btn.onclick = async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        const empId = btn.dataset.histDelEmp;
+        const empName = btn.dataset.histDelName;
+        const dateStr = btn.dataset.histDelDate;
+        try {
+          const ok = await deleteCheckinsByEmpDate(empId, empName, dateStr);
+          if (ok) {
+            const today = toDateStr(new Date());
+            await loadAdminTodayCheckins();
+            await loadTodayCheckins();
+            renderCheckin();
+            await loadHistoryData();
+          }
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    });
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -934,6 +1092,9 @@ function renderCheckin() {
   if ($history) {
     $history.onclick = () => openHistoryModal('');
   }
+
+  // ⭐ Bind nút xoá admin
+  bindAdminDeleteButtons();
 }
 
 function updateLiveStatus() {
