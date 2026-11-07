@@ -1,4 +1,4 @@
-// core.js — State, constants, helpers, cache, auth
+// core.js — State, constants, helpers, cache, auth (optimized)
 import { supabase } from './supabase.js';
 
 export const DEFAULT_DOMAIN = 'skyone.vn';
@@ -154,6 +154,7 @@ export function invalidateAttendanceCache(empId) {
 let _showGuestInProgress = false;
 let _onLoggedInInProgress = false;
 
+/* ⭐ initAuth vẫn giữ để tương thích ngược nếu có module khác gọi */
 export async function initAuth() {
   try {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
@@ -164,18 +165,12 @@ export async function initAuth() {
     }
   } catch {}
 
-  let session = null, timeoutId = null;
+  let session = null;
   try {
-    const sessionPromise = supabase.auth.getSession();
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 8000);
-    });
-    const { data } = await Promise.race([sessionPromise, timeoutPromise]);
-    clearTimeout(timeoutId);
+    const { data } = await supabase.auth.getSession();
     session = data?.session;
   } catch (err) {
-    if (timeoutId) clearTimeout(timeoutId);
-    console.warn('[Auth]', err.message);
+    console.warn('[Auth]', err?.message || err);
     session = null;
   }
 
@@ -192,6 +187,7 @@ export function showLoginScreen() {
   $('#mainScreen').style.display = 'none';
 }
 
+/* ⭐ OPTIMIZED: Hiện UI NGAY, data load background */
 export async function showGuestView() {
   if (_showGuestInProgress) return;
   _showGuestInProgress = true;
@@ -209,6 +205,7 @@ export async function showGuestView() {
     state.batchDates = null;
     state.floorAssignments = {};
 
+    // ⭐ Show UI NGAY LẬP TỨC — không chờ data
     $('#loading').style.display = 'none';
     $('#loginScreen').style.display = 'none';
     $('#mainScreen').style.display = 'block';
@@ -219,6 +216,7 @@ export async function showGuestView() {
     $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = 'none');
     $$('.tab-btn[data-tab="salary"]').forEach(el => el.style.display = 'none');
     $$('.tab-btn[data-tab="excel"]').forEach(el => el.style.display = 'none');
+    $$('.tab-btn[data-tab="sql"]').forEach(el => el.style.display = 'none');
 
     $('#empSelectorRow').style.display = 'flex';
     $('#summaryCard').style.display = 'block';
@@ -231,6 +229,7 @@ export async function showGuestView() {
     $('#selectionBar').style.display = 'none';
     const $vrow = $('#viewDateRow'); if ($vrow) $vrow.style.display = 'none';
 
+    // ⭐ Load modules + data song song
     const [employees, buildings, attendance] = await Promise.all([
       import('./employees.js'),
       import('./buildings.js'),
@@ -239,24 +238,34 @@ export async function showGuestView() {
 
     attendance.switchTab('calendar');
 
-    await employees.loadPublicEmployees();
     await Promise.all([
+      employees.loadPublicEmployees(),
       buildings.loadBuildings(),
       attendance.loadAttendanceForMonth(),
     ]);
 
     attendance.renderCalendar();
+    console.log('[Guest] ✅ Ready');
   } finally {
     _showGuestInProgress = false;
   }
 }
 
+/* ⭐⭐⭐ OPTIMIZED: show UI ngay + switchTab đúng role — KHÔNG cần afterLoginRedirect ⭐⭐⭐ */
 export async function onLoggedIn(user) {
   if (_onLoggedInInProgress) return;
   _onLoggedInInProgress = true;
   try {
     state.user = user;
 
+    // ⭐ Show UI NGAY LẬP TỨC
+    $('#loading').style.display = 'none';
+    $('#loginScreen').style.display = 'none';
+    $('#mainScreen').style.display = 'block';
+    $('#loginBtn').style.display = 'none';
+    $('#logoutBtn').style.display = 'block';
+
+    // Query profile (1 round-trip nhanh — bắt buộc để biết role)
     const { data: profile } = await supabase
       .from('profiles').select('*').eq('id', user.id).single();
     state.profile = profile || { full_name: user.email, role: 'employee', status: 'active' };
@@ -273,12 +282,7 @@ export async function onLoggedIn(user) {
 
     state.isAdmin = state.profile?.role === 'admin';
 
-    $('#loading').style.display = 'none';
-    $('#loginScreen').style.display = 'none';
-    $('#mainScreen').style.display = 'block';
-    $('#loginBtn').style.display = 'none';
-    $('#logoutBtn').style.display = 'block';
-
+    // Setup UI theo role
     $('#addEmployeeBtn').style.display = state.isAdmin ? 'block' : 'none';
     $$('.tab-btn[data-tab="areas"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
     $$('.tab-btn[data-tab="employees"]').forEach(el => el.style.display = state.isAdmin ? '' : 'none');
@@ -294,14 +298,17 @@ export async function onLoggedIn(user) {
 
     state.selectedEmployeeId = user.id;
 
+    // ⭐ Load modules song song
     const [employees, buildings, attendance] = await Promise.all([
       import('./employees.js'),
       import('./buildings.js'),
       import('./attendance.js'),
     ]);
 
-    attendance.switchTab('calendar');
+    // ⭐ Switch tab NGAY (thay thế afterLoginRedirect — không cần poll 4s)
+    attendance.switchTab(state.isAdmin ? 'calendar' : 'checkin');
 
+    // Load data chính
     await Promise.all([
       employees.loadEmployees(),
       buildings.loadBuildings(),
@@ -310,6 +317,17 @@ export async function onLoggedIn(user) {
 
     attendance.renderCalendar();
     buildings.renderBuildings();
+
+    // ⭐ Background: nạp assignment hôm nay (không block UI)
+    buildings.loadTodayAssignments()
+      .then(() => buildings.renderBuildings())
+      .catch(err => console.warn('[bg today]', err));
+
+    console.log('[App] ✅ onLoggedIn done', {
+      admin: state.isAdmin,
+      employees: state.employees.length,
+      tab: state.isAdmin ? 'calendar' : 'checkin',
+    });
   } finally {
     _onLoggedInInProgress = false;
   }
