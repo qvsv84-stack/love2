@@ -38,7 +38,6 @@
     .dbg-warn { color: #ffd60a; }
     .dbg-error { color: #ff453a; }
 
-    /* ⭐ TABS — WRAP + CĂN GIỮA */
     .tabs {
       display: flex !important;
       flex-wrap: wrap !important;
@@ -81,6 +80,78 @@
     .area-create-buttons .btn-create[data-create="external"] { background: linear-gradient(135deg, #16a34a, #15803d); }
     .area-create-buttons .btn-create[data-create="night"] { background: linear-gradient(135deg, #6366f1, #4338ca); }
 
+    /* ⭐ Bulk actions row (Chọn NV + Reset) */
+    .areas-bulk-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .areas-bulk-row select {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      background: #fff;
+    }
+    .areas-bulk-row .btn-reset {
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .areas-bulk-row .btn-reset:active { background: #fecaca; }
+
+    .areas-bulk-actions {
+      display: none;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      border-radius: 10px;
+      align-items: center;
+    }
+    .areas-bulk-actions .bulk-info {
+      flex: 1;
+      font-size: 13px;
+      color: #1e40af;
+      font-weight: 600;
+    }
+    .areas-bulk-actions button {
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      border: none;
+    }
+    .areas-bulk-actions .btn-bulk-cancel {
+      background: #fff;
+      color: #374151;
+      border: 1px solid var(--border);
+    }
+    .areas-bulk-actions .btn-bulk-save {
+      background: #0ea5b7;
+      color: #fff;
+    }
+    .areas-bulk-actions .btn-bulk-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
     #viewDetailBtn { display: none; width: 100%; margin: 12px 0; padding: 12px 14px; background: linear-gradient(135deg, var(--ocean-500, #0ea5b7), var(--ocean-600, #0891b2)); color: #fff; border: none; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(14, 165, 183, 0.35); -webkit-tap-highlight-color: transparent; text-align: center; }
     #viewDetailBtn:active { transform: translateY(1px); }
 
@@ -121,7 +192,6 @@
     .sql-history-item:last-child { border-bottom: none; }
     .sql-history-item:active { background: var(--border); }
 
-    /* ⭐ Tab Chấm công */
     #tab-checkin { background: #f8fafc; }
     #tab-checkin .section-header h2 { font-size: 20px; }
   </style>
@@ -295,11 +365,28 @@
             <button type="button" id="areasTodayBtn" class="btn-secondary" style="padding:12px 14px;font-size:13px;white-space:nowrap;flex-shrink:0">Hôm nay</button>
           </div>
         </div>
+
         <div class="area-create-buttons">
           <button class="btn-create" data-create="building">+ Thêm tòa nhà</button>
           <button class="btn-create" data-create="external" id="createExternalBtn">+ Thêm ngoại cảnh</button>
           <button class="btn-create" data-create="night" id="createNightBtn">+ Thêm ca đêm</button>
         </div>
+
+        <!-- ⭐ BULK: Chọn nhân viên + Reset -->
+        <div class="areas-bulk-row">
+          <select id="areasBulkEmpSelect">
+            <option value="">👤 Chọn nhân viên (gán nhanh nhiều tầng)</option>
+          </select>
+          <button type="button" id="areasResetBtn" class="btn-reset">🗑 Reset</button>
+        </div>
+
+        <!-- ⭐ BULK ACTIONS: Lưu / Huỷ khi đã chọn NV -->
+        <div id="areasBulkActions" class="areas-bulk-actions">
+          <span class="bulk-info" id="areasBulkInfo">Đang gán cho: —</span>
+          <button type="button" id="areasBulkCancelBtn" class="btn-bulk-cancel">Huỷ</button>
+          <button type="button" id="areasBulkSaveBtnTop" class="btn-bulk-save">💾 Lưu gán</button>
+        </div>
+
         <div id="areasSummary" class="areas-summary" style="display:none"></div>
         <div class="areas-filters">
           <input type="text" id="areasSearch" class="input" placeholder="🔍 Tìm tên hoặc SĐT nhân viên..." autocomplete="off" />
@@ -730,7 +817,7 @@ select * from cslx_rooms limit 5;"></textarea>
   })();
   </script>
 
-  <script type="module" src="./app.js?v=14"></script>
+  <script type="module" src="./app.js?v=21"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
