@@ -13,7 +13,6 @@ function ensureSpecialState() {
   if (!Array.isArray(state.dayAssignments)) state.dayAssignments = [];
 }
 
-/* ⭐ Cache day assignments theo ngày */
 const _dayAssignCache = new Map();
 let _previewToken = 0;
 let _dppEmpBound = false;
@@ -33,7 +32,6 @@ export function invalidateDayAssignCache() {
   _dayAssignCache.clear();
 }
 
-/* ⭐ SELECTED VIEW DATE */
 export function setSelectedViewDate(dateStr) {
   const newVal = dateStr || null;
   if (state.selectedViewDate === newVal) return;
@@ -280,7 +278,6 @@ export async function loadAttendanceForMonth(forceRefresh = false) {
 
   const records = data || [];
 
-  // ⭐ TỰ ĐỘNG tính lại + sync DB (nếu sai)
   try {
     await _recalcAndSync(records, y, m);
   } catch (err) {
@@ -292,11 +289,9 @@ export async function loadAttendanceForMonth(forceRefresh = false) {
   updateSummary();
 }
 
-/* ⭐ Private: tính lại từ areas/ot_areas + auto-sync DB nếu sai */
 async function _recalcAndSync(records, y, m) {
   if (!records.length) return;
 
-  // Đảm bảo buildings/floors đã load
   if (!state.floors?.length || !state.buildings?.length) {
     try {
       const b = await import('./buildings.js');
@@ -307,21 +302,18 @@ async function _recalcAndSync(records, y, m) {
   const start = `${y}-${pad(m + 1)}-01`;
   const end = `${y}-${pad(m + 1)}-${pad(new Date(y, m + 1, 0).getDate())}`;
 
-  // Fetch toàn bộ records tháng (MỌI NV) — chỉ field cần cho pool
   const { data: all, error: allErr } = await supabase
     .from('attendance')
     .select('employee_id, areas, ot_areas, date, is_off, mode')
     .gte('date', start).lte('date', end);
   if (allErr) { console.warn('[recalc] fetch all fail:', allErr); return; }
 
-  // Group theo ngày → có pool chính xác
   const byDate = {};
   for (const r of all || []) {
     if (!byDate[r.date]) byDate[r.date] = [];
     byDate[r.date].push(r);
   }
 
-  // Backup state
   const saveEmp = state.selectedEmployeeId;
   const savePool = state.dayAssignments;
   const saveBatch = state.batchDates;
@@ -338,7 +330,6 @@ async function _recalcAndSync(records, y, m) {
     const oldTotal = Number(att.total_hours || 0);
     const oldOT = Number(att.ot_hours || 0);
 
-    // Set pool cho ngày của record này
     state.dayAssignments = byDate[att.date] || [];
     state.selectedEmployeeId = att.employee_id;
 
@@ -366,7 +357,6 @@ async function _recalcAndSync(records, y, m) {
     const newTotal = Math.round(Math.min(rawMain, DAILY_MAIN_CAP) * 100) / 100;
     const newOT = Math.round((rawOT + Math.max(0, rawMain - DAILY_MAIN_CAP)) * 100) / 100;
 
-    // Gán vào state local để hiển thị đúng ngay
     att.total_hours = newTotal;
     att.ot_hours = newOT;
 
@@ -376,14 +366,12 @@ async function _recalcAndSync(records, y, m) {
     }
   }
 
-  // Restore state
   state.selectedEmployeeId = saveEmp;
   state.dayAssignments = savePool;
   state.batchDates = saveBatch;
 
-  // ⭐ Tự update DB nếu phát hiện sai (chỉ admin)
   if (state.isAdmin && toSync.length > 0) {
-    console.log(`[recalc] ${toSync.length}/${records.length} records sai → đang sync DB...`);
+    console.log(`[recalc] ${toSync.length}/${records.length} records sai → sync DB...`);
     const BATCH = 50;
     let done = 0, failed = 0;
     for (let i = 0; i < toSync.length; i += BATCH) {
@@ -400,11 +388,10 @@ async function _recalcAndSync(records, y, m) {
       }
     }
     console.log(`[recalc] ${done} updated${failed > 0 ? `, ${failed} failed` : ''}`);
-
     invalidateAttendanceCache();
     if (state.salaryModule) state.salaryModule.invalidateCache();
   } else if (fixedCount > 0) {
-    console.log(`[recalc] ${fixedCount}/${records.length} records sai (không có quyền sync DB)`);
+    console.log(`[recalc] ${fixedCount}/${records.length} records sai (không có quyền sync)`);
   }
 }
 
@@ -540,7 +527,6 @@ async function getPreviousAttendance(employeeId, beforeDate) {
   return data?.[0] || null;
 }
 
-/* ⭐ FIX: String() compare để tránh lỗi uuid/bigint */
 function getEntryDefaultHours(entry) {
   if (entry.type === 'building') {
     if (!entry.floor_id) return 0;
@@ -569,7 +555,6 @@ function getPoolForEntry(entry) {
         for (const a of arr) {
           const aType = a.type || 'building';
           if (aType !== entryType) continue;
-          // ⭐ FIX: String() compare
           if (entryType === 'building' && String(a.floor_id) !== String(floorId)) continue;
 
           if (!empIds.has(att.employee_id)) {
@@ -595,7 +580,6 @@ function formatSharedNote(others) {
   return `làm cùng ${first3}${more}`;
 }
 
-/* ⭐ Tính giờ thực tế — chỉ dùng default + chia pool */
 function calcEntryActualHours(entry) {
   if (state.batchDates && state.batchDates.length > 0) {
     return getEntryDefaultHours(entry);
@@ -742,7 +726,6 @@ function applySundayToggle(dateStr, batchDates) {
   }
 
   const hasSavedSundayOt = isSundayOtChecked();
-
   $sundayToggle.style.display = (isSunday || hasSavedSundayOt) ? 'flex' : 'none';
 
   if (!isSunday && !hasSavedSundayOt) {
@@ -960,7 +943,7 @@ function openEmployeeModeContent(template) {
   toggleSundayOtSection(isSundayOt);
 }
 
-/* ⭐ Render picker — KHÔNG có ô nhập giờ, chỉ chọn toà + tầng */
+/* ⭐ Render picker — không có ô nhập giờ; có nút "➕ Thêm tầng khác" */
 function renderAreaPickerInto(wrapId, areasState, isOt) {
   const rerender = () => renderAreaPickerInto(wrapId, areasState, isOt);
   const wrap = $('#' + wrapId);
@@ -1029,11 +1012,30 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       `;
     }
 
+    // ⭐ NÚT "➕ Thêm tầng khác" — chỉ hiện khi là building và đã chọn toà
+    let addFloorBtnHtml = '';
+    if (type === 'building' && entry.building_id) {
+      const buildingName = state.buildings.find(x => String(x.id) === String(entry.building_id))?.name || '';
+      // Đếm số tầng hiện tại của cùng toà trong areasState
+      const sameCount = areasState.filter(a => a.type === 'building' && String(a.building_id) === String(entry.building_id)).length;
+      if (sameCount < 10) {
+        addFloorBtnHtml = `
+          <div style="flex-basis:100%;width:100%;margin-top:4px;">
+            <button type="button" class="add-floor-btn" data-add-floor="${idx}"
+              style="padding:6px 10px;font-size:12px;background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">
+              ➕ Thêm tầng khác của ${buildingName || 'toà này'}
+            </button>
+          </div>
+        `;
+      }
+    }
+
     return `
       <div class="area-entry" data-idx="${idx}" data-type="${type}">
         <select class="area-type">${typeOpts}</select>
         ${contentHtml}
         <button class="remove-area" data-remove="${idx}">✕</button>
+        ${addFloorBtnHtml}
         ${conflictHtml}
         <div class="area-entry-hint" data-idx="${idx}" data-wrap-type="${wrapId}"></div>
       </div>`;
@@ -1080,6 +1082,43 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
       }
       rerender();
       updatePreview();
+    });
+  });
+
+  // ⭐ Handler cho nút "➕ Thêm tầng khác"
+  wrap.querySelectorAll('.add-floor-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(btn.dataset.addFloor);
+      const cur = areasState[idx];
+      if (!cur || !cur.building_id) return;
+
+      // Đếm số tầng hiện tại của toà này
+      const sameCount = areasState.filter(a => a.type === 'building' && String(a.building_id) === String(cur.building_id)).length;
+      if (sameCount >= 10) {
+        toast('Tối đa 10 tầng cho 1 toà');
+        return;
+      }
+
+      // Push entry mới cùng toà, chưa chọn tầng
+      areasState.push({
+        type: 'building',
+        building_id: cur.building_id,
+        floor_id: '',
+      });
+      rerender();
+      updatePreview();
+
+      // Scroll xuống entry mới + focus select tầng
+      setTimeout(() => {
+        const newEl = wrap.querySelector(`.area-entry[data-idx="${areasState.length - 1}"]`);
+        if (newEl) {
+          newEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const $fs = newEl.querySelector('.area-floor');
+          if ($fs) $fs.focus();
+        }
+      }, 100);
     });
   });
 
@@ -1200,7 +1239,6 @@ function buildSupervisorPayload() {
   };
 }
 
-/* ⭐ Luôn lưu hours = null — giờ được tính lại khi đọc */
 function serializeArea(entry) {
   if (entry.type === 'building') {
     return {
@@ -1210,10 +1248,7 @@ function serializeArea(entry) {
       hours: null,
     };
   }
-  return {
-    type: entry.type,
-    hours: null,
-  };
+  return { type: entry.type, hours: null };
 }
 
 function buildEmployeePayload() {
@@ -1257,10 +1292,7 @@ function buildEmployeePayload() {
   let totalOt = 0;
   if (isSundayOtChecked()) {
     const sh = getSundayOtHours();
-    if (sh > 0) {
-      otAreas = [{ type: 'sunday_ot', hours: sh }];
-      totalOt = sh;
-    }
+    if (sh > 0) { otAreas = [{ type: 'sunday_ot', hours: sh }]; totalOt = sh; }
   } else {
     const validOtAreas = state.modalOtAreas.filter(a => {
       if (a.type === 'building') return a.building_id && a.floor_id;
@@ -1293,11 +1325,8 @@ export async function saveAttendance() {
 
   if (!state.batchDates && state.editingDate) {
     if (!_dayAssignCache.has(state.editingDate)) {
-      try {
-        await getDayAssignments(state.editingDate);
-      } catch (err) {
-        console.warn('[save] load day assignments fail:', err);
-      }
+      try { await getDayAssignments(state.editingDate); }
+      catch (err) { console.warn('[save] load day assignments fail:', err); }
     } else {
       state.dayAssignments = _dayAssignCache.get(state.editingDate) || [];
     }
@@ -1356,10 +1385,8 @@ export function toggleSelectionMode() {
   else {
     state.selectionMode = true;
     state.selectedDates.clear();
-
     state.selectedViewDate = null;
     closeDayPreview();
-
     const bar = $('#selectionBar'); if (bar) bar.style.display = 'block';
     const btn = $('#selectionToggleBtn');
     if (btn) { btn.textContent = '✕ Thoát chọn'; btn.classList.add('active'); }
@@ -1463,33 +1490,23 @@ export function renderCalendar() {
 
 function attachCalendarSelect(el, dateStr) {
   let lastFire = 0;
-
   const handle = (e) => {
     const now = Date.now();
     if (now - lastFire < 400) return;
     lastFire = now;
-
     if (e) {
       if (e.cancelable) e.preventDefault();
       if (e.stopPropagation) e.stopPropagation();
     }
-
     try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
-
     const isFullpage = document.body.classList.contains('dpp-fullpage');
     if (isFullpage) {
-      if (state.selectedViewDate !== dateStr) {
-        setSelectedViewDate(dateStr);
-      }
+      if (state.selectedViewDate !== dateStr) setSelectedViewDate(dateStr);
     } else {
-      if (state.selectedViewDate === dateStr) {
-        setSelectedViewDate(null);
-      } else {
-        setSelectedViewDate(dateStr);
-      }
+      if (state.selectedViewDate === dateStr) setSelectedViewDate(null);
+      else setSelectedViewDate(dateStr);
     }
   };
-
   el.addEventListener('touchstart', (e) => handle(e), { passive: false });
   el.addEventListener('click', (e) => handle(e));
 }
@@ -1554,10 +1571,7 @@ export function switchTab(name) {
       });
   }
   if (name === 'checkin') {
-    if (!state.user) {
-      switchTab('calendar');
-      return;
-    }
+    if (!state.user) { switchTab('calendar'); return; }
     import('./checkin.js')
       .then(m => m.loadCheckinTab())
       .catch(err => {
@@ -1574,7 +1588,6 @@ export async function changeMonth(delta) {
   state.currentMonth = d;
 
   const wasFullpage = document.body.classList.contains('dpp-fullpage');
-
   await loadAttendanceForMonth();
 
   if (wasFullpage) {
@@ -1594,9 +1607,6 @@ export async function changeMonth(delta) {
   renderCalendar();
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ⭐ SYNC MONTH HOURS — force sync toàn bộ tháng cho MỌI NV
-   ═══════════════════════════════════════════════════════════════ */
 export async function syncMonthHours() {
   if (!state.isAdmin) { toast('Chỉ admin được đồng bộ'); return; }
 
@@ -1606,7 +1616,7 @@ export async function syncMonthHours() {
   const lastDay = new Date(y, m, 0).getDate();
   const end = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
 
-  if (!confirm(`Đồng bộ giờ công tháng ${m}/${y}?\n\nSẽ quét TOÀN BỘ record của MỌI nhân viên, tính lại giờ công + OT.`)) return;
+  if (!confirm(`Đồng bộ giờ công tháng ${m}/${y}?\n\nSẽ quét TOÀN BỘ record của MỌI nhân viên.`)) return;
 
   toast('⏳ Đang tải...');
 
@@ -1614,18 +1624,14 @@ export async function syncMonthHours() {
     try {
       const b = await import('./buildings.js');
       await b.loadBuildings();
-    } catch (err) { console.warn('[sync] load buildings fail:', err); }
+    } catch (err) { console.warn('[sync] load fail:', err); }
   }
-
-  if (!state.floors?.length) {
-    toast('❌ Chưa tải được danh sách tầng — kiểm tra tab Khu vực');
-    return;
-  }
+  if (!state.floors?.length) { toast('❌ Chưa tải được danh sách tầng'); return; }
 
   const { data: allRecords, error } = await supabase
     .from('attendance').select('*')
     .gte('date', start).lte('date', end);
-  if (error) { toast('Lỗi tải: ' + error.message); return; }
+  if (error) { toast('Lỗi: ' + error.message); return; }
   if (!allRecords?.length) { toast('Không có dữ liệu tháng này'); return; }
 
   const byDate = {};
@@ -1680,7 +1686,6 @@ export async function syncMonthHours() {
 
       const newTotal = Math.round(Math.min(rawMain, DAILY_MAIN_CAP) * 100) / 100;
       const newOT = Math.round((rawOT + Math.max(0, rawMain - DAILY_MAIN_CAP)) * 100) / 100;
-
       const oldTotal = Number(r.total_hours || 0);
       const oldOT = Number(r.ot_hours || 0);
 
@@ -1694,10 +1699,7 @@ export async function syncMonthHours() {
   state.selectedEmployeeId = saveEmpId;
   state.batchDates = saveBatchDates;
 
-  if (!updates.length) {
-    toast(`Đã kiểm tra ${checked} records — tất cả đã đúng`);
-    return;
-  }
+  if (!updates.length) { toast(`Đã kiểm tra ${checked} records — tất cả đã đúng`); return; }
 
   toast(`⏳ Sửa ${updates.length}/${checked} records...`);
 
