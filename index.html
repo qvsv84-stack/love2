@@ -38,7 +38,7 @@
     .dbg-warn { color: #ffd60a; }
     .dbg-error { color: #ff453a; }
 
-    /* ⭐ TABS — WRAP + CĂN GIỮA ⭐ */
+    /* ⭐ TABS — WRAP + CĂN GIỮA */
     .tabs {
       display: flex !important;
       flex-wrap: wrap !important;
@@ -120,6 +120,14 @@
     #sqlOutput { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow-y: auto; }
     .sql-history-item:last-child { border-bottom: none; }
     .sql-history-item:active { background: var(--border); }
+
+    /* ⭐ Tab Chấm công — nền sáng, font to cho người lớn tuổi */
+    #tab-checkin {
+      background: #f8fafc;
+    }
+    #tab-checkin .section-header h2 {
+      font-size: 20px;
+    }
   </style>
 </head>
 <body>
@@ -127,7 +135,7 @@
     <header class="app-header">
       <div class="header-title">
         <h1>ĐH XÃ HỘI VÀ NHÂN VĂN</h1>
-        <p class="subtitle">Hệ thống giám sát chấm công</p>
+        <p class="subtitle">Hệ thống chấm công</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
         <button id="debugBtn" class="btn-icon" title="Debug (Ctrl+Shift+D)">🔍</button>
@@ -169,17 +177,24 @@
 
     <main id="mainScreen" style="display:none">
       <nav class="tabs">
-        <button class="tab-btn active" data-tab="calendar">📅 Lịch công</button>
+        <!-- Tab Chấm công đặt đầu tiên, hiện với mọi user -->
+        <button class="tab-btn active" data-tab="checkin">📍 Chấm công</button>
+        <button class="tab-btn" data-tab="calendar">📅 Lịch công</button>
         <button class="tab-btn" data-tab="areas" style="display:none">🏢 Khu vực</button>
         <button class="tab-btn" data-tab="employees" style="display:none">👥 Nhân viên</button>
         <button class="tab-btn" data-tab="salary" style="display:none">💰 Tính công</button>
         <button class="tab-btn" data-tab="excel" style="display:none">📊 Bảng công</button>
         <button class="tab-btn" data-tab="rooms">🏫 Phòng học</button>
         <button class="tab-btn" data-tab="sql" style="display:none">⚙️ SQL</button>
-        <button class="tab-btn" data-tab="checkin" style="display:none">📍 Check-in</button>
       </nav>
 
-      <section id="tab-calendar" class="tab-content active">
+      <!-- ⭐ Tab Chấm công (đầu tiên, active mặc định) -->
+      <section id="tab-checkin" class="tab-content active">
+        <div class="section-header"><h2>📍 Chấm công</h2></div>
+        <div id="checkinRoot"></div>
+      </section>
+
+      <section id="tab-calendar" class="tab-content">
         <div id="guestBanner" class="guest-banner" style="display:none">
           <p>🔑 Đăng nhập để chấm công và quản lý</p>
           <button id="guestLoginBtn" class="btn-primary">Đăng nhập</button>
@@ -397,11 +412,6 @@ select * from cslx_rooms limit 5;"></textarea>
           <label>📜 Lịch sử (bấm để chèn lại)</label>
           <div id="sqlHistory" style="background:#fff; border:1px solid var(--border); border-radius:10px; max-height:240px; overflow-y:auto;"></div>
         </div>
-      </section>
-
-      <section id="tab-checkin" class="tab-content">
-        <div class="section-header"><h2>📍 Check-in</h2></div>
-        <div id="checkinRoot"></div>
       </section>
     </main>
 
@@ -665,7 +675,7 @@ select * from cslx_rooms limit 5;"></textarea>
         </div>
         <div class="modal-body">
           <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">
-            Đặt vị trí hiện tại làm điểm check-in. Người dùng phải đứng trong bán kính này mới check-in được.
+            Đặt vị trí hiện tại làm điểm chấm công. Người dùng phải đứng trong bán kính này mới chấm công được.
           </p>
           <div class="form-group">
             <label>Toạ độ GPS hiện tại</label>
@@ -673,8 +683,8 @@ select * from cslx_rooms limit 5;"></textarea>
           </div>
           <div class="form-group">
             <label>Bán kính cho phép (mét)</label>
-            <input type="number" id="checkinRadiusInput" class="input" min="20" max="1000" step="10" value="100" />
-            <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">20-1000m. Khuyến nghị 50-200m.</p>
+            <input type="number" id="checkinRadiusInput" class="input" min="20" max="1000" step="10" value="150" />
+            <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">20-1000m. Khuyến nghị 100-200m.</p>
           </div>
         </div>
         <div class="modal-footer">
@@ -725,7 +735,7 @@ select * from cslx_rooms limit 5;"></textarea>
   })();
   </script>
 
-  <script type="module" src="./app.js?v=9"></script>
+  <script type="module" src="./app.js?v=10"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
