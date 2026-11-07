@@ -395,7 +395,7 @@ export function renderBuildings() {
         : `<span class="floor-people-count is-empty">Trống</span>`;
 
       const assignBtn = state.isAdmin
-        ? `<button class="btn-assign-floor" data-assign-b="${b.id}" data-assign-f="${f.id}" style="padding:4px 10px;font-size:11px;background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">+ Gán</button>`
+        ? `<button type="button" class="btn-assign-floor" data-assign-b="${b.id}" data-assign-f="${f.id}" style="padding:4px 10px;font-size:11px;background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">+ Gán</button>`
         : '';
 
       return `
@@ -472,12 +472,14 @@ export function renderBuildings() {
     });
   });
 
-  // ⭐ Bind nút "Gán"
   wrap.querySelectorAll('.btn-assign-floor').forEach(btn => {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       ev.preventDefault();
-      openAssignModal(btn.dataset.assignB, btn.dataset.assignF);
+      const bid = btn.dataset.assignB;
+      const fid = btn.dataset.assignF;
+      console.log('[assign] Click nút gán — building:', bid, 'floor:', fid);
+      openAssignModal(bid, fid);
     });
   });
 }
@@ -602,7 +604,7 @@ function renderSimpleCard(opts) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ⭐ GÁN NHÂN VIÊN VÀO TẦNG
+   ⭐ GÁN NHÂN VIÊN — tự tạo modal, không phụ thuộc HTML
    ═══════════════════════════════════════════════════════════════ */
 export async function openAssignModal(buildingId, floorId) {
   if (!state.isAdmin) { toast('Chỉ admin được gán'); return; }
@@ -610,18 +612,22 @@ export async function openAssignModal(buildingId, floorId) {
   const dateStr = state.areasViewDate || toDateStr(new Date());
   const building = state.buildings.find(b => String(b.id) === String(buildingId));
   const floor = state.floors.find(f => String(f.id) === String(floorId));
-  if (!building || !floor) { toast('Không tìm thấy tầng'); return; }
+  if (!building || !floor) {
+    console.error('[assign] Không tìm thấy building/floor', { buildingId, floorId });
+    toast('Không tìm thấy tầng');
+    return;
+  }
+
+  ensureAssignModal();
 
   state._assignCtx = { buildingId, floorId, dateStr };
 
-  // Đọc toàn bộ attendance của ngày để biết ai đã có {B,F}
   const { data: allAtt, error } = await supabase
     .from('attendance')
     .select('employee_id, areas, ot_areas, is_off, mode')
     .eq('date', dateStr);
   if (error) { toast('Lỗi tải: ' + error.message); return; }
 
-  // Set of employee_ids đang được gán vào tầng này
   const assignedSet = new Set();
   for (const a of (allAtt || [])) {
     if (a.is_off) continue;
@@ -636,34 +642,76 @@ export async function openAssignModal(buildingId, floorId) {
     }
   }
 
-  // Title
-  const $title = $('#assignEmpTitle');
+  const $title = document.getElementById('assignEmpTitle');
   if ($title) $title.textContent = `Gán NV vào ${floorLabel(floor.floor_number)} — ${building.name}`;
-  const $sub = $('#assignEmpSubtitle');
+  const $sub = document.getElementById('assignEmpSubtitle');
   if ($sub) $sub.textContent = `Ngày: ${formatDateVN(dateStr)} · Giờ mặc định tầng: ${formatHours(floor.default_hours)}`;
 
-  // Render list
   renderAssignList(assignedSet);
 
-  // Bind search
-  const $search = $('#assignEmpSearch');
+  const $search = document.getElementById('assignEmpSearch');
   if ($search) {
     $search.value = '';
     $search.oninput = () => renderAssignList(assignedSet, $search.value);
   }
 
-  // Bind save (chỉ bind 1 lần)
-  const $saveBtn = $('#assignEmpSaveBtn');
-  if ($saveBtn && !$saveBtn.dataset.bound) {
-    $saveBtn.dataset.bound = '1';
-    $saveBtn.addEventListener('click', saveAssignments);
+  const $saveBtn = document.getElementById('assignEmpSaveBtn');
+  if ($saveBtn) {
+    $saveBtn.disabled = false;
+    $saveBtn.textContent = 'Lưu';
+    $saveBtn.onclick = saveAssignments;
   }
 
-  openModal('assignEmployeeModal');
+  const $modal = document.getElementById('assignEmployeeModal');
+  if ($modal) {
+    $modal.style.display = 'flex';
+    $modal.style.alignItems = 'center';
+    $modal.style.justifyContent = 'center';
+  }
+
+  console.log('[assign] Mở modal — building:', buildingId, 'floor:', floorId, 'date:', dateStr);
+}
+
+function ensureAssignModal() {
+  if (document.getElementById('assignEmployeeModal')) return;
+
+  const html = `
+    <div id="assignEmployeeModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;padding:20px;box-sizing:border-box;">
+      <div style="background:#fff;border-radius:14px;max-width:460px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+          <h3 id="assignEmpTitle" style="margin:0;font-size:16px;font-weight:700;color:#111827;">Gán nhân viên</h3>
+          <button type="button" id="assignEmpCloseBtn" style="background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280;padding:0;width:32px;height:32px;line-height:1;border-radius:6px;">✕</button>
+        </div>
+        <div style="padding:14px 18px;overflow-y:auto;flex:1;">
+          <p id="assignEmpSubtitle" style="font-size:13px;color:#6b7280;margin:0 0 12px 0;line-height:1.5;"></p>
+          <input type="text" id="assignEmpSearch" placeholder="🔍 Tìm tên hoặc số điện thoại..." autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:10px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:14px;outline:none;" />
+          <div id="assignEmpList" style="max-height:380px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;"></div>
+          <p style="font-size:11.5px;color:#6b7280;margin:10px 0 0 0;line-height:1.5;">
+            💡 Tick = gán vào tầng này. Bỏ tick = xoá khỏi tầng. Nếu NV đã làm tầng khác cùng ngày → vẫn giữ nguyên (thêm tầng).
+          </p>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid #e5e7eb;flex-shrink:0;">
+          <button type="button" id="assignEmpCancelBtn" style="padding:10px 18px;font-family:inherit;font-size:14px;border:1px solid #e5e7eb;background:#fff;border-radius:8px;cursor:pointer;font-weight:600;color:#374151;">Huỷ</button>
+          <button type="button" id="assignEmpSaveBtn" style="padding:10px 18px;font-family:inherit;font-size:14px;background:#0ea5b7;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Lưu</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  const closeModalDirect = () => {
+    const $m = document.getElementById('assignEmployeeModal');
+    if ($m) $m.style.display = 'none';
+  };
+  document.getElementById('assignEmpCloseBtn').onclick = closeModalDirect;
+  document.getElementById('assignEmpCancelBtn').onclick = closeModalDirect;
+  document.getElementById('assignEmployeeModal').addEventListener('click', (e) => {
+    if (e.target.id === 'assignEmployeeModal') closeModalDirect();
+  });
 }
 
 function renderAssignList(assignedSet, searchTerm = '') {
-  const $list = $('#assignEmpList');
+  const $list = document.getElementById('assignEmpList');
   if (!$list) return;
 
   const term = (searchTerm || '').toLowerCase().trim();
@@ -683,7 +731,7 @@ function renderAssignList(assignedSet, searchTerm = '') {
     });
 
   if (!employees.length) {
-    $list.innerHTML = '<p class="hint" style="padding:16px;text-align:center;margin:0">Không có nhân viên phù hợp</p>';
+    $list.innerHTML = '<p style="padding:16px;text-align:center;margin:0;color:#6b7280;font-size:13px;">Không có nhân viên phù hợp</p>';
     return;
   }
 
@@ -700,11 +748,11 @@ function renderAssignList(assignedSet, searchTerm = '') {
     const phone = e.phone || '';
     const checked = assignedSet.has(e.id);
     return `
-      <label style="display:flex;padding:10px 12px;border-bottom:1px solid var(--border);gap:10px;cursor:pointer;align-items:center;">
-        <input type="checkbox" data-emp-id="${e.id}" ${checked ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;accent-color:#0ea5b7;" />
+      <label style="display:flex;padding:10px 12px;border-bottom:1px solid #f3f4f6;gap:10px;cursor:pointer;align-items:center;">
+        <input type="checkbox" data-emp-id="${e.id}" ${checked ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;accent-color:#0ea5b7;cursor:pointer;" />
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-top:1px;">
+          <div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${name}</div>
+          <div style="font-size:11.5px;color:#6b7280;margin-top:1px;">
             ${role}${phone ? ' · ' + phone : ''}
           </div>
         </div>
@@ -720,15 +768,14 @@ async function saveAssignments() {
   const { buildingId, floorId, dateStr } = ctx;
 
   const checkedIds = new Set();
-  $$('#assignEmpList input[type="checkbox"]:checked').forEach(cb => {
+  document.querySelectorAll('#assignEmpList input[type="checkbox"]:checked').forEach(cb => {
     checkedIds.add(cb.dataset.empId);
   });
 
-  const $btn = $('#assignEmpSaveBtn');
+  const $btn = document.getElementById('assignEmpSaveBtn');
   if ($btn) { $btn.disabled = true; $btn.textContent = '⏳ Đang lưu...'; }
 
   try {
-    // Fetch toàn bộ attendance ngày để biết ai đã có gì
     const { data: allAtt, error: fetchErr } = await supabase
       .from('attendance')
       .select('*')
@@ -750,7 +797,6 @@ async function saveAssignments() {
       );
 
       if (empChecked && !hasFloor) {
-        // Thêm tầng vào areas
         const newAreas = [...existingAreas, { type: 'building', building_id: buildingId, floor_id: floorId, hours: null }];
         toUpsert.push({
           employee_id: emp.id,
@@ -764,7 +810,6 @@ async function saveAssignments() {
           manual_hours: existing?.manual_hours ?? null,
         });
       } else if (!empChecked && hasFloor) {
-        // Xoá tầng khỏi areas
         const newAreas = existingAreas.filter(a =>
           !((a.type === 'building' || !a.type) &&
             String(a.building_id) === String(buildingId) &&
@@ -775,7 +820,6 @@ async function saveAssignments() {
         const isLeaveOrOff = existing?.mode === 'leave' || existing?.mode === 'off' || existing?.is_off;
 
         if (newAreas.length === 0 && !hasOt && !hasManual && !isLeaveOrOff) {
-          // Không còn gì → xoá record
           toDelete.push(emp.id);
         } else {
           toUpsert.push({
@@ -795,12 +839,12 @@ async function saveAssignments() {
 
     if (!toUpsert.length && !toDelete.length) {
       toast('Không có thay đổi');
-      closeModal('assignEmployeeModal');
+      const $m = document.getElementById('assignEmployeeModal');
+      if ($m) $m.style.display = 'none';
       if ($btn) { $btn.disabled = false; $btn.textContent = 'Lưu'; }
       return;
     }
 
-    // Execute
     if (toUpsert.length) {
       const { error } = await supabase.from('attendance').upsert(toUpsert, { onConflict: 'employee_id,date' });
       if (error) throw error;
@@ -810,13 +854,11 @@ async function saveAssignments() {
       if (error) throw error;
     }
 
-    const upsertCount = toUpsert.length;
-    const deleteCount = toDelete.length;
-    toast(`✅ Đã lưu: ${upsertCount} cập nhật${deleteCount > 0 ? `, ${deleteCount} xoá` : ''}`);
+    toast(`✅ Đã lưu: ${toUpsert.length} cập nhật${toDelete.length > 0 ? `, ${toDelete.length} xoá` : ''}`);
 
-    closeModal('assignEmployeeModal');
+    const $m = document.getElementById('assignEmployeeModal');
+    if ($m) $m.style.display = 'none';
 
-    // Refresh dữ liệu
     try {
       const core = await import('./core.js');
       if (core.invalidateAttendanceCache) core.invalidateAttendanceCache();
@@ -825,7 +867,6 @@ async function saveAssignments() {
     await loadDayAssignments(dateStr);
     renderBuildings();
 
-    // Recalc cho các nhân viên vừa thay đổi (nếu đang xem trong Lịch công)
     try {
       const changedIds = new Set([...toUpsert.map(u => u.employee_id), ...toDelete]);
       const att = await import('./attendance.js');
@@ -839,7 +880,6 @@ async function saveAssignments() {
 
     if (state.salaryModule) state.salaryModule.invalidateCache();
 
-    // Gợi ý user: giờ công sẽ tự tính lại khi mở Lịch công của từng NV
     setTimeout(() => {
       toast('💡 Giờ công sẽ tự cập nhật khi mở Lịch công cho NV liên quan');
     }, 1500);
@@ -852,7 +892,7 @@ async function saveAssignments() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SPECIAL AREAS — ngoại cảnh / ca đêm
+   SPECIAL AREAS
    ═══════════════════════════════════════════════════════════════ */
 let _editingSpecialType = null;
 
