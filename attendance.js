@@ -1,4 +1,4 @@
-// attendance.js — Chấm công mix building + ngoại cảnh + ca đêm
+// attendance.js — Chấm công mix building + ngoại cảnh + ca đêm (optimized)
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast, pad, toDateStr, formatDateVN, formatHours,
@@ -429,7 +429,7 @@ export function openSelectedDate() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LOAD + TỰ ĐỘNG TÍNH LẠI + AUTO SYNC DB
+   ⭐ OPTIMIZED: LOAD — chỉ recalc khi forceRefresh=true
    ═══════════════════════════════════════════════════════════════ */
 export async function loadAttendanceForMonth(forceRefresh = false) {
   if (!state.selectedEmployeeId) { state.attendance = []; return; }
@@ -454,10 +454,13 @@ export async function loadAttendanceForMonth(forceRefresh = false) {
 
   const records = data || [];
 
-  try {
-    await _recalcAndSync(records, y, m);
-  } catch (err) {
-    console.warn('[recalc] fail:', err);
+  // ⭐ PERF: chỉ recalc khi forceRefresh (sau edit). Load đầu / đổi tháng = tin DB.
+  if (forceRefresh) {
+    try {
+      await _recalcAndSync(records, y, m);
+    } catch (err) {
+      console.warn('[recalc] fail:', err);
+    }
   }
 
   state.attendance = records;
