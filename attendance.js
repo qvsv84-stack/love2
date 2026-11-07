@@ -1041,10 +1041,16 @@ function computeMainHoursRaw() {
 }
 function computeMainHours() { return Math.min(computeMainHoursRaw(), DAILY_MAIN_CAP); }
 function computeOverflow() { return Math.max(0, computeMainHoursRaw() - DAILY_MAIN_CAP); }
+
+// ⭐ FIX: dùng calcEntryActualHours (đã chia pool) thay vì entryHours
 function computeOtHoursRaw() {
   if (isSundayOtChecked()) return getSundayOtHours();
   let h = 0;
-  for (const entry of state.modalOtAreas) h += entryHours(entry);
+  for (const entry of state.modalOtAreas) {
+    const valid = entry.type !== 'building' || (entry.building_id && entry.floor_id);
+    if (!valid) continue;
+    h += calcEntryActualHours(entry);
+  }
   return h;
 }
 function computeOtHours() {
@@ -1166,18 +1172,32 @@ function buildEmployeePayload() {
   });
   if (!validAreas.length) { toast('Chọn ít nhất 1 khu vực hoặc nhập giờ'); return null; }
 
+  // ⭐ FIX: dùng calcEntryActualHours (đã chia pool) thay vì entryHours (giờ gốc)
   let totalMain = 0;
-  for (const entry of validAreas) totalMain += entryHours(entry);
+  for (const entry of validAreas) totalMain += calcEntryActualHours(entry);
   const mainCapped = Math.min(totalMain, DAILY_MAIN_CAP);
 
   let otAreas = [];
+  let totalOt = 0;
   if (isSundayOtChecked()) {
     const sh = getSundayOtHours();
-    if (sh > 0) otAreas = [{ type: 'sunday_ot', hours: sh }];
+    if (sh > 0) {
+      otAreas = [{ type: 'sunday_ot', hours: sh }];
+      totalOt = sh;
+    }
   } else {
-    otAreas = state.modalOtAreas.filter(a => entryHours(a) > 0).map(a => serializeArea(a));
+    const validOtAreas = state.modalOtAreas.filter(a => {
+      if (a.type === 'building') return a.building_id && a.floor_id;
+      return true;
+    });
+    for (const entry of validOtAreas) {
+      const h = calcEntryActualHours(entry);
+      if (h > 0) {
+        otAreas.push(serializeArea(entry));
+        totalOt += h;
+      }
+    }
   }
-  const totalOt = isSundayOtChecked() ? getSundayOtHours() : otAreas.reduce((s, a) => s + Number(a.hours || 0), 0);
 
   return {
     employee_id: state.selectedEmployeeId,
@@ -1192,6 +1212,20 @@ function buildEmployeePayload() {
 export async function saveAttendance() {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) return;
+
+  // ⭐ FIX: đảm bảo dayAssignments đã load (cần cho calcEntryActualHours chia pool)
+  if (!state.batchDates && state.editingDate) {
+    if (!_dayAssignCache.has(state.editingDate)) {
+      try {
+        await getDayAssignments(state.editingDate);
+      } catch (err) {
+        console.warn('[save] load day assignments fail:', err);
+      }
+    } else {
+      state.dayAssignments = _dayAssignCache.get(state.editingDate) || [];
+    }
+  }
+
   const basePayload = state.isSupervisorMode ? buildSupervisorPayload() : buildEmployeePayload();
   if (!basePayload) return;
   const dates = state.batchDates && state.batchDates.length > 0 ? [...state.batchDates] : [state.editingDate];
@@ -1443,10 +1477,9 @@ export function switchTab(name) {
         }
       });
   }
-  // ⭐⭐⭐ CHECKIN — MỞ CHO CẢ NHÂN VIÊN VÀ ADMIN ⭐⭐⭐
+  // ⭐ CHECKIN — mở cho cả nhân viên và admin
   if (name === 'checkin') {
     if (!state.user) {
-      // Chưa đăng nhập → quay về tab calendar
       switchTab('calendar');
       return;
     }
