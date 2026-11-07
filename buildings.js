@@ -1290,7 +1290,8 @@ export async function deleteBuilding(id) {
   state.expandedBuildings?.delete(id);
   await loadBuildings();
   const attendance = await import('./attendance.js');
-  await attendance.loadAttendanceForMonth();
+  // ⭐ FIX: force recalc vì xoá building → giờ các tầng thay đổi
+  await attendance.loadAttendanceForMonth(true);
   attendance.renderCalendar();
 }
 
@@ -1361,6 +1362,7 @@ export async function saveFloors() {
 
   await loadBuildings();
   const attendance = await import('./attendance.js');
-  await attendance.loadAttendanceForMonth();
+  // ⭐ FIX: force recalc vì đổi default_hours → giờ tất cả NV trong tầng thay đổi
+  await attendance.loadAttendanceForMonth(true);
   attendance.renderCalendar();
 }
