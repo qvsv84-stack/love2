@@ -1,4 +1,4 @@
-// checkin.js — Tab chấm công GPS + admin monitor + lịch sử
+// checkin.js — Tab chấm công GPS + admin monitor + lịch sử (chọn ngày cụ thể)
 import { supabase } from './supabase.js';
 import { state, $, toast, openModal, closeModal, toDateStr } from './core.js';
 
@@ -477,7 +477,7 @@ function stopAdminPolling() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HISTORY MODAL — hôm nay + quá khứ (theo tháng)
+   HISTORY MODAL — tháng / ngày cụ thể
    ═══════════════════════════════════════════════════════════════ */
 function ensureHistoryModal() {
   let $m = document.getElementById('checkinHistoryModal');
@@ -490,18 +490,25 @@ function ensureHistoryModal() {
           <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--ocean-700);">📜 Lịch sử chấm công</h3>
           <button id="historyCloseBtn" type="button" style="background:var(--ocean-50);border:none;width:32px;height:32px;border-radius:8px;font-size:15px;color:var(--text-muted);cursor:pointer;font-family:inherit;">✕</button>
         </div>
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;">
-          <input type="month" id="historyMonthInput" class="input" style="flex:1;min-width:120px;padding:10px 12px;font-size:14px;" />
-          <select id="historyEmpSelect" class="input" style="flex:1;min-width:120px;padding:10px 12px;font-size:14px;display:none;">
-            <option value="">Tất cả NV</option>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
+          <select id="historyEmpSelect" class="input" style="display:none;padding:10px 12px;font-size:14px;">
+            <option value="">👤 Tất cả NV</option>
           </select>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="month" id="historyMonthInput" class="input" style="flex:1;min-width:120px;padding:10px 12px;font-size:14px;" />
+            <input type="date" id="historyDateInput" class="input" style="flex:1;min-width:130px;padding:10px 12px;font-size:14px;" />
+          </div>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button id="historyClearDateBtn" type="button" style="padding:7px 12px;font-size:12px;font-weight:600;background:#fff;color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap;">📅 Cả tháng</button>
+            <button id="historyTodayBtn" type="button" style="padding:7px 12px;font-size:12px;font-weight:600;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap;">📍 Hôm nay</button>
+          </div>
+          <div id="historyScopeHint" style="font-size:11.5px;color:var(--text-muted);line-height:1.4;text-align:center;"></div>
         </div>
         <div id="historyContent" style="flex:1;overflow-y:auto;padding:12px 16px;-webkit-overflow-scrolling:touch;min-height:0;">
           <div style="text-align:center;padding:40px;color:var(--text-muted);">⏳ Đang tải...</div>
         </div>
-        <div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;justify-content:center;gap:8px;">
-          <button id="historyTodayBtn" type="button" style="padding:10px 18px;font-size:13px;font-weight:600;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;">📍 Hôm nay</button>
-          <button id="historyCloseBtn2" type="button" style="padding:10px 18px;font-size:13px;font-weight:600;background:#fff;color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;">Đóng</button>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;justify-content:center;">
+          <button id="historyCloseBtn2" type="button" style="padding:10px 24px;font-size:13px;font-weight:600;background:#fff;color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;">Đóng</button>
         </div>
       </div>
     </div>`;
@@ -513,17 +520,41 @@ function ensureHistoryModal() {
   document.getElementById('historyCloseBtn2').onclick = closeFn;
   $m.onclick = (e) => { if (e.target === $m) closeFn(); };
 
+  // Đổi tháng → clear date → load
   document.getElementById('historyMonthInput').onchange = () => {
+    const $date = document.getElementById('historyDateInput');
+    if ($date) $date.value = '';
     loadHistoryData().catch(err => console.warn('[history]', err));
   };
+
+  // Chọn date → sync month → load
+  document.getElementById('historyDateInput').onchange = () => {
+    const $date = document.getElementById('historyDateInput');
+    const $month = document.getElementById('historyMonthInput');
+    if ($date && $month && $date.value) {
+      $month.value = $date.value.slice(0, 7);
+    }
+    loadHistoryData().catch(err => console.warn('[history]', err));
+  };
+
   document.getElementById('historyEmpSelect').onchange = () => {
     loadHistoryData().catch(err => console.warn('[history]', err));
   };
+
+  document.getElementById('historyClearDateBtn').onclick = () => {
+    const $date = document.getElementById('historyDateInput');
+    if ($date) $date.value = '';
+    loadHistoryData().catch(err => console.warn('[history]', err));
+  };
+
   document.getElementById('historyTodayBtn').onclick = () => {
     const now = new Date();
-    const mVal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const $mEl = document.getElementById('historyMonthInput');
-    if ($mEl) $mEl.value = mVal;
+    const todayStr = toDateStr(now);
+    const monthStr = todayStr.slice(0, 7);
+    const $date = document.getElementById('historyDateInput');
+    const $month = document.getElementById('historyMonthInput');
+    if ($date) $date.value = todayStr;
+    if ($month) $month.value = monthStr;
     loadHistoryData().catch(err => console.warn('[history]', err));
   };
 
@@ -535,10 +566,14 @@ function openHistoryModal(defaultEmpId = '') {
   const $m = ensureHistoryModal();
 
   const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Reset về trạng thái sạch mỗi lần mở
   const $month = document.getElementById('historyMonthInput');
-  if ($month && !$month.value) {
-    $month.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }
+  if ($month) $month.value = currentMonthStr;
+
+  const $date = document.getElementById('historyDateInput');
+  if ($date) $date.value = '';
 
   const $empSel = document.getElementById('historyEmpSelect');
   if ($empSel) {
@@ -547,7 +582,7 @@ function openHistoryModal(defaultEmpId = '') {
       const emps = (state.employees || [])
         .filter(e => e.status !== 'inactive')
         .sort((a, b) => (a.full_name || a.username || '').localeCompare(b.full_name || b.username || '', 'vi'));
-      $empSel.innerHTML = '<option value="">Tất cả NV</option>' +
+      $empSel.innerHTML = '<option value="">👤 Tất cả NV</option>' +
         emps.map(e => `<option value="${e.id}">${e.full_name || e.username || ''}</option>`).join('');
       $empSel.value = _historyDefaultEmpId || '';
     } else {
@@ -569,16 +604,37 @@ async function loadHistoryData() {
   if (!$content) return;
 
   const $month = document.getElementById('historyMonthInput');
+  const $date = document.getElementById('historyDateInput');
   const $empSel = document.getElementById('historyEmpSelect');
-  const monthVal = $month?.value;
-  if (!monthVal) return;
+  const $hint = document.getElementById('historyScopeHint');
 
-  const [y, mo] = monthVal.split('-').map(Number);
-  const lastDay = new Date(y, mo, 0).getDate();
-  const start = `${y}-${String(mo).padStart(2, '0')}-01`;
-  const end = `${y}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const dateVal = $date?.value || '';
+  const monthVal = $month?.value || '';
 
-  // Employee chỉ xem của mình; Admin xem all hoặc 1 NV
+  if (!dateVal && !monthVal) {
+    $content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">Chọn tháng hoặc ngày để xem</div>';
+    if ($hint) $hint.textContent = '';
+    return;
+  }
+
+  // Build query
+  let query = supabase.from('cslx_checkins').select('*');
+
+  if (dateVal) {
+    // Xem 1 ngày cụ thể
+    query = query.eq('checkin_date', dateVal);
+    if ($hint) $hint.textContent = `🎯 Đang xem ngày ${formatDateShort(dateVal)}`;
+  } else {
+    // Xem cả tháng
+    const [y, mo] = monthVal.split('-').map(Number);
+    const lastDay = new Date(y, mo, 0).getDate();
+    const start = `${y}-${String(mo).padStart(2, '0')}-01`;
+    const end = `${y}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    query = query.gte('checkin_date', start).lte('checkin_date', end);
+    if ($hint) $hint.textContent = `📅 Đang xem cả tháng ${String(mo).padStart(2, '0')}/${y}`;
+  }
+
+  // Employee filter
   let selEmpId = null;
   if (!state.isAdmin) {
     selEmpId = state.user?.id;
@@ -590,18 +646,11 @@ async function loadHistoryData() {
     $content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">Vui lòng đăng nhập</div>';
     return;
   }
+  if (selEmpId) query = query.eq('employee_id', selEmpId);
+
+  query = query.order('checkin_date', { ascending: false }).order('checkin_at', { ascending: true });
 
   $content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">⏳ Đang tải...</div>';
-
-  let query = supabase
-    .from('cslx_checkins')
-    .select('*')
-    .gte('checkin_date', start)
-    .lte('checkin_date', end)
-    .order('checkin_date', { ascending: false })
-    .order('checkin_at', { ascending: true });
-
-  if (selEmpId) query = query.eq('employee_id', selEmpId);
 
   const { data, error } = await query;
   if (error) {
@@ -610,7 +659,8 @@ async function loadHistoryData() {
   }
 
   if (!data || data.length === 0) {
-    $content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">📭 Chưa có dữ liệu chấm công trong tháng này</div>';
+    const scope = dateVal ? `ngày ${formatDateShort(dateVal)}` : 'trong tháng này';
+    $content.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);">📭 Chưa có dữ liệu chấm công ${scope}</div>`;
     return;
   }
 
@@ -910,16 +960,15 @@ function renderCheckin() {
     };
   }
 
-  // Nút lịch sử ở section admin — mở với all NV
   const $adminHistory = $('#adminHistoryBtn');
   if ($adminHistory) {
     $adminHistory.onclick = () => openHistoryModal('');
   }
 
-  // Nút lịch sử ở section "Gần đây" — mở với chính mình
+  // ⭐ Mặc định "Tất cả NV" thay vì chính mình
   const $recentHistory = $('#recentHistoryBtn');
   if ($recentHistory) {
-    $recentHistory.onclick = () => openHistoryModal(state.user?.id || '');
+    $recentHistory.onclick = () => openHistoryModal('');
   }
 }
 
