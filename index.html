@@ -38,7 +38,7 @@
     .dbg-warn { color: #ffd60a; }
     .dbg-error { color: #ff453a; }
 
-    /* ⭐⭐⭐ TABS — WRAP + CĂN GIỮA ⭐⭐⭐ */
+    /* ⭐ TABS — WRAP + CĂN GIỮA ⭐ */
     .tabs {
       display: flex !important;
       flex-wrap: wrap !important;
@@ -53,7 +53,6 @@
       min-height: auto !important;
       row-gap: 6px !important;
     }
-
     .tabs .tab-btn {
       flex: 0 0 auto !important;
       flex-shrink: 0 !important;
@@ -66,25 +65,13 @@
       padding: 7px 12px !important;
       line-height: 1.2 !important;
     }
-
     @media (max-width: 480px) {
-      .tabs .tab-btn {
-        font-size: 12px !important;
-        padding: 6px 10px !important;
-      }
+      .tabs .tab-btn { font-size: 12px !important; padding: 6px 10px !important; }
     }
-
     @media (max-width: 360px) {
-      .tabs .tab-btn {
-        font-size: 11px !important;
-        padding: 5px 8px !important;
-      }
+      .tabs .tab-btn { font-size: 11px !important; padding: 5px 8px !important; }
     }
-
-    /* ⭐ Đảm bảo fullpage vẫn ẩn tabs */
-    body.dpp-fullpage .tabs {
-      display: none !important;
-    }
+    body.dpp-fullpage .tabs { display: none !important; }
 
     .area-create-buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
     .area-create-buttons .btn-create { flex: 1 1 0; min-width: 100px; padding: 10px 12px; font-size: 13px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; font-family: inherit; color: white; transition: 0.2s; }
@@ -189,6 +176,7 @@
         <button class="tab-btn" data-tab="excel" style="display:none">📊 Bảng công</button>
         <button class="tab-btn" data-tab="rooms">🏫 Phòng học</button>
         <button class="tab-btn" data-tab="sql" style="display:none">⚙️ SQL</button>
+        <button class="tab-btn" data-tab="checkin" style="display:none">📍 Check-in</button>
       </nav>
 
       <section id="tab-calendar" class="tab-content active">
@@ -409,6 +397,11 @@ select * from cslx_rooms limit 5;"></textarea>
           <label>📜 Lịch sử (bấm để chèn lại)</label>
           <div id="sqlHistory" style="background:#fff; border:1px solid var(--border); border-radius:10px; max-height:240px; overflow-y:auto;"></div>
         </div>
+      </section>
+
+      <section id="tab-checkin" class="tab-content">
+        <div class="section-header"><h2>📍 Check-in</h2></div>
+        <div id="checkinRoot"></div>
       </section>
     </main>
 
@@ -664,6 +657,33 @@ select * from cslx_rooms limit 5;"></textarea>
       </div>
     </div>
 
+    <div id="checkinUpdateModal" class="modal-overlay" style="display:none">
+      <div class="modal" style="max-width: 360px;">
+        <div class="modal-header">
+          <h3>Cập nhật định vị</h3>
+          <button class="btn-close" data-close="checkinUpdateModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">
+            Đặt vị trí hiện tại làm điểm check-in. Người dùng phải đứng trong bán kính này mới check-in được.
+          </p>
+          <div class="form-group">
+            <label>Toạ độ GPS hiện tại</label>
+            <div id="checkinUpdateCoords" style="font-family:ui-monospace,monospace;font-size:13px;padding:10px 12px;background:var(--border);border-radius:8px;color:var(--text);">—</div>
+          </div>
+          <div class="form-group">
+            <label>Bán kính cho phép (mét)</label>
+            <input type="number" id="checkinRadiusInput" class="input" min="20" max="1000" step="10" value="100" />
+            <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">20-1000m. Khuyến nghị 50-200m.</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" data-close="checkinUpdateModal">Huỷ</button>
+          <button id="checkinUpdateConfirmBtn" class="btn-primary">Xác nhận</button>
+        </div>
+      </div>
+    </div>
+
     <div id="selectionBar" class="selection-bar" style="display:none;">
       <div class="selection-bar-inner">
         <span id="selectionCount">0 ngày đã chọn</span>
@@ -705,7 +725,7 @@ select * from cslx_rooms limit 5;"></textarea>
   })();
   </script>
 
-  <script type="module" src="./app.js?v=8"></script>
+  <script type="module" src="./app.js?v=9"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
