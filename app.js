@@ -40,7 +40,7 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-const APP_BUILD = '2026-11-06-final-v4-sql';
+const APP_BUILD = '2026-11-07-final-v5-checkin';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
 /* ⭐ Đánh dấu app.js đã load (cho timeout guard HTML) */
@@ -478,16 +478,17 @@ function bindEvents() {
     if (state.user) ensureSessionAlive().catch(() => {});
   });
 
-  /* ⭐ Tự động hiện tab SQL cho admin (polling nhẹ) */
-  let _lastSqlTabState = null;
+  /* ⭐ Tự động hiện các tab admin (SQL + Check-in) */
+  let _lastAdminTabState = null;
   setInterval(() => {
-    const $sqlTab = document.querySelector('[data-tab="sql"]');
-    if (!$sqlTab) return;
     const wantDisplay = state.isAdmin ? '' : 'none';
-    if (_lastSqlTabState !== wantDisplay) {
-      _lastSqlTabState = wantDisplay;
-      $sqlTab.style.display = wantDisplay;
-    }
+    if (_lastAdminTabState === wantDisplay) return;
+    _lastAdminTabState = wantDisplay;
+
+    ['[data-tab="sql"]', '[data-tab="checkin"]'].forEach(sel => {
+      const $tab = document.querySelector(sel);
+      if ($tab) $tab.style.display = wantDisplay;
+    });
   }, 800);
 }
 
