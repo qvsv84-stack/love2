@@ -358,7 +358,10 @@
           <button id="bulkCopyBtn" class="btn-secondary">📋 Copy ngày</button>
         </div>
         <div id="exportActionRow" style="display:none; margin-bottom:12px">
-          <button id="exportExcelBtn" class="btn-secondary" style="width:100%">📥 Xuất Excel</button>
+          <div style="display:flex; gap:8px;">
+            <button id="exportExcelBtn" class="btn-secondary" style="flex:1; min-width:0;">📥 Xuất Excel</button>
+            <button id="exportMonthBtn" class="btn-primary" style="flex:1; min-width:0; background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:#fff; border:none;">📸 Xuất công tháng</button>
+          </div>
         </div>
 
         <div class="calendar-wrap">
@@ -832,7 +835,7 @@ select * from cslx_rooms limit 5;"></textarea>
   })();
   </script>
 
-  <script type="module" src="./app.js?v=22"></script>
+  <script type="module" src="./app.js?v=25"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
