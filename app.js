@@ -40,7 +40,7 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-const APP_BUILD = '2026-11-07-final-v5-checkin';
+const APP_BUILD = '2026-11-07-final-v6-default-checkin';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
 /* ⭐ Đánh dấu app.js đã load (cho timeout guard HTML) */
@@ -132,6 +132,34 @@ async function forceLogout(reason) {
   showGuestView();
 }
 
+/* ⭐⭐⭐ ĐIỀU HƯỚNG SAU KHI LOGIN ⭐⭐⭐
+   - Nhân viên → tab Chấm công
+   - Admin → tab Lịch công (mặc định của HTML)
+*/
+async function afterLoginRedirect() {
+  // Đợi state.user và employees load xong (onLoggedIn async)
+  const start = Date.now();
+  while (Date.now() - start < 4000) {
+    if (state.user && (state.employees?.length > 0 || state.isAdmin)) break;
+    await new Promise(r => setTimeout(r, 150));
+  }
+
+  if (!state.user) return; // chưa login
+  if (state.isAdmin) {
+    // Admin → giữ tab calendar (mặc định HTML)
+    console.log('[App] Admin → tab Lịch công');
+    return;
+  }
+
+  // Nhân viên → tab Chấm công
+  console.log('[App] Nhân viên → tab Chấm công');
+  try {
+    switchTab('checkin');
+  } catch (err) {
+    console.warn('[afterLoginRedirect] switchTab fail:', err);
+  }
+}
+
 function getAreasViewDate() {
   const $dp = $('#areasViewDate');
   if ($dp && $dp.value) return $dp.value;
@@ -165,7 +193,10 @@ async function tryAutoLogin() {
       return false;
     }
     if (!state.user) {
-      try { await onLoggedIn(data.user); } catch (err) { console.warn('[autoLogin onLoggedIn]', err); }
+      try {
+        await onLoggedIn(data.user);
+        setTimeout(afterLoginRedirect, 200);
+      } catch (err) { console.warn('[autoLogin onLoggedIn]', err); }
     }
     return true;
   } catch (err) {
@@ -216,6 +247,8 @@ function bindEvents() {
     _selfHealAttempts = 0;
     try {
       await onLoggedIn(data.user);
+      // ⭐ Nhân viên → tab Chấm công
+      setTimeout(afterLoginRedirect, 200);
     } catch (err) {
       console.error('[login] onLoggedIn failed:', err);
       toast('Lỗi tải dữ liệu: ' + (err?.message || 'không rõ'));
@@ -431,7 +464,11 @@ function bindEvents() {
     if (event === 'SIGNED_IN' && session?.user) {
       _selfHealAttempts = 0;
       if (!state.user || state.user.id !== session.user.id) {
-        try { await onLoggedIn(session.user); } catch (err) { console.warn('[SIGNED_IN]', err); }
+        try {
+          await onLoggedIn(session.user);
+          // ⭐ Nhân viên → tab Chấm công
+          setTimeout(afterLoginRedirect, 200);
+        } catch (err) { console.warn('[SIGNED_IN]', err); }
       }
       return;
     }
@@ -478,14 +515,18 @@ function bindEvents() {
     if (state.user) ensureSessionAlive().catch(() => {});
   });
 
-  /* ⭐ Tự động hiện các tab admin (SQL + Check-in) */
-  let _lastAdminTabState = null;
+  /* ⭐ Tự động ẨN các tab admin với nhân viên
+     - KHÔNG đụng vào tab "checkin" (vẫn hiện với mọi user)
+     - KHÔNG đụng vào tab "calendar" (vẫn hiện với mọi user)
+     - KHÔNG đụng vào tab "rooms" (vẫn hiện với mọi user)
+  */
+  let _lastAdminTabsState = null;
   setInterval(() => {
     const wantDisplay = state.isAdmin ? '' : 'none';
-    if (_lastAdminTabState === wantDisplay) return;
-    _lastAdminTabState = wantDisplay;
+    if (_lastAdminTabsState === wantDisplay) return;
+    _lastAdminTabsState = wantDisplay;
 
-    ['[data-tab="sql"]', '[data-tab="checkin"]'].forEach(sel => {
+    ['[data-tab="areas"]', '[data-tab="employees"]', '[data-tab="salary"]', '[data-tab="excel"]', '[data-tab="sql"]'].forEach(sel => {
       const $tab = document.querySelector(sel);
       if ($tab) $tab.style.display = wantDisplay;
     });
@@ -570,6 +611,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           await forceLogout('initAuth timeout with expired session');
           return;
         }
+      }
+      // ⭐ Sau initAuth, nếu có user thì điều hướng về tab đúng
+      if (state.user) {
+        setTimeout(afterLoginRedirect, 200);
       }
     } catch (err) {
       console.error('[App] initAuth error:', err);
