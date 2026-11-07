@@ -191,7 +191,7 @@ function buildDayPreviewBody(att, emp) {
       else if (a.type === 'night')    addLine('🌙', 'Ca đêm',    calcEntryActualHours(a), false, getPoolForEntry(a).others);
       else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
-        const f = state.floors.find(x => x.id === a.floor_id);
+        const f = state.floors.find(x => String(x.id) === String(a.floor_id));
         addLine('🏢', `${b?.name || '?'} — ${f ? floorLabel(f.floor_number) : '?'}`,
           calcEntryActualHours(a), false, getPoolForEntry(a).others);
       }
@@ -221,7 +221,7 @@ function buildDayPreviewBody(att, emp) {
       else if (a.type === 'night')      addLine('🌙', 'Ca đêm (OT)',    calcEntryActualHours(a), true, getPoolForEntry(a).others);
       else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
-        const f = state.floors.find(x => x.id === a.floor_id);
+        const f = state.floors.find(x => String(x.id) === String(a.floor_id));
         addLine('🏢', `${b?.name || '?'} — ${f ? floorLabel(f.floor_number) : '?'} (OT)`,
           calcEntryActualHours(a), true, getPoolForEntry(a).others);
       }
@@ -254,6 +254,9 @@ export function openSelectedDate() {
   openAttendanceModal(state.selectedViewDate);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ⭐ LOAD + TỰ ĐỘNG TÍNH LẠI + AUTO SYNC DB
+   ═══════════════════════════════════════════════════════════════ */
 export async function loadAttendanceForMonth(forceRefresh = false) {
   if (!state.selectedEmployeeId) { state.attendance = []; return; }
   const y = state.currentMonth.getFullYear();
@@ -273,9 +276,136 @@ export async function loadAttendanceForMonth(forceRefresh = false) {
     .from('attendance').select('*')
     .eq('employee_id', state.selectedEmployeeId)
     .gte('date', start).lte('date', end);
-  if (error) { console.error(error); state.attendance = []; }
-  else { state.attendance = data || []; attendanceCache[key] = state.attendance; }
+  if (error) { console.error(error); state.attendance = []; return; }
+
+  const records = data || [];
+
+  // ⭐ TỰ ĐỘNG tính lại + sync DB (nếu sai)
+  try {
+    await _recalcAndSync(records, y, m);
+  } catch (err) {
+    console.warn('[recalc] fail:', err);
+  }
+
+  state.attendance = records;
+  attendanceCache[key] = records;
   updateSummary();
+}
+
+/* ⭐ Private: tính lại từ areas/ot_areas + auto-sync DB nếu sai */
+async function _recalcAndSync(records, y, m) {
+  if (!records.length) return;
+
+  // Đảm bảo buildings/floors đã load
+  if (!state.floors?.length || !state.buildings?.length) {
+    try {
+      const b = await import('./buildings.js');
+      await b.loadBuildings();
+    } catch (err) { console.warn('[recalc] load buildings fail:', err); }
+  }
+
+  const start = `${y}-${pad(m + 1)}-01`;
+  const end = `${y}-${pad(m + 1)}-${pad(new Date(y, m + 1, 0).getDate())}`;
+
+  // Fetch toàn bộ records tháng (MỌI NV) — chỉ field cần cho pool
+  const { data: all, error: allErr } = await supabase
+    .from('attendance')
+    .select('employee_id, areas, ot_areas, date, is_off, mode')
+    .gte('date', start).lte('date', end);
+  if (allErr) { console.warn('[recalc] fetch all fail:', allErr); return; }
+
+  // Group theo ngày → có pool chính xác
+  const byDate = {};
+  for (const r of all || []) {
+    if (!byDate[r.date]) byDate[r.date] = [];
+    byDate[r.date].push(r);
+  }
+
+  // Backup state
+  const saveEmp = state.selectedEmployeeId;
+  const savePool = state.dayAssignments;
+  const saveBatch = state.batchDates;
+  state.batchDates = null;
+
+  const toSync = [];
+  let fixedCount = 0;
+
+  for (const att of records) {
+    if (att.is_off) continue;
+    if (att.mode === 'off' || att.mode === 'leave') continue;
+    if (att.mode === 'manual' && (!att.areas || att.areas.length === 0)) continue;
+
+    const oldTotal = Number(att.total_hours || 0);
+    const oldOT = Number(att.ot_hours || 0);
+
+    // Set pool cho ngày của record này
+    state.dayAssignments = byDate[att.date] || [];
+    state.selectedEmployeeId = att.employee_id;
+
+    let rawMain = 0, rawOT = 0;
+    for (const a of att.areas || []) {
+      const t = a.type || 'building';
+      if (t === 'building') {
+        if (!a.building_id || !a.floor_id) continue;
+        rawMain += calcEntryActualHours(a);
+      } else {
+        rawMain += calcEntryActualHours(a);
+      }
+    }
+    for (const a of att.ot_areas || []) {
+      const t = a.type || 'building';
+      if (t === 'sunday_ot') { rawOT += Number(a.hours || 0); continue; }
+      if (t === 'building') {
+        if (!a.building_id || !a.floor_id) continue;
+        rawOT += calcEntryActualHours(a);
+      } else {
+        rawOT += calcEntryActualHours(a);
+      }
+    }
+
+    const newTotal = Math.round(Math.min(rawMain, DAILY_MAIN_CAP) * 100) / 100;
+    const newOT = Math.round((rawOT + Math.max(0, rawMain - DAILY_MAIN_CAP)) * 100) / 100;
+
+    // Gán vào state local để hiển thị đúng ngay
+    att.total_hours = newTotal;
+    att.ot_hours = newOT;
+
+    if (Math.abs(newTotal - oldTotal) > 0.01 || Math.abs(newOT - oldOT) > 0.01) {
+      toSync.push({ id: att.id, total_hours: newTotal, ot_hours: newOT });
+      fixedCount++;
+    }
+  }
+
+  // Restore state
+  state.selectedEmployeeId = saveEmp;
+  state.dayAssignments = savePool;
+  state.batchDates = saveBatch;
+
+  // ⭐ Tự update DB nếu phát hiện sai (chỉ admin)
+  if (state.isAdmin && toSync.length > 0) {
+    console.log(`[recalc] ${toSync.length}/${records.length} records sai → đang sync DB...`);
+    const BATCH = 50;
+    let done = 0, failed = 0;
+    for (let i = 0; i < toSync.length; i += BATCH) {
+      const chunk = toSync.slice(i, i + BATCH);
+      const results = await Promise.all(
+        chunk.map(u => supabase.from('attendance').update({
+          total_hours: u.total_hours,
+          ot_hours: u.ot_hours,
+        }).eq('id', u.id))
+      );
+      for (const r of results) {
+        if (r.error) { failed++; console.warn('[recalc] update fail:', r.error); }
+        else done++;
+      }
+    }
+    console.log(`[recalc] ${done} updated${failed > 0 ? `, ${failed} failed` : ''}`);
+
+    invalidateAttendanceCache();
+    if (state.salaryModule) state.salaryModule.invalidateCache();
+  } else if (fixedCount > 0) {
+    console.log(`[recalc] ${fixedCount}/${records.length} records sai (không có quyền sync DB)`);
+  }
 }
 
 async function loadDayAssignments(dateStr) {
@@ -298,7 +428,7 @@ function getConflictsForFloor(floorId, excludeEmpId) {
     const check = (arr) => {
       if (!Array.isArray(arr)) return;
       for (const a of arr) {
-        if ((!a.type || a.type === 'building') && a.floor_id === floorId) {
+        if ((!a.type || a.type === 'building') && String(a.floor_id) === String(floorId)) {
           empIds.add(att.employee_id);
         }
       }
@@ -410,10 +540,11 @@ async function getPreviousAttendance(employeeId, beforeDate) {
   return data?.[0] || null;
 }
 
+/* ⭐ FIX: String() compare để tránh lỗi uuid/bigint */
 function getEntryDefaultHours(entry) {
   if (entry.type === 'building') {
     if (!entry.floor_id) return 0;
-    const f = state.floors.find(x => x.id === entry.floor_id);
+    const f = state.floors.find(x => String(x.id) === String(entry.floor_id));
     return f ? Number(f.default_hours || 0) : 0;
   }
   if (!state.specialAreas) return 0;
@@ -421,7 +552,6 @@ function getEntryDefaultHours(entry) {
   return sp ? Number(sp.default_hours || 0) : 0;
 }
 
-/* ⭐ Pool: đếm số người cùng tầng/khu vực trong ngày */
 function getPoolForEntry(entry) {
   const selfId = state.selectedEmployeeId;
   const entryType = entry.type || 'building';
@@ -430,7 +560,6 @@ function getPoolForEntry(entry) {
 
   const empIds = new Set();
   const others = [];
-  let maxHours = defaultHours > 0 ? defaultHours : 0;
 
   if (Array.isArray(state.dayAssignments)) {
     for (const att of state.dayAssignments) {
@@ -440,7 +569,8 @@ function getPoolForEntry(entry) {
         for (const a of arr) {
           const aType = a.type || 'building';
           if (aType !== entryType) continue;
-          if (entryType === 'building' && a.floor_id !== floorId) continue;
+          // ⭐ FIX: String() compare
+          if (entryType === 'building' && String(a.floor_id) !== String(floorId)) continue;
 
           if (!empIds.has(att.employee_id)) {
             empIds.add(att.employee_id);
@@ -455,7 +585,7 @@ function getPoolForEntry(entry) {
   }
 
   empIds.add(selfId);
-  return { count: empIds.size, maxHours: maxHours > 0 ? maxHours : defaultHours, defaultHours, others };
+  return { count: empIds.size, defaultHours, others };
 }
 
 function formatSharedNote(others) {
@@ -471,7 +601,7 @@ function calcEntryActualHours(entry) {
     return getEntryDefaultHours(entry);
   }
   const pool = getPoolForEntry(entry);
-  if (pool.count > 1) return pool.maxHours / pool.count;
+  if (pool.count > 1) return pool.defaultHours / pool.count;
   return pool.defaultHours;
 }
 
@@ -526,7 +656,7 @@ function buildSummaryHTML(template) {
       else if (a.type === 'night') lines.push(buildLine('🌙', 'Ca đêm', a));
       else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
-        const f = state.floors.find(x => x.id === a.floor_id);
+        const f = state.floors.find(x => String(x.id) === String(a.floor_id));
         const bName = b?.name || '?';
         const fName = f ? floorLabel(f.floor_number) : '?';
         lines.push(buildLine('🏢', `${bName} — ${fName}`, a));
@@ -546,7 +676,7 @@ function buildSummaryHTML(template) {
       else if (a.type === 'night') lines.push(buildLine('🌙', 'Ca đêm (OT)', a));
       else if (a.building_id && a.floor_id) {
         const b = state.buildings.find(x => x.id === a.building_id);
-        const f = state.floors.find(x => x.id === a.floor_id);
+        const f = state.floors.find(x => String(x.id) === String(a.floor_id));
         const bName = b?.name || '?';
         const fName = f ? floorLabel(f.floor_number) : '?';
         lines.push(buildLine('🏢', `${bName} — ${fName} (OT)`, a));
@@ -761,8 +891,8 @@ function openSupervisorModeContent(template) {
 
 function openEmployeeModeContent(template) {
   ensureSpecialState();
-  const validFloorIds = new Set(state.floors.map(f => f.id));
-  const validBuildingIds = new Set(state.buildings.map(b => b.id));
+  const validFloorIds = new Set(state.floors.map(f => String(f.id)));
+  const validBuildingIds = new Set(state.buildings.map(b => String(b.id)));
 
   state.modalAreas = [];
   state.modalOtAreas = [];
@@ -770,10 +900,9 @@ function openEmployeeModeContent(template) {
   if (template && Array.isArray(template.areas) && template.areas.length) {
     for (const a of template.areas) {
       if (a.type === 'external' || a.type === 'night') {
-        // ⭐ Không còn đọc a.hours — chỉ lưu type
         state.modalAreas.push({ type: a.type });
       } else if (a.building_id && a.floor_id) {
-        if (validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id)) {
+        if (validBuildingIds.has(String(a.building_id)) && validFloorIds.has(String(a.floor_id))) {
           state.modalAreas.push({
             type: 'building',
             building_id: a.building_id,
@@ -801,7 +930,7 @@ function openEmployeeModeContent(template) {
       if (a.type === 'external' || a.type === 'night') {
         state.modalOtAreas.push({ type: a.type });
       } else if (a.building_id && a.floor_id) {
-        if (validBuildingIds.has(a.building_id) && validFloorIds.has(a.floor_id)) {
+        if (validBuildingIds.has(String(a.building_id)) && validFloorIds.has(String(a.floor_id))) {
           state.modalOtAreas.push({
             type: 'building',
             building_id: a.building_id,
@@ -831,7 +960,7 @@ function openEmployeeModeContent(template) {
   toggleSundayOtSection(isSundayOt);
 }
 
-/* ⭐ Render picker — KHÔNG còn ô nhập giờ, chỉ hiện tên tầng + giờ tự động */
+/* ⭐ Render picker — KHÔNG có ô nhập giờ, chỉ chọn toà + tầng */
 function renderAreaPickerInto(wrapId, areasState, isOt) {
   const rerender = () => renderAreaPickerInto(wrapId, areasState, isOt);
   const wrap = $('#' + wrapId);
@@ -860,11 +989,11 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
 
     if (type === 'building') {
       const bOpts = state.buildings.map(b =>
-        `<option value="${b.id}" ${b.id === entry.building_id ? 'selected' : ''}>${b.name}</option>`
+        `<option value="${b.id}" ${String(b.id) === String(entry.building_id) ? 'selected' : ''}>${b.name}</option>`
       ).join('');
-      const floorsOfB = state.floors.filter(f => f.building_id === entry.building_id);
+      const floorsOfB = state.floors.filter(f => String(f.building_id) === String(entry.building_id));
       const fOpts = floorsOfB.map(f =>
-        `<option value="${f.id}" ${f.id === entry.floor_id ? 'selected' : ''}>
+        `<option value="${f.id}" ${String(f.id) === String(entry.floor_id) ? 'selected' : ''}>
           ${floorLabel(f.floor_number)} (${formatHours(f.default_hours)})
         </option>`
       ).join('');
@@ -876,7 +1005,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         }
       }
 
-      // ⭐ BỎ input giờ — chỉ còn select toà + select tầng
       contentHtml = `
         <select class="area-building"><option value="">-- Toà nhà --</option>${bOpts}</select>
         <select class="area-floor"><option value="">-- Tầng --</option>${fOpts}</select>
@@ -891,7 +1019,6 @@ function renderAreaPickerInto(wrapId, areasState, isOt) {
         conflictHtml = `<div class="area-conflict">⚠️ Cùng ${specialName.toLowerCase()} với ${conflicts.join(', ')} — sẽ chia đều</div>`;
       }
 
-      // ⭐ BỎ input giờ — chỉ hiện tên khu vực + default giờ
       contentHtml = `
         <div style="flex:1 1 auto;display:flex;align-items:center;gap:8px;min-width:0;">
           <span style="font-size:13px;font-weight:600;color:var(--ocean-700);white-space:nowrap;">
@@ -1121,7 +1248,6 @@ function buildEmployeePayload() {
   });
   if (!validAreas.length) { toast('Chọn ít nhất 1 khu vực hoặc nhập giờ'); return null; }
 
-  // ⭐ Chỉ dùng calcEntryActualHours — không còn entryHours thủ công
   let totalMain = 0;
   for (const entry of validAreas) totalMain += calcEntryActualHours(entry);
   const mainCapped = Math.min(totalMain, DAILY_MAIN_CAP);
@@ -1165,7 +1291,6 @@ export async function saveAttendance() {
   if (!state.isAdmin) { toast('Chỉ Giám sát được chấm công'); return; }
   if (!state.selectedEmployeeId) return;
 
-  // ⭐ Đảm bảo dayAssignments đã load (cần cho calcEntryActualHours chia pool)
   if (!state.batchDates && state.editingDate) {
     if (!_dayAssignCache.has(state.editingDate)) {
       try {
@@ -1468,10 +1593,9 @@ export async function changeMonth(delta) {
 
   renderCalendar();
 }
+
 /* ═══════════════════════════════════════════════════════════════
-   ⭐ SYNC MONTH HOURS — Tính lại total_hours + ot_hours
-   cho TẤT CẢ record trong tháng hiện tại.
-   Chỉ chạy 1 lần khi đã nâng cấp logic tính giờ.
+   ⭐ SYNC MONTH HOURS — force sync toàn bộ tháng cho MỌI NV
    ═══════════════════════════════════════════════════════════════ */
 export async function syncMonthHours() {
   if (!state.isAdmin) { toast('Chỉ admin được đồng bộ'); return; }
@@ -1482,48 +1606,43 @@ export async function syncMonthHours() {
   const lastDay = new Date(y, m, 0).getDate();
   const end = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
 
-  const ok = confirm(
-    `Đồng bộ giờ công tháng ${m}/${y}?\n\n` +
-    `Sẽ quét TOÀN BỘ record của MỌI nhân viên, tính lại giờ công + OT theo logic mới (auto chia pool), ` +
-    `rồi ghi lại vào DB.\n\nRecord chế độ "Thủ công" (nhập tay) sẽ được giữ nguyên.`
-  );
-  if (!ok) return;
+  if (!confirm(`Đồng bộ giờ công tháng ${m}/${y}?\n\nSẽ quét TOÀN BỘ record của MỌI nhân viên, tính lại giờ công + OT.`)) return;
 
-  toast('⏳ Đang tải dữ liệu tháng...');
+  toast('⏳ Đang tải...');
 
-  // Đảm bảo buildings + floors đã load
   if (!state.buildings?.length || !state.floors?.length) {
     try {
       const b = await import('./buildings.js');
       await b.loadBuildings();
-    } catch (err) { console.warn('[sync] buildings:', err); }
+    } catch (err) { console.warn('[sync] load buildings fail:', err); }
   }
 
-  // Fetch TOÀN BỘ records của tháng (mọi nhân viên)
+  if (!state.floors?.length) {
+    toast('❌ Chưa tải được danh sách tầng — kiểm tra tab Khu vực');
+    return;
+  }
+
   const { data: allRecords, error } = await supabase
     .from('attendance').select('*')
     .gte('date', start).lte('date', end);
   if (error) { toast('Lỗi tải: ' + error.message); return; }
   if (!allRecords?.length) { toast('Không có dữ liệu tháng này'); return; }
 
-  // Group theo ngày (cần pool theo từng ngày)
   const byDate = {};
   for (const r of allRecords) {
     if (!byDate[r.date]) byDate[r.date] = [];
     byDate[r.date].push(r);
   }
 
-  // Backup state để restore sau
   const savePool = state.dayAssignments;
   const saveEmpId = state.selectedEmployeeId;
   const saveBatchDates = state.batchDates;
-  state.batchDates = null; // tắt batch mode để calcEntryActualHours dùng pool
+  state.batchDates = null;
 
   const updates = [];
-  let checkedTotal = 0;
+  let checked = 0;
 
   for (const [date, records] of Object.entries(byDate)) {
-    // Set pool cho ngày này = tất cả record cùng ngày
     state.dayAssignments = records.map(r => ({
       employee_id: r.employee_id,
       areas: r.areas || [],
@@ -1531,90 +1650,75 @@ export async function syncMonthHours() {
     }));
 
     for (const r of records) {
-      checkedTotal++;
-      // Skip: off / leave / manual không có areas
+      checked++;
       if (r.is_off) continue;
       if (r.mode === 'leave' || r.mode === 'off') continue;
       if (r.mode === 'manual' && (!r.areas || r.areas.length === 0)) continue;
 
-      // Set employee context để getPoolForEntry loại trừ đúng self
       state.selectedEmployeeId = r.employee_id;
 
       let rawMain = 0, rawOT = 0;
-
-      if (Array.isArray(r.areas)) {
-        for (const a of r.areas) {
-          const t = a.type || 'building';
-          if (t === 'building') {
-            if (a.building_id && a.floor_id) rawMain += calcEntryActualHours(a);
-          } else if (t === 'external' || t === 'night') {
-            rawMain += calcEntryActualHours(a);
-          }
+      for (const a of r.areas || []) {
+        const t = a.type || 'building';
+        if (t === 'building') {
+          if (!a.building_id || !a.floor_id) continue;
+          rawMain += calcEntryActualHours(a);
+        } else {
+          rawMain += calcEntryActualHours(a);
         }
       }
-      if (Array.isArray(r.ot_areas)) {
-        for (const a of r.ot_areas) {
-          const t = a.type || 'building';
-          if (t === 'sunday_ot') rawOT += Number(a.hours || 0);
-          else if (t === 'building') {
-            if (a.building_id && a.floor_id) rawOT += calcEntryActualHours(a);
-          } else {
-            rawOT += calcEntryActualHours(a);
-          }
+      for (const a of r.ot_areas || []) {
+        const t = a.type || 'building';
+        if (t === 'sunday_ot') { rawOT += Number(a.hours || 0); continue; }
+        if (t === 'building') {
+          if (!a.building_id || !a.floor_id) continue;
+          rawOT += calcEntryActualHours(a);
+        } else {
+          rawOT += calcEntryActualHours(a);
         }
       }
 
-      // Cap main ở 8h, dư → OT (khớp với buildEmployeePayload)
-      const newTotal = Math.min(rawMain, DAILY_MAIN_CAP);
-      const newOT = rawOT + Math.max(0, rawMain - DAILY_MAIN_CAP);
+      const newTotal = Math.round(Math.min(rawMain, DAILY_MAIN_CAP) * 100) / 100;
+      const newOT = Math.round((rawOT + Math.max(0, rawMain - DAILY_MAIN_CAP)) * 100) / 100;
 
       const oldTotal = Number(r.total_hours || 0);
       const oldOT = Number(r.ot_hours || 0);
 
       if (Math.abs(newTotal - oldTotal) > 0.01 || Math.abs(newOT - oldOT) > 0.01) {
-        updates.push({
-          id: r.id,
-          total_hours: Math.round(newTotal * 100) / 100,
-          ot_hours: Math.round(newOT * 100) / 100,
-        });
+        updates.push({ id: r.id, total_hours: newTotal, ot_hours: newOT });
       }
     }
   }
 
-  // Restore state
   state.dayAssignments = savePool;
   state.selectedEmployeeId = saveEmpId;
   state.batchDates = saveBatchDates;
 
   if (!updates.length) {
-    toast(`✅ Đã kiểm tra ${checkedTotal} records — tất cả đều đúng, không cần sửa`);
+    toast(`Đã kiểm tra ${checked} records — tất cả đã đúng`);
     return;
   }
 
-  toast(`⏳ Sửa ${updates.length}/${checkedTotal} records sai...`);
+  toast(`⏳ Sửa ${updates.length}/${checked} records...`);
 
-  // Batch update — mỗi lần 100 record, gửi song song
-  const BATCH_SIZE = 100;
-  let done = 0;
-  for (let i = 0; i < updates.length; i += BATCH_SIZE) {
-    const chunk = updates.slice(i, i + BATCH_SIZE);
+  const BATCH = 50;
+  let done = 0, failed = 0;
+  for (let i = 0; i < updates.length; i += BATCH) {
+    const chunk = updates.slice(i, i + BATCH);
     const results = await Promise.all(
       chunk.map(u => supabase.from('attendance').update({
         total_hours: u.total_hours,
         ot_hours: u.ot_hours,
       }).eq('id', u.id))
     );
-    const failed = results.find(r => r.error);
-    if (failed) {
-      toast(`Lỗi tại batch ${Math.floor(i / BATCH_SIZE) + 1}: ${failed.error.message}`);
-      break;
+    for (const res of results) {
+      if (res.error) { failed++; console.error('[sync]', res.error); }
+      else done++;
     }
-    done += chunk.length;
   }
 
-  toast(`✅ Đã sửa ${done}/${checkedTotal} records`);
+  toast(`✅ Sửa ${done} records${failed > 0 ? `, lỗi ${failed}` : ''}`);
 
-  // Refresh toàn bộ cache
   invalidateAttendanceCache();
   invalidateDayAssignCache();
   if (state.selectedEmployeeId) await loadAttendanceForMonth(true);
