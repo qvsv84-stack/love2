@@ -6,11 +6,16 @@ const LOCATION_ID = 1;
 const DEFAULT_RADIUS = 100;
 const MAX_ACCURACY_WARN = 100;
 
+let _watchId = null;
+let _renderTimer = null;
+let _lastRenderedPos = null;
+
 function ensureState() {
   if (!state.checkinLocation) state.checkinLocation = null;
   if (!state.checkinLogs) state.checkinLogs = [];
   if (!state.checkinUserPos) state.checkinUserPos = null;
   if (!state.checkinGpsError) state.checkinGpsError = null;
+  if (!state.checkinWatching) state.checkinWatching = false;
 }
 
 function haversine(lat1, lng1, lat2, lng2) {
@@ -23,41 +28,88 @@ function haversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function getGPS() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject({ code: 0, message: 'Trình duyệt không hỗ trợ GPS' });
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve({
+/* ═══════════════════════════════════════════════════════════════
+   GPS — WATCH POSITION (cập nhật liên tục)
+   ═══════════════════════════════════════════════════════════════ */
+function startGPSWatch() {
+  if (_watchId != null) return;
+  if (!navigator.geolocation) {
+    state.checkinGpsError = 'Trình duyệt không hỗ trợ GPS';
+    state.checkinWatching = false;
+    return;
+  }
+
+  state.checkinGpsError = null;
+  state.checkinWatching = true;
+
+  _watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const newPos = {
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
         accuracy: pos.coords.accuracy || 0,
         timestamp: pos.timestamp,
-      }),
-      err => reject(err),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  });
+      };
+
+      const prev = state.checkinUserPos;
+      let significantMove = true;
+      if (prev) {
+        const moved = haversine(prev.lat, prev.lng, newPos.lat, newPos.lng);
+        if (moved < 3 && Math.abs(newPos.accuracy - prev.accuracy) < 5) {
+          significantMove = false;
+        }
+      }
+
+      state.checkinUserPos = newPos;
+      state.checkinGpsError = null;
+
+      if (significantMove) scheduleRender();
+    },
+    (err) => {
+      console.warn('[checkin] watch error:', err);
+      let msg = 'Không lấy được GPS';
+      if (err.code === 1) {
+        msg = 'Bạn chưa cho phép truy cập vị trí. Vào Cài đặt → Safari → Vị trí để bật.';
+        // Quyền bị từ chối → dừng watch vô ích
+        stopCheckinWatch();
+      }
+      else if (err.code === 2) msg = 'GPS không khả dụng. Kiểm tra đã bật định vị chưa.';
+      else if (err.code === 3) msg = 'Hết thời gian lấy GPS. Thử lại ở nơi thoáng hơn.';
+      else if (err.message) msg = err.message;
+      state.checkinGpsError = msg;
+      state.checkinWatching = false;
+      scheduleRender(true);
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 }
+  );
 }
 
-async function refreshGPS() {
-  state.checkinGpsError = null;
-  try {
-    state.checkinUserPos = await getGPS();
-  } catch (err) {
-    state.checkinUserPos = null;
-    let msg = 'Không lấy được GPS';
-    if (err.code === 1) msg = 'Bạn chưa cho phép truy cập vị trí. Vào Cài đặt → Safari → Vị trí để bật.';
-    else if (err.code === 2) msg = 'GPS không khả dụng. Kiểm tra đã bật định vị chưa.';
-    else if (err.code === 3) msg = 'Hết thời gian lấy GPS. Thử lại ở nơi thoáng hơn.';
-    else if (err.message) msg = err.message;
-    state.checkinGpsError = msg;
-    console.warn('[checkin] GPS error:', err);
+export function stopCheckinWatch() {
+  if (_watchId != null) {
+    try { navigator.geolocation.clearWatch(_watchId); } catch {}
+    _watchId = null;
   }
+  state.checkinWatching = false;
+  clearTimeout(_renderTimer);
 }
 
+function scheduleRender(immediate = false) {
+  clearTimeout(_renderTimer);
+  if (immediate) {
+    if ($('#tab-checkin')?.classList.contains('active')) renderCheckin();
+    return;
+  }
+  _renderTimer = setTimeout(() => {
+    if ($('#tab-checkin')?.classList.contains('active')) {
+      // Chỉ update phần trạng thái + nút, không rerender toàn bộ (giữ scroll)
+      updateLiveStatus();
+    }
+  }, 400);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DB
+   ═══════════════════════════════════════════════════════════════ */
 async function loadLocation() {
   const { data, error } = await supabase
     .from('cslx_checkin_location')
@@ -86,6 +138,9 @@ async function loadLogs() {
   state.checkinLogs = data || [];
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════ */
 function getUserName() {
   const emp = (state.employees || []).find(e => e.id === state.user?.id);
   return emp?.full_name || emp?.username || state.user?.email || 'Admin';
@@ -116,17 +171,30 @@ function formatDate(iso) {
   } catch { return '—'; }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ENTRYPOINT — gọi từ switchTab()
+   ═══════════════════════════════════════════════════════════════ */
 export async function loadCheckinTab() {
   ensureState();
   renderLoading();
 
   await Promise.all([loadLocation(), loadLogs()]);
-  await refreshGPS();
+
+  startGPSWatch();
+
+  // Đợi tối đa 5s để có GPS đầu tiên (không chặn vô hạn)
+  const start = Date.now();
+  while (!state.checkinUserPos && !state.checkinGpsError && Date.now() - start < 5000) {
+    await new Promise(r => setTimeout(r, 200));
+  }
 
   renderCheckin();
   bindModal();
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   RENDER
+   ═══════════════════════════════════════════════════════════════ */
 function renderLoading() {
   const $root = $('#checkinRoot');
   if (!$root) return;
@@ -146,16 +214,17 @@ function renderCheckin() {
   const err = state.checkinGpsError;
   const distInfo = getDistanceInfo();
 
+  /* --- Status card --- */
   let statusCard = '';
   if (!loc) {
     statusCard = `
-      <div style="padding:16px;background:#fef3c7;border:1px solid #fbbf24;border-radius:10px;font-size:13px;color:#92400e;line-height:1.6;">
+      <div id="checkinStatusBox" style="padding:16px;background:#fef3c7;border:1px solid #fbbf24;border-radius:10px;font-size:13px;color:#92400e;line-height:1.6;">
         <strong>⚠️ Chưa cấu hình vị trí</strong><br>
         Đứng tại vị trí muốn đặt điểm check-in, bấm <strong>"Cập nhật định vị"</strong>.
       </div>`;
   } else if (err) {
     statusCard = `
-      <div style="padding:16px;background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;font-size:13px;color:#991b1b;line-height:1.6;">
+      <div id="checkinStatusBox" style="padding:16px;background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;font-size:13px;color:#991b1b;line-height:1.6;">
         <strong>⚠️ Lỗi GPS</strong><br>
         ${err}
         <div style="margin-top:10px;">
@@ -163,29 +232,15 @@ function renderCheckin() {
         </div>
       </div>`;
   } else if (distInfo) {
-    const ok = distInfo.inRange;
-    const color = ok ? '#16a34a' : '#dc2626';
-    const bg = ok ? '#dcfce7' : '#fee2e2';
-    const border = ok ? '#86efac' : '#fca5a5';
-    const icon = ok ? '✅' : '❌';
-    const txt = ok ? 'TRONG PHẠM VI' : 'NGOÀI PHẠM VI';
-
-    const accuracyWarn = distInfo.accuracy > MAX_ACCURACY_WARN
-      ? `<div style="margin-top:8px;padding:6px 8px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">⚠️ GPS chính xác thấp (±${Math.round(distInfo.accuracy)}m) — nên ra chỗ thoáng hơn</div>`
-      : '';
-
+    statusCard = buildStatusHTML(distInfo);
+  } else {
     statusCard = `
-      <div style="padding:14px;background:${bg};border:1px solid ${border};border-radius:10px;font-size:13px;color:${color};line-height:1.6;">
-        <div style="font-weight:700;font-size:15px;margin-bottom:8px;">${icon} ${txt}</div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap;color:var(--text);font-size:12.5px;">
-          <span>📏 Cách điểm: <strong>${Math.round(distInfo.distance)}m</strong></span>
-          <span>⭕ Bán kính: <strong>${distInfo.radius}m</strong></span>
-          <span>📡 GPS: <strong>±${Math.round(distInfo.accuracy)}m</strong></span>
-        </div>
-        ${accuracyWarn}
+      <div id="checkinStatusBox" style="padding:16px;background:#e0e7ff;border:1px solid #a5b4fc;border-radius:10px;font-size:13px;color:#3730a3;line-height:1.6;">
+        📡 Đang chờ GPS...
       </div>`;
   }
 
+  /* --- Location card --- */
   let locationCard = '';
   if (loc) {
     locationCard = `
@@ -197,6 +252,15 @@ function renderCheckin() {
       </div>`;
   }
 
+  /* --- Live tracking indicator --- */
+  const trackingNote = state.checkinWatching
+    ? `<div style="margin-top:10px;padding:8px 12px;background:#ecfdf5;border:1px solid #86efac;border-radius:8px;font-size:11.5px;color:#065f46;display:flex;align-items:center;gap:6px;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;animation:checkinPulse 1.5s infinite;"></span>
+        Đang theo dõi GPS liên tục — vị trí tự cập nhật khi bạn di chuyển
+      </div>
+      <style>@keyframes checkinPulse{0%,100%{opacity:1}50%{opacity:0.3}}</style>`
+    : '';
+
   const canCheckin = !!(loc && pos && distInfo && distInfo.inRange);
   const logsHtml = renderLogs(state.checkinLogs);
 
@@ -204,6 +268,7 @@ function renderCheckin() {
     <div style="padding:0 0 20px;">
       ${statusCard}
       ${locationCard}
+      ${trackingNote}
 
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button id="checkinUpdateLocBtn" class="btn-secondary" style="flex:1;padding:12px;font-size:14px;">🔄 Cập nhật định vị</button>
@@ -218,13 +283,91 @@ function renderCheckin() {
   `;
 
   const $retry = $('#checkinRetryGpsBtn');
-  if ($retry) $retry.onclick = handleRetryGPS;
+  if ($retry) $retry.onclick = () => { startGPSWatch(); renderLoading(); setTimeout(() => renderCheckin(), 300); };
 
   const $update = $('#checkinUpdateLocBtn');
   if ($update) $update.onclick = handleOpenUpdateModal;
 
   const $do = $('#checkinDoBtn');
   if ($do && canCheckin) $do.onclick = handleCheckin;
+}
+
+function buildStatusHTML(distInfo) {
+  const ok = distInfo.inRange;
+  const color = ok ? '#16a34a' : '#dc2626';
+  const bg = ok ? '#dcfce7' : '#fee2e2';
+  const border = ok ? '#86efac' : '#fca5a5';
+  const icon = ok ? '✅' : '❌';
+  const txt = ok ? 'TRONG PHẠM VI' : 'NGOÀI PHẠM VI';
+
+  const accuracyWarn = distInfo.accuracy > MAX_ACCURACY_WARN
+    ? `<div style="margin-top:8px;padding:6px 8px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">⚠️ GPS chính xác thấp (±${Math.round(distInfo.accuracy)}m) — nên ra chỗ thoáng hơn</div>`
+    : '';
+
+  return `
+    <div id="checkinStatusBox" style="padding:14px;background:${bg};border:1px solid ${border};border-radius:10px;font-size:13px;color:${color};line-height:1.6;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:8px;">${icon} ${txt}</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;color:var(--text);font-size:12.5px;">
+        <span>📏 Cách điểm: <strong id="liveDistance">${Math.round(distInfo.distance)}m</strong></span>
+        <span>⭕ Bán kính: <strong>${distInfo.radius}m</strong></span>
+        <span>📡 GPS: <strong id="liveAccuracy">±${Math.round(distInfo.accuracy)}m</strong></span>
+      </div>
+      ${accuracyWarn}
+    </div>`;
+}
+
+/* ⭐ Chỉ update phần live (số mét, độ chính xác, nút Check-in) — không rerender toàn bộ */
+function updateLiveStatus() {
+  const loc = state.checkinLocation;
+  const pos = state.checkinUserPos;
+  if (!loc || !pos) return;
+
+  const distInfo = getDistanceInfo();
+  if (!distInfo) return;
+
+  // Không update nếu vị trí gần như y hệt (tránh nháy chữ)
+  const last = _lastRenderedPos;
+  if (last &&
+      Math.abs(last.distance - distInfo.distance) < 1 &&
+      Math.abs(last.accuracy - distInfo.accuracy) < 2 &&
+      last.inRange === distInfo.inRange) {
+    return;
+  }
+  _lastRenderedPos = distInfo;
+
+  const $box = $('#checkinStatusBox');
+  if ($box) {
+    // Nếu range status thay đổi → render lại toàn bộ status card
+    const wasInRange = $box.textContent.includes('TRONG PHẠM VI');
+    const nowInRange = distInfo.inRange;
+    if (wasInRange !== nowInRange) {
+      // Range status đổi → thay mới card + nút
+      const newHtml = buildStatusHTML(distInfo);
+      $box.outerHTML = newHtml;
+
+      const $do = $('#checkinDoBtn');
+      const canCheckin = !!(loc && pos && distInfo.inRange);
+      if ($do) {
+        if (canCheckin) {
+          $do.removeAttribute('disabled');
+          $do.style.opacity = '1';
+          $do.style.cursor = '';
+          $do.onclick = handleCheckin;
+        } else {
+          $do.setAttribute('disabled', 'disabled');
+          $do.style.opacity = '0.5';
+          $do.style.cursor = 'not-allowed';
+          $do.onclick = null;
+        }
+      }
+    } else {
+      // Chỉ update số → giữ nguyên card
+      const $dist = $('#liveDistance');
+      const $acc = $('#liveAccuracy');
+      if ($dist) $dist.textContent = `${Math.round(distInfo.distance)}m`;
+      if ($acc) $acc.textContent = `±${Math.round(distInfo.accuracy)}m`;
+    }
+  }
 }
 
 function renderLogs(logs) {
@@ -244,15 +387,12 @@ function renderLogs(logs) {
     </div>`;
 }
 
-async function handleRetryGPS() {
-  renderLoading();
-  await refreshGPS();
-  renderCheckin();
-}
-
+/* ═══════════════════════════════════════════════════════════════
+   ACTIONS
+   ═══════════════════════════════════════════════════════════════ */
 function handleOpenUpdateModal() {
   if (!state.checkinUserPos) {
-    toast('Chưa có GPS. Bấm "Thử lấy GPS lại" trước.');
+    toast('Chưa có GPS. Đợi thêm vài giây rồi thử lại.');
     return;
   }
   const pos = state.checkinUserPos;
@@ -318,7 +458,16 @@ async function handleCheckin() {
   if ($btn) { $btn.disabled = true; $btn.textContent = '⏳ Đang check-in...'; }
 
   try {
-    await refreshGPS();
+    // Vị trí có thể đã cũ hơn 5s (VD user vừa di chuyển vào khu vực) → đợi watch update
+    if (!state.checkinUserPos || Date.now() - state.checkinUserPos.timestamp > 5000) {
+      // Đợi tối đa 3s để watch có vị trí mới
+      const start = Date.now();
+      const oldPos = state.checkinUserPos;
+      while (Date.now() - start < 3000) {
+        await new Promise(r => setTimeout(r, 150));
+        if (state.checkinUserPos && state.checkinUserPos !== oldPos) break;
+      }
+    }
 
     if (!state.checkinUserPos) {
       toast('Không lấy được GPS: ' + (state.checkinGpsError || 'lỗi không rõ'));
