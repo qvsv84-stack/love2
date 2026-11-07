@@ -121,13 +121,9 @@
     .sql-history-item:last-child { border-bottom: none; }
     .sql-history-item:active { background: var(--border); }
 
-    /* ⭐ Tab Chấm công — nền sáng, font to cho người lớn tuổi */
-    #tab-checkin {
-      background: #f8fafc;
-    }
-    #tab-checkin .section-header h2 {
-      font-size: 20px;
-    }
+    /* ⭐ Tab Chấm công */
+    #tab-checkin { background: #f8fafc; }
+    #tab-checkin .section-header h2 { font-size: 20px; }
   </style>
 </head>
 <body>
@@ -177,7 +173,6 @@
 
     <main id="mainScreen" style="display:none">
       <nav class="tabs">
-        <!-- Tab Chấm công đặt đầu tiên, hiện với mọi user -->
         <button class="tab-btn active" data-tab="checkin">📍 Chấm công</button>
         <button class="tab-btn" data-tab="calendar">📅 Lịch công</button>
         <button class="tab-btn" data-tab="areas" style="display:none">🏢 Khu vực</button>
@@ -188,7 +183,6 @@
         <button class="tab-btn" data-tab="sql" style="display:none">⚙️ SQL</button>
       </nav>
 
-      <!-- ⭐ Tab Chấm công (đầu tiên, active mặc định) -->
       <section id="tab-checkin" class="tab-content active">
         <div class="section-header"><h2>📍 Chấm công</h2></div>
         <div id="checkinRoot"></div>
@@ -261,6 +255,7 @@
         </div>
         <div id="exportActionRow" style="display:none; margin-bottom:12px">
           <button id="exportExcelBtn" class="btn-secondary" style="width:100%">📥 Xuất Excel</button>
+          <button id="syncHoursBtn" class="btn-secondary" style="width:100%; margin-top:8px; background:#fef3c7;color:#92400e;border-color:#fbbf24;">🔄 Đồng bộ giờ công tháng này</button>
         </div>
 
         <div class="calendar-wrap">
@@ -735,7 +730,7 @@ select * from cslx_rooms limit 5;"></textarea>
   })();
   </script>
 
-  <script type="module" src="./app.js?v=10"></script>
+  <script type="module" src="./app.js?v=14"></script>
 
   <script type="module">
     import { APP_VERSION, checkForUpdate } from './version.js';
