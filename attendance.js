@@ -33,7 +33,7 @@ export function invalidateDayAssignCache() {
   _dayAssignCache.clear();
 }
 
-/* ⭐ SELECTED VIEW DATE — chỉ set state, KHÔNG tự vào fullpage */
+/* ⭐ SELECTED VIEW DATE */
 export function setSelectedViewDate(dateStr) {
   const newVal = dateStr || null;
   if (state.selectedViewDate === newVal) return;
@@ -41,13 +41,11 @@ export function setSelectedViewDate(dateStr) {
   renderCalendar();
 }
 
-/* ⭐ Mở fullpage (gọi khi ấn nút #viewDetailBtn) */
 export function openDayPreview() {
   if (!state.selectedViewDate) return;
   renderDayPreview(state.selectedViewDate);
 }
 
-/* ⭐ Đóng fullpage (giữ selectedViewDate để có thể bấm lại) */
 function closeDayPreview() {
   _previewToken++;
   const $p = $('#dayPreviewPanel');
@@ -55,7 +53,6 @@ function closeDayPreview() {
   document.body.classList.remove('dpp-fullpage');
 }
 
-/* ⭐ Populate dropdown chọn NV trong employee bar */
 function populateDppEmployeeSelect() {
   const $main = $('#employeeSelect');
   const $dpp = $('#dppEmployeeSelect');
@@ -87,7 +84,6 @@ function bindDppEmployeeSelect() {
   });
 }
 
-/* ⭐ Render fullpage panel */
 function renderDayPreview(dateStr) {
   const token = ++_previewToken;
   const $panel  = $('#dayPreviewPanel');
@@ -1388,6 +1384,13 @@ function attachCalendarSelect(el, dateStr) {
 }
 
 export function switchTab(name) {
+  // ⭐ Dừng GPS watch khi rời tab checkin (tiết kiệm pin)
+  if (name !== 'checkin') {
+    import('./checkin.js').then(m => {
+      try { m.stopCheckinWatch(); } catch {}
+    }).catch(() => {});
+  }
+
   $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $$('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
 
@@ -1440,10 +1443,10 @@ export function switchTab(name) {
         }
       });
   }
-  // ⭐ CHECKIN TAB
+  // ⭐⭐⭐ CHECKIN — MỞ CHO CẢ NHÂN VIÊN VÀ ADMIN ⭐⭐⭐
   if (name === 'checkin') {
-    if (!state.isAdmin) {
-      toast('Chỉ admin được dùng tab check-in');
+    if (!state.user) {
+      // Chưa đăng nhập → quay về tab calendar
       switchTab('calendar');
       return;
     }
@@ -1452,7 +1455,7 @@ export function switchTab(name) {
       .catch(err => {
         console.warn('[checkin] Load fail:', err);
         const $root = $('#checkinRoot');
-        if ($root) $root.innerHTML = '<p class="hint" style="color:var(--danger);padding:16px;">⚠️ Không tải được check-in: ' + (err.message || 'lỗi') + '</p>';
+        if ($root) $root.innerHTML = '<p class="hint" style="color:var(--danger);padding:16px;">⚠️ Không tải được chấm công: ' + (err.message || 'lỗi') + '</p>';
       });
   }
 }
