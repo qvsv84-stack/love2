@@ -3,50 +3,17 @@ import { supabase } from './supabase.js';
 import {
   state, $, $$, toast, toDateStr,
   DEFAULT_DOMAIN, LS_KEY,
-  initAuth, showLoginScreen, showGuestView, handleLogout, onLoggedIn,
+  showLoginScreen, showGuestView, handleLogout, onLoggedIn,
   invalidateAttendanceCache,
   openModal, closeModal,
 } from './core.js';
 
-import {
-  loadPublicEmployees, loadEmployees, renderEmployeeList,
-  saveEditEmployee, createEmployee, openEditEmployeeModal,
-} from './employees.js';
-
-import {
-  loadBuildings, loadDayAssignments, loadTodayAssignments, renderBuildings,
-  saveBuilding, saveFloors,
-  openSpecialAreaModal, saveSpecialArea,
-  handleBulkSelectChange,
-  saveBulkAssignments,
-  cancelBulkAssign,
-  handleResetAreasData,
-} from './buildings.js';
-
-import {
-  loadAttendanceForMonth, updateSummary, openAttendanceModal,
-  renderMainAreaPicker, renderOtAreaPicker,
-  toggleModeSections, toggleSupOtGroup, toggleSundayOtSection, updatePreview,
-  saveAttendance, toggleSelectionMode, exitSelectionMode,
-  renderCalendar, switchTab, changeMonth,
-  openSelectedDate,
-  invalidateDayAssignCache,
-  handleBulkCopyBtnClick,
-} from './attendance.js';
-
-import {
-  loadExcelData, onExcelMonthChanged,
-  saveExcelOne, shareExcelOne, saveExcelAll, shareExcelAll,
-  bulkCopySubmit,
-  exportMonthPNGForEmployee,
-} from './excel.js';
-
 import { initExportModule } from './export.js';
 import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
-import { initDebugModule, toggleDebug, dbg } from './debug.js';
+import { initDebugModule, toggleDebug } from './debug.js';
 
-const APP_BUILD = '2026-11-08-final-v11-exportfix';
+const APP_BUILD = '2026-11-08-opt-v1';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
 window.__APP_JS_LOADED__ = true;
@@ -67,24 +34,7 @@ if (typeof window !== 'undefined') {
     console.log('state.user:', state.user?.email || 'null');
     console.log('state.isAdmin:', state.isAdmin);
     console.log('state.employees:', state.employees?.length || 0);
-    console.log('state.buildings:', state.buildings?.length || 0);
-    console.log('state.floors:', state.floors?.length || 0);
-    console.log('copyMode:', state.copyMode);
-    console.log('selectedEmployeeId:', state.selectedEmployeeId);
-    console.log('currentMonth:', state.currentMonth?.toISOString?.().slice(0, 7));
   };
-};
-
-const _authLog = [];
-function logAuth(event, session) {
-  const entry = {
-    time: new Date().toLocaleTimeString('vi-VN'),
-    event,
-    session: session ? (session.user?.email || 'yes') : 'null',
-    stateUser: state.user?.email || 'null',
-  };
-  _authLog.push(entry);
-  if (_authLog.length > 50) _authLog.shift();
 }
 
 let _explicitLogout = false;
@@ -98,11 +48,11 @@ function markExplicitLogout() {
 function withTimeout(promise, ms, fallback = null) {
   return Promise.race([
     promise.catch(err => {
-      console.warn('[withTimeout] caught error:', err?.message || err);
+      console.warn('[withTimeout] caught:', err?.message || err);
       return fallback;
     }),
     new Promise(resolve => setTimeout(() => {
-      console.warn(`[TIMEOUT] Promise quá ${ms}ms — dùng fallback`);
+      console.warn(`[TIMEOUT] Promise > ${ms}ms — fallback`);
       resolve(fallback);
     }, ms)),
   ]);
@@ -114,8 +64,7 @@ function isSessionExpired(session) {
   return Date.now() / 1000 > (session.expires_at - 60);
 }
 
-async function forceLogout(reason) {
-  console.warn('[forceLogout]', reason);
+async function clearStaleAuth() {
   try { await supabase.auth.signOut(); } catch {}
   try {
     Object.keys(localStorage)
@@ -130,68 +79,20 @@ async function forceLogout(reason) {
   state.floors = [];
   invalidateAttendanceCache();
   if (state.salaryModule) state.salaryModule.invalidateCache();
-  showGuestView();
-}
-
-async function afterLoginRedirect() {
-  const start = Date.now();
-  while (Date.now() - start < 4000) {
-    if (state.user && (state.employees?.length > 0 || state.isAdmin)) break;
-    await new Promise(r => setTimeout(r, 150));
-  }
-
-  if (!state.user) return;
-  if (state.isAdmin) return;
-
-  try {
-    switchTab('checkin');
-  } catch (err) {
-    console.warn('[afterLoginRedirect] switchTab fail:', err);
-  }
-}
-
-function getAreasViewDate() {
-  const $dp = $('#areasViewDate');
-  if ($dp && $dp.value) return $dp.value;
-  return state.areasViewDate || toDateStr(new Date());
-}
-
-async function reloadAreasForDate(dateStr) {
-  if (!dateStr) dateStr = toDateStr(new Date());
-  state.areasViewDate = dateStr;
-  const $dp = $('#areasViewDate');
-  if ($dp && $dp.value !== dateStr) $dp.value = dateStr;
-
-  state.areasBulkEmpId = null;
-  state._bulkAssignments = new Set();
-
-  try {
-    const b = await import('./buildings.js');
-    await b.loadDayAssignments(dateStr);
-    b.renderBuildings();
-  } catch (err) {
-    console.warn('[reloadAreas] failed:', err);
-  }
 }
 
 async function tryAutoLogin() {
   try {
     const saved = localStorage.getItem(LS_KEY);
-    if (!saved) return false;
+    if (!saved) return null;
     const { username, password } = JSON.parse(saved || '{}');
-    if (!username || !password) return false;
+    if (!username || !password) return null;
     const email = username.includes('@') ? username : `${username}@${DEFAULT_DOMAIN}`;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return false;
-    if (!state.user) {
-      try {
-        await onLoggedIn(data.user);
-        setTimeout(afterLoginRedirect, 200);
-      } catch (err) { console.warn('[autoLogin onLoggedIn]', err); }
-    }
-    return true;
-  } catch (err) {
-    return false;
+    if (error) return null;
+    return data.user || null;
+  } catch {
+    return null;
   }
 }
 
@@ -203,8 +104,8 @@ async function ensureSessionAlive() {
       const { data: refreshed, error } = await supabase.auth.refreshSession();
       if (!error && refreshed?.session) return true;
     }
-    return await tryAutoLogin();
-  } catch (err) {
+    return !!(await tryAutoLogin());
+  } catch {
     return false;
   }
 }
@@ -234,7 +135,6 @@ function bindEvents() {
     _selfHealAttempts = 0;
     try {
       await onLoggedIn(data.user);
-      setTimeout(afterLoginRedirect, 200);
     } catch (err) {
       console.error('[login] onLoggedIn failed:', err);
       toast('Lỗi tải dữ liệu: ' + (err?.message || 'không rõ'));
@@ -247,6 +147,7 @@ function bindEvents() {
   $$('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
   $('#employeeSelect').addEventListener('change', async (e) => {
+    const { loadAttendanceForMonth, renderCalendar, exitSelectionMode } = await import('./attendance.js');
     state.selectedEmployeeId = e.target.value;
     if (state.selectionMode) exitSelectionMode();
     await loadAttendanceForMonth();
@@ -256,16 +157,24 @@ function bindEvents() {
   $('#prevMonth').addEventListener('click', () => changeMonth(-1));
   $('#nextMonth').addEventListener('click', () => changeMonth(1));
 
-  $('#todayAttendanceBtn').addEventListener('click', () => {
+  $('#todayAttendanceBtn').addEventListener('click', async () => {
     if (!state.isAdmin) return;
     if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
+    const { openAttendanceModal } = await import('./attendance.js');
     openAttendanceModal(toDateStr(new Date()));
   });
 
-  $('#selectionToggleBtn').addEventListener('click', toggleSelectionMode);
-  $('#cancelSelectionBtn').addEventListener('click', exitSelectionMode);
-  $('#applySelectionBtn').addEventListener('click', () => {
+  $('#selectionToggleBtn').addEventListener('click', async () => {
+    const { toggleSelectionMode } = await import('./attendance.js');
+    toggleSelectionMode();
+  });
+  $('#cancelSelectionBtn').addEventListener('click', async () => {
+    const { exitSelectionMode } = await import('./attendance.js');
+    exitSelectionMode();
+  });
+  $('#applySelectionBtn').addEventListener('click', async () => {
     if (state.selectedDates.size === 0) return;
+    const { openAttendanceModal } = await import('./attendance.js');
     const dates = [...state.selectedDates].sort();
     openAttendanceModal(dates[0], dates);
   });
@@ -283,30 +192,29 @@ function bindEvents() {
       if (error) { toast('Xoá thất bại: ' + error.message); return; }
       toast(`Đã xoá ${dates.length} ngày ✓`);
       invalidateAttendanceCache(state.selectedEmployeeId);
-      invalidateDayAssignCache();
+      const att = await import('./attendance.js');
+      att.invalidateDayAssignCache();
       if (state.salaryModule) state.salaryModule.invalidateCache();
-      await loadAttendanceForMonth(true);
-      renderCalendar();
-      exitSelectionMode();
-      reloadAreasForDate(getAreasViewDate());
+      await att.loadAttendanceForMonth(true);
+      att.renderCalendar();
+      att.exitSelectionMode();
     });
   }
 
-  // ⭐ NÚT COPY NGÀY — dùng hàm từ attendance.js
   const $bulkCopyBtn = $('#bulkCopyBtn');
   if ($bulkCopyBtn) {
-    $bulkCopyBtn.addEventListener('click', handleBulkCopyBtnClick);
+    $bulkCopyBtn.addEventListener('click', async () => {
+      const { handleBulkCopyBtnClick } = await import('./attendance.js');
+      handleBulkCopyBtnClick();
+    });
   }
 
-  // ⭐ NÚT XUẤT CÔNG THÁNG — dùng hàm từ excel.js
   const $exportMonthBtn = $('#exportMonthBtn');
   if ($exportMonthBtn) {
     $exportMonthBtn.addEventListener('click', async () => {
-      if (!state.selectedEmployeeId) {
-        toast('Chọn nhân viên trước');
-        return;
-      }
+      if (!state.selectedEmployeeId) { toast('Chọn nhân viên trước'); return; }
       try {
+        const { exportMonthPNGForEmployee } = await import('./excel.js');
         await exportMonthPNGForEmployee(state.selectedEmployeeId, state.currentMonth);
       } catch (err) {
         console.error('[exportMonth]', err);
@@ -319,30 +227,30 @@ function bindEvents() {
   if (roomsSearchEl) {
     roomsSearchEl.addEventListener('input', async (e) => {
       state.roomsSearch = e.target.value;
-      try {
-        const m = await import('./rooms.js');
-        m.renderRooms();
-      } catch (err) { console.warn('[rooms]', err); }
+      try { const m = await import('./rooms.js'); m.renderRooms(); } catch {}
     });
   }
   const roomsFilterEl = $('#roomsBuildingFilter');
   if (roomsFilterEl) {
     roomsFilterEl.addEventListener('change', async (e) => {
       state.roomsBuildingFilter = e.target.value;
-      try {
-        const m = await import('./rooms.js');
-        m.renderRooms();
-      } catch (err) { console.warn('[rooms]', err); }
+      try { const m = await import('./rooms.js'); m.renderRooms(); } catch {}
     });
   }
 
   const areasSearchEl = $('#areasSearch');
   if (areasSearchEl) {
-    areasSearchEl.addEventListener('input', (e) => { state.areasSearch = e.target.value; renderBuildings(); });
+    areasSearchEl.addEventListener('input', async (e) => {
+      state.areasSearch = e.target.value;
+      const b = await import('./buildings.js'); b.renderBuildings();
+    });
   }
   const areasRoleFilterEl = $('#areasRoleFilter');
   if (areasRoleFilterEl) {
-    areasRoleFilterEl.addEventListener('change', (e) => { state.areasRoleFilter = e.target.value; renderBuildings(); });
+    areasRoleFilterEl.addEventListener('change', async (e) => {
+      state.areasRoleFilter = e.target.value;
+      const b = await import('./buildings.js'); b.renderBuildings();
+    });
   }
 
   const $areasViewDate = $('#areasViewDate');
@@ -352,10 +260,14 @@ function bindEvents() {
     const handleDateChange = async () => {
       const newDate = $areasViewDate.value;
       if (!newDate || state.areasViewDate === newDate) return;
-      await reloadAreasForDate(newDate);
+      state.areasViewDate = newDate;
+      state.areasBulkEmpId = null;
+      state._bulkAssignments = new Set();
+      const b = await import('./buildings.js');
+      await b.loadDayAssignments(newDate);
+      b.renderBuildings();
     };
     $areasViewDate.addEventListener('change', handleDateChange);
-    $areasViewDate.addEventListener('input', handleDateChange);
   }
 
   const $areasTodayBtn = $('#areasTodayBtn');
@@ -363,47 +275,55 @@ function bindEvents() {
     $areasTodayBtn.addEventListener('click', async () => {
       const today = toDateStr(new Date());
       if (state.areasViewDate === today) return;
-      await reloadAreasForDate(today);
+      state.areasViewDate = today;
+      const $dp = $('#areasViewDate'); if ($dp) $dp.value = today;
+      state.areasBulkEmpId = null;
+      state._bulkAssignments = new Set();
+      const b = await import('./buildings.js');
+      await b.loadDayAssignments(today);
+      b.renderBuildings();
     });
   }
 
-  // ⭐ BULK ASSIGN — Chọn NV + Lưu/Huỷ
   const $bulkEmpSelect = $('#areasBulkEmpSelect');
   if ($bulkEmpSelect) {
-    $bulkEmpSelect.addEventListener('change', handleBulkSelectChange);
+    $bulkEmpSelect.addEventListener('change', async (e) => {
+      const m = await import('./buildings.js'); m.handleBulkSelectChange(e);
+    });
   }
-
   const $bulkSaveBtn = $('#areasBulkSaveBtnTop');
   if ($bulkSaveBtn) {
-    $bulkSaveBtn.addEventListener('click', saveBulkAssignments);
+    $bulkSaveBtn.addEventListener('click', async () => {
+      const m = await import('./buildings.js'); m.saveBulkAssignments();
+    });
   }
-
   const $bulkCancelBtn = $('#areasBulkCancelBtn');
   if ($bulkCancelBtn) {
-    $bulkCancelBtn.addEventListener('click', cancelBulkAssign);
+    $bulkCancelBtn.addEventListener('click', async () => {
+      const m = await import('./buildings.js'); m.cancelBulkAssign();
+    });
   }
-
-  // ⭐ RESET
   const $resetBtn = $('#areasResetBtn');
   if ($resetBtn) {
-    $resetBtn.addEventListener('click', handleResetAreasData);
+    $resetBtn.addEventListener('click', async () => {
+      const m = await import('./buildings.js'); m.handleResetAreasData();
+    });
   }
 
   const $createBuildingBtn = document.querySelector('[data-create="building"]');
   if ($createBuildingBtn) $createBuildingBtn.addEventListener('click', () => openModal('buildingModal'));
   const $createExternalBtn = $('#createExternalBtn');
-  if ($createExternalBtn) $createExternalBtn.addEventListener('click', () => {
+  if ($createExternalBtn) $createExternalBtn.addEventListener('click', async () => {
     if (!state.isAdmin) { toast('Chỉ Giám sát được tạo khu vực'); return; }
-    openSpecialAreaModal('external');
+    const m = await import('./buildings.js'); m.openSpecialAreaModal('external');
   });
   const $createNightBtn = $('#createNightBtn');
-  if ($createNightBtn) $createNightBtn.addEventListener('click', () => {
+  if ($createNightBtn) $createNightBtn.addEventListener('click', async () => {
     if (!state.isAdmin) { toast('Chỉ Giám sát được tạo khu vực'); return; }
-    openSpecialAreaModal('night');
+    const m = await import('./buildings.js'); m.openSpecialAreaModal('night');
   });
 
   $('#exportExcelBtn').addEventListener('click', () => { if (state.exportModule) state.exportModule.openExportModal(); });
-
   $('#exportModal').addEventListener('click', (e) => { if (e.target.id === 'exportModal') closeModal('exportModal'); });
   $('#exportSubmitBtn').addEventListener('click', () => { if (state.exportModule) state.exportModule.doExport().catch(console.error); });
   $$('input[name="exportScope"]').forEach(r => {
@@ -421,47 +341,66 @@ function bindEvents() {
   $('#salaryExportBtn').addEventListener('click', () => { if (state.exportModule?.doExportSalary) state.exportModule.doExportSalary().catch(console.error); });
 
   const excelMonthEl = $('#excelMonth');
-  if (excelMonthEl) excelMonthEl.addEventListener('change', onExcelMonthChanged);
-  const excelSaveAllBtn = $('#excelSaveAllBtn');
-  if (excelSaveAllBtn) excelSaveAllBtn.addEventListener('click', saveExcelAll);
-  const excelShareAllBtn = $('#excelShareAllBtn');
-  if (excelShareAllBtn) excelShareAllBtn.addEventListener('click', shareExcelAll);
-  const excelSaveOneBtn = $('#excelSaveOneBtn');
-  if (excelSaveOneBtn) excelSaveOneBtn.addEventListener('click', saveExcelOne);
-  const excelShareOneBtn = $('#excelShareOneBtn');
-  if (excelShareOneBtn) excelShareOneBtn.addEventListener('click', shareExcelOne);
+  if (excelMonthEl) excelMonthEl.addEventListener('change', async () => {
+    const m = await import('./excel.js'); m.onExcelMonthChanged();
+  });
+  const bindExcel = async (id, fn) => {
+    const el = $(id);
+    if (el) el.addEventListener('click', async () => {
+      const m = await import('./excel.js'); m[fn]();
+    });
+  };
+  bindExcel('#excelSaveAllBtn', 'saveExcelAll');
+  bindExcel('#excelShareAllBtn', 'shareExcelAll');
+  bindExcel('#excelSaveOneBtn', 'saveExcelOne');
+  bindExcel('#excelShareOneBtn', 'shareExcelOne');
   const excelActionModal = $('#excelActionModal');
   if (excelActionModal) excelActionModal.addEventListener('click', (e) => { if (e.target.id === 'excelActionModal') closeModal('excelActionModal'); });
 
+  // ==== ATTENDANCE MODAL ====
   $('#attendanceModal').addEventListener('click', (e) => { if (e.target.id === 'attendanceModal') closeModal('attendanceModal'); });
-  $$('input[name="attMode"]').forEach(r => r.addEventListener('change', () => { toggleModeSections(r.value); updatePreview(); }));
-  $('#manualHours').addEventListener('input', updatePreview);
-  $$('input[name="supMode"]').forEach(r => r.addEventListener('change', () => { toggleSupOtGroup(r.value); updatePreview(); }));
-  $('#supOtHours').addEventListener('input', updatePreview);
+  $$('input[name="attMode"]').forEach(r => r.addEventListener('change', async () => {
+    const att = await import('./attendance.js');
+    att.toggleModeSections(r.value); att.updatePreview();
+  }));
+  $('#manualHours').addEventListener('input', async () => { (await import('./attendance.js')).updatePreview(); });
+  $$('input[name="supMode"]').forEach(r => r.addEventListener('change', async () => {
+    const att = await import('./attendance.js');
+    att.toggleSupOtGroup(r.value); att.updatePreview();
+  }));
+  $('#supOtHours').addEventListener('input', async () => { (await import('./attendance.js')).updatePreview(); });
   const $sundayCheck = $('#sundayOtCheck');
-  if ($sundayCheck) $sundayCheck.addEventListener('change', () => { toggleSundayOtSection($sundayCheck.checked); updatePreview(); });
+  if ($sundayCheck) $sundayCheck.addEventListener('change', async () => {
+    const att = await import('./attendance.js');
+    att.toggleSundayOtSection($sundayCheck.checked); att.updatePreview();
+  });
   const $sundayHours = $('#sundayOtHours');
-  if ($sundayHours) $sundayHours.addEventListener('input', updatePreview);
+  if ($sundayHours) $sundayHours.addEventListener('input', async () => { (await import('./attendance.js')).updatePreview(); });
 
-  $('#addMainAreaBtn').addEventListener('click', () => {
+  $('#addMainAreaBtn').addEventListener('click', async () => {
     state.modalAreas.push({ type: 'building', building_id: '', floor_id: '' });
-    renderMainAreaPicker(); updatePreview();
+    const att = await import('./attendance.js');
+    att.renderMainAreaPicker(); att.updatePreview();
   });
-  $('#addOtAreaBtn').addEventListener('click', () => {
+  $('#addOtAreaBtn').addEventListener('click', async () => {
     state.modalOtAreas.push({ type: 'building', building_id: '', floor_id: '' });
-    renderOtAreaPicker(); updatePreview();
+    const att = await import('./attendance.js');
+    att.renderOtAreaPicker(); att.updatePreview();
   });
-  $('#saveAttendanceBtn').addEventListener('click', saveAttendance);
+  $('#saveAttendanceBtn').addEventListener('click', async () => {
+    const att = await import('./attendance.js'); att.saveAttendance();
+  });
 
   $('#buildingModal').addEventListener('click', (e) => { if (e.target.id === 'buildingModal') closeModal('buildingModal'); });
-  $('#saveBuildingBtn').addEventListener('click', saveBuilding);
+  $('#saveBuildingBtn').addEventListener('click', async () => { (await import('./buildings.js')).saveBuilding(); });
   const $specialModal = $('#specialAreaModal');
   if ($specialModal) $specialModal.addEventListener('click', (e) => { if (e.target.id === 'specialAreaModal') closeModal('specialAreaModal'); });
   const $saveSpecialBtn = $('#saveSpecialAreaBtn');
-  if ($saveSpecialBtn) $saveSpecialBtn.addEventListener('click', saveSpecialArea);
+  if ($saveSpecialBtn) $saveSpecialBtn.addEventListener('click', async () => { (await import('./buildings.js')).saveSpecialArea(); });
   $('#floorModal').addEventListener('click', (e) => { if (e.target.id === 'floorModal') closeModal('floorModal'); });
-  $('#saveFloorsBtn').addEventListener('click', saveFloors);
+  $('#saveFloorsBtn').addEventListener('click', async () => { (await import('./buildings.js')).saveFloors(); });
 
+  // ==== EMPLOYEES ====
   $('#addEmployeeBtn').addEventListener('click', () => {
     $('#empUsername').value = ''; $('#empPassword').value = '';
     $('#empFullName').value = ''; $('#empPhone').value = '';
@@ -469,9 +408,9 @@ function bindEvents() {
     openModal('employeeModal');
   });
   $('#employeeModal').addEventListener('click', (e) => { if (e.target.id === 'employeeModal') closeModal('employeeModal'); });
-  $('#saveEmployeeBtn').addEventListener('click', createEmployee);
+  $('#saveEmployeeBtn').addEventListener('click', async () => { (await import('./employees.js')).createEmployee(); });
   $('#editEmployeeModal').addEventListener('click', (e) => { if (e.target.id === 'editEmployeeModal') closeModal('editEmployeeModal'); });
-  $('#saveEditEmpBtn').addEventListener('click', saveEditEmployee);
+  $('#saveEditEmpBtn').addEventListener('click', async () => { (await import('./employees.js')).saveEditEmployee(); });
 
   ['#empPhone', '#editEmpPhone'].forEach(id => {
     const el = $(id);
@@ -480,15 +419,13 @@ function bindEvents() {
 
   $$('[data-close]').forEach(btn => btn.addEventListener('click', () => closeModal(btn.dataset.close)));
 
+  // ==== AUTH LISTENER ====
   supabase.auth.onAuthStateChange(async (event, session) => {
-    logAuth(event, session);
     if (event === 'SIGNED_IN' && session?.user) {
       _selfHealAttempts = 0;
       if (!state.user || state.user.id !== session.user.id) {
-        try {
-          await onLoggedIn(session.user);
-          setTimeout(afterLoginRedirect, 200);
-        } catch (err) { console.warn('[SIGNED_IN]', err); }
+        try { await onLoggedIn(session.user); }
+        catch (err) { console.warn('[SIGNED_IN]', err); }
       }
       return;
     }
@@ -508,7 +445,7 @@ function bindEvents() {
             const { data, error } = await supabase.auth.refreshSession();
             if (!error && data?.session) return;
           } catch {}
-          const ok = await tryAutoLogin();
+          const ok = !!(await tryAutoLogin());
           if (!ok) { state.user = null; showGuestView(); }
         }, 150);
         return;
@@ -535,12 +472,21 @@ function bindEvents() {
     const wantDisplay = state.isAdmin ? '' : 'none';
     if (_lastAdminTabsState === wantDisplay) return;
     _lastAdminTabsState = wantDisplay;
-
     ['[data-tab="areas"]', '[data-tab="employees"]', '[data-tab="salary"]', '[data-tab="excel"]', '[data-tab="sql"]'].forEach(sel => {
       const $tab = document.querySelector(sel);
       if ($tab) $tab.style.display = wantDisplay;
     });
   }, 800);
+}
+
+// Lazy proxy cho changeMonth / switchTab
+async function switchTab(name) {
+  const m = await import('./attendance.js');
+  m.switchTab(name);
+}
+async function changeMonth(delta) {
+  const m = await import('./attendance.js');
+  m.changeMonth(delta);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -574,60 +520,66 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindEvents();
     console.log('[App] bindEvents OK');
 
-    let existingSession = null;
+    // ⭐ BƯỚC 1: getSession 1 lần duy nhất, timeout ngắn
+    let session = null;
     try {
-      const { data } = await withTimeout(supabase.auth.getSession(), 3000, { data: { session: null } });
-      existingSession = data?.session || null;
-    } catch (err) {
-      console.warn('[App] getSession error:', err);
-    }
+      const { data } = await withTimeout(
+        supabase.auth.getSession(), 2000,
+        { data: { session: null } }
+      );
+      session = data?.session || null;
+    } catch {}
 
-    if (existingSession && isSessionExpired(existingSession)) {
+    // ⭐ CASE 1: Session còn hạn → login ngay
+    if (session && !isSessionExpired(session)) {
       try {
-        const { data: refreshed, error } = await withTimeout(
-          supabase.auth.refreshSession(), 5000, { data: null, error: 'timeout' }
-        );
-        if (error || !refreshed?.session) {
-          await forceLogout('Session expired & refresh failed');
-          return;
-        }
-        existingSession = refreshed.session;
+        await onLoggedIn(session.user);
       } catch (err) {
-        await forceLogout('Refresh exception');
-        return;
+        console.error('[App] onLoggedIn:', err);
+        await showGuestView();
       }
-    }
-
-    if (!existingSession) {
-      const restored = await withTimeout(tryAutoLogin(), 5000, false);
-      if (restored) return;
-    }
-
-    try {
-      const result = await withTimeout(initAuth(), 8000, null);
-      if (result === null) {
-        const { data } = await supabase.auth.getSession();
-        if (!data.session || isSessionExpired(data.session)) {
-          await forceLogout('initAuth timeout with expired session');
-          return;
-        }
-      }
-      if (state.user) {
-        setTimeout(afterLoginRedirect, 200);
-      }
-    } catch (err) {
-      console.error('[App] initAuth error:', err);
-      const msg = String(err?.message || err || '').toLowerCase();
-      const status = err?.status || err?.code || 0;
-      if (status === 401 || msg.includes('jwt') || msg.includes('401') || msg.includes('unauthorized') || msg.includes('expired')) {
-        await forceLogout('initAuth 401/JWT error');
-        return;
-      }
-      showGuestView();
       return;
     }
 
-    console.log('[App] ✅ App ready');
+    // ⭐ CASE 2: Session hết hạn → refresh (không gọi initAuth nữa)
+    if (session) {
+      try {
+        const { data: refreshed, error } = await withTimeout(
+          supabase.auth.refreshSession(), 3000,
+          { data: null, error: 'timeout' }
+        );
+        if (!error && refreshed?.session) {
+          try {
+            await onLoggedIn(refreshed.session.user);
+          } catch (err) {
+            console.error('[App] onLoggedIn:', err);
+            await showGuestView();
+          }
+          return;
+        }
+      } catch {}
+      await clearStaleAuth();
+      await showGuestView();
+      return;
+    }
+
+    // ⭐ CASE 3: Không có session → thử auto-login từ credentials
+    try {
+      const user = await withTimeout(tryAutoLogin(), 3500, null);
+      if (user) {
+        try {
+          await onLoggedIn(user);
+        } catch (err) {
+          console.error('[App] onLoggedIn:', err);
+          await showGuestView();
+        }
+        return;
+      }
+    } catch {}
+
+    // ⭐ CASE 4: Guest view
+    await showGuestView();
+    console.log('[App] ✅ App ready (guest)');
   } catch (err) {
     console.error('💥 App init crash:', err);
     const loading = $('#loading');
