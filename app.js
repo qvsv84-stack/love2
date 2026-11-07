@@ -31,12 +31,12 @@ import {
   renderCalendar, switchTab, changeMonth,
   openSelectedDate,
   invalidateDayAssignCache,
+  handleBulkCopyBtnClick,
 } from './attendance.js';
 
 import {
   loadExcelData, onExcelMonthChanged,
   saveExcelOne, shareExcelOne, saveExcelAll, shareExcelAll,
-  bulkCopySubmit,
 } from './excel.js';
 
 import { initExportModule } from './export.js';
@@ -44,7 +44,7 @@ import { initSalaryModule } from './salary.js';
 import { initPhoneModule } from './phone.js';
 import { initDebugModule, toggleDebug, dbg } from './debug.js';
 
-const APP_BUILD = '2026-11-08-final-v9-bulkreset';
+const APP_BUILD = '2026-11-08-final-v10-copyfix';
 console.log('%c[App.js] BUILD ' + APP_BUILD, 'color:#0ea5b7;font-weight:bold;font-size:13px');
 
 window.__APP_JS_LOADED__ = true;
@@ -67,6 +67,7 @@ if (typeof window !== 'undefined') {
     console.log('state.employees:', state.employees?.length || 0);
     console.log('state.buildings:', state.buildings?.length || 0);
     console.log('state.floors:', state.floors?.length || 0);
+    console.log('copyMode:', state.copyMode);
   };
 };
 
@@ -157,7 +158,6 @@ async function reloadAreasForDate(dateStr) {
   const $dp = $('#areasViewDate');
   if ($dp && $dp.value !== dateStr) $dp.value = dateStr;
 
-  // Reset bulk mode khi đổi ngày
   state.areasBulkEmpId = null;
   state._bulkAssignments = new Set();
 
@@ -288,16 +288,11 @@ function bindEvents() {
     });
   }
 
-  $('#bulkCopyBtn').addEventListener('click', () => {
-    const today = new Date(); const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    $('#bulkSourceDate').value = toDateStr(yesterday);
-    $('#bulkTargetDate').value = toDateStr(today);
-    $('#bulkCopyInfo').textContent = '';
-    openModal('bulkCopyModal');
-  });
-  $('#bulkCopyModal').addEventListener('click', (e) => { if (e.target.id === 'bulkCopyModal') closeModal('bulkCopyModal'); });
-  $('#bulkCopySubmit').addEventListener('click', bulkCopySubmit);
+  // ⭐ NÚT COPY NGÀY — dùng hàm từ attendance.js
+  const $bulkCopyBtn = $('#bulkCopyBtn');
+  if ($bulkCopyBtn) {
+    $bulkCopyBtn.addEventListener('click', handleBulkCopyBtnClick);
+  }
 
   const roomsSearchEl = $('#roomsSearch');
   if (roomsSearchEl) {
@@ -351,25 +346,23 @@ function bindEvents() {
     });
   }
 
-  // ⭐ FIX #3: Bind dropdown Chọn NV (bulk assign)
+  // ⭐ BULK ASSIGN — Chọn NV + Lưu/Huỷ
   const $bulkEmpSelect = $('#areasBulkEmpSelect');
   if ($bulkEmpSelect) {
     $bulkEmpSelect.addEventListener('change', handleBulkSelectChange);
   }
 
-  // ⭐ FIX #3: Bind nút Lưu gán
   const $bulkSaveBtn = $('#areasBulkSaveBtnTop');
   if ($bulkSaveBtn) {
     $bulkSaveBtn.addEventListener('click', saveBulkAssignments);
   }
 
-  // ⭐ FIX #3: Bind nút Huỷ bulk
   const $bulkCancelBtn = $('#areasBulkCancelBtn');
   if ($bulkCancelBtn) {
     $bulkCancelBtn.addEventListener('click', cancelBulkAssign);
   }
 
-  // ⭐ FIX #3: Bind nút Reset
+  // ⭐ RESET
   const $resetBtn = $('#areasResetBtn');
   if ($resetBtn) {
     $resetBtn.addEventListener('click', handleResetAreasData);
@@ -390,22 +383,7 @@ function bindEvents() {
 
   $('#exportExcelBtn').addEventListener('click', () => { if (state.exportModule) state.exportModule.openExportModal(); });
 
-  const $syncHoursBtn = $('#syncHoursBtn');
-  if ($syncHoursBtn) {
-    $syncHoursBtn.addEventListener('click', async () => {
-      try {
-        const m = await import('./attendance.js');
-        if (typeof m.syncMonthHours !== 'function') {
-          toast('Thiếu hàm syncMonthHours trong attendance.js');
-          return;
-        }
-        await m.syncMonthHours();
-      } catch (err) {
-        console.error('[sync]', err);
-        toast('Lỗi: ' + (err.message || 'không xác định'));
-      }
-    });
-  }
+  // ⭐ KHÔNG còn nút #syncHoursBtn (đã xoá khỏi HTML)
 
   $('#exportModal').addEventListener('click', (e) => { if (e.target.id === 'exportModal') closeModal('exportModal'); });
   $('#exportSubmitBtn').addEventListener('click', () => { if (state.exportModule) state.exportModule.doExport().catch(console.error); });
