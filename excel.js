@@ -221,7 +221,7 @@ function buildCaptureTableHTML(profiles, attMap, year, month, daysInMonth, title
   return html;
 }
 
-/* ============ CAPTURE PNG (nhận opts) ============ */
+/* ============ CAPTURE PNG ============ */
 async function captureExcelPNG(profilesToCapture, title, filename, opts = {}) {
   try {
     await loadHtml2Canvas();
@@ -279,7 +279,113 @@ async function captureExcelPNG(profilesToCapture, title, filename, opts = {}) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ⭐ MỚI: Xuất 1 NV từ tab Lịch công — dùng chung logic
+   ⭐ PREVIEW MODAL — Xem trước ảnh + chọn Lưu / Chia sẻ
+   ═══════════════════════════════════════════════════════════════ */
+let _previewBlob = null;
+let _previewFilename = '';
+let _previewObjectUrl = null;
+
+export function previewAndExportPNG(blob, filename, title) {
+  if (!blob) { toast('Không có ảnh'); return; }
+
+  // Cleanup URL cũ
+  if (_previewObjectUrl) {
+    try { URL.revokeObjectURL(_previewObjectUrl); } catch {}
+    _previewObjectUrl = null;
+  }
+
+  _previewBlob = blob;
+  _previewFilename = filename || 'bang-cong.png';
+  _previewObjectUrl = URL.createObjectURL(blob);
+
+  const $modal = document.getElementById('imagePreviewModal');
+  if (!$modal) {
+    // Fallback: nếu chưa có modal, download luôn
+    downloadBlob(blob, _previewFilename);
+    toast('📷 Đã lưu ảnh: ' + _previewFilename);
+    return;
+  }
+
+  const $title = document.getElementById('imgPreviewTitle');
+  const $img = document.getElementById('imgPreviewImg');
+  const $closeBtn = document.getElementById('imgPreviewCloseBtn');
+  const $cancelBtn = document.getElementById('imgPreviewCancelBtn');
+  const $shareBtn = document.getElementById('imgPreviewShareBtn');
+  const $saveBtn = document.getElementById('imgPreviewSaveBtn');
+
+  if ($title) $title.textContent = title || 'Xem trước ảnh bảng công';
+
+  if ($img) {
+    $img.src = _previewObjectUrl;
+    $img.alt = _previewFilename;
+  }
+
+  const closeFn = () => {
+    $modal.style.display = 'none';
+    setTimeout(() => {
+      if (_previewObjectUrl) {
+        try { URL.revokeObjectURL(_previewObjectUrl); } catch {}
+        _previewObjectUrl = null;
+      }
+    }, 200);
+  };
+
+  if ($closeBtn) $closeBtn.onclick = closeFn;
+  if ($cancelBtn) $cancelBtn.onclick = closeFn;
+
+  if ($saveBtn) {
+    $saveBtn.onclick = () => {
+      try {
+        downloadBlob(_previewBlob, _previewFilename);
+        toast('📷 Đã lưu ảnh: ' + _previewFilename);
+        closeFn();
+      } catch (err) {
+        toast('Lỗi lưu: ' + (err.message || 'không xác định'));
+      }
+    };
+  }
+
+  if ($shareBtn) {
+    $shareBtn.onclick = async () => {
+      try {
+        $shareBtn.disabled = true;
+        const oldText = $shareBtn.textContent;
+        $shareBtn.textContent = '⏳ Đang chia sẻ...';
+        await sharePNG(_previewBlob, _previewFilename, title || 'Bảng công');
+        $shareBtn.disabled = false;
+        $shareBtn.textContent = oldText;
+      } catch (err) {
+        if (err?.name === 'AbortError') {
+          $shareBtn.disabled = false;
+          $shareBtn.textContent = '📤 Chia sẻ';
+          return;
+        }
+        toast('Lỗi chia sẻ: ' + (err.message || 'không xác định'));
+        $shareBtn.disabled = false;
+        $shareBtn.textContent = '📤 Chia sẻ';
+      }
+    };
+  }
+
+  // Click nền tối để đóng
+  $modal.onclick = (e) => {
+    if (e.target === $modal) closeFn();
+  };
+
+  // ESC để đóng (desktop)
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeFn();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+
+  $modal.style.display = 'flex';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ⭐ XUẤT CÔNG THÁNG CHO 1 NV — có preview
    ═══════════════════════════════════════════════════════════════ */
 export async function exportMonthPNGForEmployee(empId, monthDate) {
   if (!state.isAdmin) { toast('Chỉ admin được xuất'); return; }
@@ -295,7 +401,6 @@ export async function exportMonthPNGForEmployee(empId, monthDate) {
   const start = `${y}-${pad(m)}-01`;
   const end = `${y}-${pad(m)}-${pad(daysInMonth)}`;
 
-  // Ưu tiên dùng state.attendance nếu đúng NV + đúng tháng (tránh fetch lại)
   let attList = null;
   if (state.selectedEmployeeId === empId &&
       state.currentMonth.getFullYear() === y &&
@@ -313,7 +418,6 @@ export async function exportMonthPNGForEmployee(empId, monthDate) {
     attList = data || [];
   }
 
-  // Build attMap cho riêng NV này
   const attMap = { [empId]: {} };
   for (const a of attList) {
     if (!a.date.startsWith(`${y}-${pad(m)}`)) continue;
@@ -332,15 +436,15 @@ export async function exportMonthPNGForEmployee(empId, monthDate) {
     name,
     filename,
     {
-      hideNameColumn: true,   // ⭐ ẩn cột tên — chỉ giữ title ở trên
+      hideNameColumn: true,
       attMap,
       monthDate: targetMonth,
     }
   );
   if (!result) return;
 
-  downloadBlob(result.blob, result.filename);
-  toast('📷 Đã lưu ảnh: ' + result.filename);
+  // ⭐ HIỂN THỊ PREVIEW thay vì tải trực tiếp
+  previewAndExportPNG(result.blob, result.filename, `Bảng công ${name} — ${pad(m)}/${y}`);
 }
 
 /* ============ SAVE / SHARE ONE ============ */
@@ -431,7 +535,7 @@ async function sharePNG(blob, filename, title) {
       await navigator.share({ files: [file], title, text: filename });
       toast('✅ Đã chia sẻ ảnh');
     } catch (err) {
-      if (err.name === 'AbortError') return;
+      if (err.name === 'AbortError') throw err;
       downloadBlob(blob, filename);
     }
   } else if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -439,7 +543,7 @@ async function sharePNG(blob, filename, title) {
       await navigator.share({ files: [file], title, text: filename });
       toast('✅ Đã chia sẻ ảnh');
     } catch (err) {
-      if (err.name === 'AbortError') return;
+      if (err.name === 'AbortError') throw err;
       downloadBlob(blob, filename);
     }
   } else {
