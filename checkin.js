@@ -10,8 +10,16 @@ let _watchId = null;
 let _renderTimer = null;
 let _todayCheckins = [];
 let _recentLogs = [];
-let _anyCheckinInFlight = false;   // chặn double insert (auto + manual)
-let _autoCheckinCooldown = 0;      // tránh spam DB nếu auto insert lỗi
+let _anyCheckinInFlight = false;
+let _autoCheckinCooldown = 0;
+
+let _adminTodayCheckins = [];
+let _realtimeChannel = null;
+let _adminPollTimer = null;
+let _audioCtx = null;
+let _checkingAdmin = false;
+let _unseenCheckinCount = 0;
+let _audioUnlockBound = false;
 
 function ensureState() {
   if (!state.checkinLocation) state.checkinLocation = null;
@@ -70,6 +78,8 @@ export function stopCheckinWatch() {
     _watchId = null;
   }
   clearTimeout(_renderTimer);
+  stopAdminRealtime();
+  stopAdminPolling();
 }
 
 function scheduleRender(immediate = false) {
@@ -124,6 +134,18 @@ async function loadRecentLogs() {
   _recentLogs = data || [];
 }
 
+async function loadAdminTodayCheckins() {
+  if (!state.isAdmin) { _adminTodayCheckins = []; return; }
+  const today = toDateStr(new Date());
+  const { data, error } = await supabase
+    .from('cslx_checkins')
+    .select('*')
+    .eq('checkin_date', today)
+    .order('checkin_at', { ascending: true });
+  if (error) { console.error('[admin checkins]', error); _adminTodayCheckins = []; return; }
+  _adminTodayCheckins = data || [];
+}
+
 /* ═══════════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════════ */
@@ -135,6 +157,13 @@ function formatTime(iso) {
     const period = h < 12 ? 'sáng' : (h < 18 ? 'chiều' : 'tối');
     const displayH = h === 0 ? 12 : (h > 12 ? h - 12 : h);
     return `${displayH} giờ ${String(m).padStart(2, '0')} phút ${period}`;
+  } catch { return '—'; }
+}
+
+function formatHHMM(iso) {
+  try {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   } catch { return '—'; }
 }
 
@@ -187,16 +216,16 @@ function getCurrentState() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   AUTO CHECK-IN — tự chấm công khi vào phạm vi
+   AUTO CHECK-IN
    ═══════════════════════════════════════════════════════════════ */
 async function tryAutoCheckin() {
   if (_anyCheckinInFlight) return;
   if (Date.now() < _autoCheckinCooldown) return;
   if (!state.user?.id) return;
-  if (getCurrentState() !== 'need_in') return;      // đã chấm đến rồi thì thôi
+  if (getCurrentState() !== 'need_in') return;
 
   const distInfo = getDistanceInfo();
-  if (!distInfo || !distInfo.inRange) return;       // chưa vào phạm vi
+  if (!distInfo || !distInfo.inRange) return;
 
   await doAutoCheckin();
 }
@@ -238,6 +267,212 @@ async function doAutoCheckin() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   ADMIN MONITOR
+   ═══════════════════════════════════════════════════════════════ */
+function getAudioCtx() {
+  if (_audioCtx) return _audioCtx;
+  try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+  return _audioCtx;
+}
+
+function playCheckinSound() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') { ctx.resume().catch(() => {}); }
+  try {
+    const now = ctx.currentTime;
+    const o1 = ctx.createOscillator(), g1 = ctx.createGain();
+    o1.frequency.value = 880; o1.type = 'sine';
+    g1.gain.setValueAtTime(0.0001, now);
+    g1.gain.exponentialRampToValueAtTime(0.28, now + 0.02);
+    g1.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+    o1.connect(g1).connect(ctx.destination);
+    o1.start(now); o1.stop(now + 0.2);
+
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.frequency.value = 1320; o2.type = 'sine';
+    g2.gain.setValueAtTime(0.0001, now + 0.14);
+    g2.gain.exponentialRampToValueAtTime(0.28, now + 0.16);
+    g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+    o2.connect(g2).connect(ctx.destination);
+    o2.start(now + 0.14); o2.stop(now + 0.34);
+  } catch {}
+}
+
+function bindAudioUnlock() {
+  if (_audioUnlockBound) return;
+  _audioUnlockBound = true;
+  const unlock = () => {
+    const ctx = getAudioCtx();
+    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+  };
+  document.addEventListener('touchstart', unlock, { once: true, passive: true });
+  document.addEventListener('click', unlock, { once: true });
+}
+
+function groupAdminCheckins() {
+  const map = {};
+  for (const c of _adminTodayCheckins) {
+    if (!map[c.employee_id]) {
+      map[c.employee_id] = {
+        employee_id: c.employee_id,
+        employee_name: c.employee_name || '—',
+        in: null,
+        out: null,
+      };
+    }
+    const t = c.type || 'in';
+    if (t === 'out') {
+      if (!map[c.employee_id].out) map[c.employee_id].out = c;
+    } else {
+      if (!map[c.employee_id].in) map[c.employee_id].in = c;
+    }
+  }
+  return Object.values(map).sort((a, b) => {
+    const ta = a.in ? new Date(a.in.checkin_at).getTime() : (a.out ? new Date(a.out.checkin_at).getTime() : 0);
+    const tb = b.in ? new Date(b.in.checkin_at).getTime() : (b.out ? new Date(b.out.checkin_at).getTime() : 0);
+    return tb - ta;
+  });
+}
+
+function renderAdminTodaySection() {
+  if (!state.isAdmin) return '';
+  const groups = groupAdminCheckins();
+
+  const rows = groups.length > 0
+    ? groups.map(g => {
+        const inTime = g.in ? formatHHMM(g.in.checkin_at) : null;
+        const outTime = g.out ? formatHHMM(g.out.checkin_at) : null;
+        const isComplete = !!(g.in && g.out);
+        const name = g.employee_name || '—';
+        const initial = name.charAt(0).toUpperCase();
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);">
+            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0ea5b7,#0a6b7a);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${initial}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.4;">
+                ${inTime ? `Đến <strong style="color:#16a34a;">${inTime}</strong>` : '<span style="color:#94a3b8;">Chưa đến</span>'}
+                ${outTime ? ` · Về <strong style="color:#0891b2;">${outTime}</strong>` : ''}
+              </div>
+            </div>
+            ${isComplete
+              ? '<span style="font-size:11px;padding:3px 8px;background:#dcfce7;color:#15803d;border-radius:20px;font-weight:600;white-space:nowrap;">✓ Xong</span>'
+              : '<span style="font-size:11px;padding:3px 8px;background:#fef3c7;color:#b45309;border-radius:20px;font-weight:600;white-space:nowrap;">Đang làm</span>'}
+          </div>
+        `;
+      }).join('')
+    : `<div style="padding:22px 16px;text-align:center;color:var(--text-muted);font-size:14px;">Chưa có nhân viên nào chấm công hôm nay</div>`;
+
+  return `
+    <div style="margin-top:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:16px;font-weight:700;color:var(--text);">👥 Nhân viên hôm nay <span style="color:var(--ocean-600);">(${groups.length})</span></div>
+        <button id="adminRefreshBtn" type="button" style="padding:6px 12px;font-size:12px;background:var(--ocean-50);color:var(--ocean-700);border:1px solid var(--ocean-200);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;">🔄</button>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+        ${rows}
+      </div>
+    </div>
+  `;
+}
+
+function updateCheckinTabBadge() {
+  const $tab = document.querySelector('[data-tab="checkin"]');
+  if (!$tab) return;
+  let $badge = $tab.querySelector('.checkin-badge');
+  if (_unseenCheckinCount > 0) {
+    if (!$badge) {
+      $badge = document.createElement('span');
+      $badge.className = 'checkin-badge';
+      $badge.style.cssText = 'position:absolute;top:-2px;right:-4px;min-width:18px;height:18px;line-height:18px;background:#dc2626;color:white;border-radius:9px;padding:0 5px;font-size:11px;font-weight:700;text-align:center;box-sizing:border-box;box-shadow:0 2px 4px rgba(0,0,0,0.2);pointer-events:none;';
+      $tab.style.position = 'relative';
+      $tab.appendChild($badge);
+    }
+    $badge.textContent = _unseenCheckinCount > 99 ? '99+' : String(_unseenCheckinCount);
+  } else if ($badge) {
+    $badge.remove();
+  }
+}
+
+async function checkAdminForNewCheckins() {
+  if (!state.isAdmin) return;
+  if (_checkingAdmin) return;
+  _checkingAdmin = true;
+  try {
+    const beforeIds = new Set(_adminTodayCheckins.map(c => c.id));
+    await loadAdminTodayCheckins();
+    const newOnes = _adminTodayCheckins.filter(c => !beforeIds.has(c.id) && c.employee_id !== state.user?.id);
+    if (newOnes.length === 0) return;
+
+    try { playCheckinSound(); } catch {}
+
+    if (newOnes.length === 1) {
+      const c = newOnes[0];
+      const label = (c.type === 'out') ? 'về' : 'đến';
+      toast(`🔔 ${c.employee_name || 'NV'} vừa chấm công ${label}`);
+    } else {
+      toast(`🔔 ${newOnes.length} nhân viên vừa chấm công`);
+    }
+
+    const onCheckinTab = $('#tab-checkin')?.classList.contains('active');
+    if (onCheckinTab) {
+      _unseenCheckinCount = 0;
+      updateCheckinTabBadge();
+      renderCheckin();
+    } else {
+      _unseenCheckinCount += newOnes.length;
+      updateCheckinTabBadge();
+    }
+  } finally {
+    _checkingAdmin = false;
+  }
+}
+
+function startAdminRealtime() {
+  if (!state.isAdmin) return;
+  if (_realtimeChannel) return;
+  try {
+    _realtimeChannel = supabase
+      .channel('cslx_checkins_admin_watch')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'cslx_checkins',
+      }, () => {
+        checkAdminForNewCheckins().catch(err => console.warn('[rt]', err));
+      })
+      .subscribe();
+  } catch (err) {
+    console.warn('[rt subscribe]', err);
+  }
+}
+
+function stopAdminRealtime() {
+  if (_realtimeChannel) {
+    try { supabase.removeChannel(_realtimeChannel); } catch {}
+    _realtimeChannel = null;
+  }
+}
+
+function startAdminPolling() {
+  if (!state.isAdmin) return;
+  if (_adminPollTimer) return;
+  _adminPollTimer = setInterval(() => {
+    if (!state.isAdmin) return;
+    if (document.visibilityState !== 'visible') return;
+    checkAdminForNewCheckins().catch(err => console.warn('[poll]', err));
+  }, 15000);
+}
+
+function stopAdminPolling() {
+  if (_adminPollTimer) {
+    clearInterval(_adminPollTimer);
+    _adminPollTimer = null;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    ENTRYPOINT
    ═══════════════════════════════════════════════════════════════ */
 export async function loadCheckinTab() {
@@ -248,10 +483,26 @@ export async function loadCheckinTab() {
     return;
   }
 
+  _unseenCheckinCount = 0;
+  updateCheckinTabBadge();
+
+  if (!state.isAdmin) {
+    stopAdminRealtime();
+    stopAdminPolling();
+  }
+
   renderLoading();
 
-  await Promise.all([loadLocation(), loadTodayCheckins(), loadRecentLogs()]);
+  const tasks = [loadLocation(), loadTodayCheckins(), loadRecentLogs()];
+  if (state.isAdmin) tasks.push(loadAdminTodayCheckins());
+  await Promise.all(tasks);
+
   startGPSWatch();
+  if (state.isAdmin) {
+    bindAudioUnlock();
+    startAdminRealtime();
+    startAdminPolling();
+  }
 
   const start = Date.now();
   while (!state.checkinUserPos && !state.checkinGpsError && Date.now() - start < 8000) {
@@ -291,7 +542,6 @@ function renderCheckin() {
   const err = state.checkinGpsError;
   const distInfo = getDistanceInfo();
 
-  // Header
   const headerHtml = `
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:15px;color:var(--text-muted);">Xin chào</div>
@@ -300,7 +550,6 @@ function renderCheckin() {
       <div style="font-size:16px;font-weight:600;color:var(--ocean-700);margin-top:2px;">${nowStr}</div>
     </div>`;
 
-  // Status card
   let statusHtml = '';
   if (!loc) {
     statusHtml = `
@@ -345,7 +594,6 @@ function renderCheckin() {
       </div>`;
   }
 
-  // Action button
   let actionHtml = '';
   if (currentState === 'need_in') {
     const can = !!(loc && pos && distInfo && distInfo.inRange);
@@ -392,6 +640,7 @@ function renderCheckin() {
       </div>`;
   }
 
+  const adminTodayHtml = state.isAdmin ? renderAdminTodaySection() : '';
   const logsHtml = renderRecentLogs(_recentLogs);
 
   const adminBtn = state.isAdmin
@@ -404,6 +653,7 @@ function renderCheckin() {
       ${headerHtml}
       ${statusHtml}
       ${actionHtml}
+      ${adminTodayHtml}
       <div style="margin-top:32px;">
         <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;">📅 Gần đây</div>
         ${logsHtml}
@@ -419,6 +669,7 @@ function renderCheckin() {
     renderLoading();
     setTimeout(() => {
       startGPSWatch();
+      if (state.isAdmin) { startAdminRealtime(); startAdminPolling(); }
       setTimeout(() => renderCheckin(), 800);
     }, 200);
   };
@@ -428,6 +679,20 @@ function renderCheckin() {
 
   const $settings = $('#checkinSettingsBtn');
   if ($settings) $settings.onclick = openSettingsModal;
+
+  const $adminRefresh = $('#adminRefreshBtn');
+  if ($adminRefresh) {
+    $adminRefresh.onclick = async () => {
+      $adminRefresh.disabled = true;
+      $adminRefresh.textContent = '⏳';
+      try {
+        await loadAdminTodayCheckins();
+        renderCheckin();
+      } catch (err) {
+        console.warn('[admin refresh]', err);
+      }
+    };
+  }
 }
 
 function updateLiveStatus() {
@@ -438,13 +703,11 @@ function updateLiveStatus() {
   const distInfo = getDistanceInfo();
   if (!distInfo) return;
 
-  // Nếu trạng thái vào/ra khỏi vùng đổi → render lại toàn bộ
   const wasInRange = $card.textContent.includes('ĐÃ ĐẾN TRƯỜNG');
   if (wasInRange !== distInfo.inRange) {
     renderCheckin();
     return;
   }
-  // Ngược lại chỉ update số mét nếu đang ngoài vùng
   if (!distInfo.inRange) {
     const $strong = $card.querySelector('strong');
     if ($strong) {
