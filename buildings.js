@@ -1,4 +1,4 @@
-// buildings.js — Toà nhà, tầng, special areas, gán nhân viên vào tầng
+// buildings.js — Toà nhà, tầng, special areas, gán nhân viên vào tầng (optimized)
 import { supabase } from './supabase.js';
 import {
   state, $, $$, toast,
@@ -14,32 +14,41 @@ function ensureState() {
   if (!Array.isArray(state.sundayOtAssignments)) state.sundayOtAssignments = [];
   if (!(state.expandedBuildings instanceof Set)) state.expandedBuildings = new Set();
   if (!state._assignCtx) state._assignCtx = null;
-  if (!state._bulkAssignments) state._bulkAssignments = new Set();
+  if (!(state._bulkAssignments instanceof Set)) state._bulkAssignments = new Set();
   if (state.areasBulkEmpId === undefined) state.areasBulkEmpId = null;
 }
 
+/* ⭐ OPTIMIZED: buildings + special_areas chạy song song */
 export async function loadBuildings() {
   ensureState();
 
-  const { data: buildings, error: e1 } = await supabase.from('buildings').select('*').order('name');
-  if (e1) { console.error(e1); return; }
-  state.buildings = buildings || [];
+  // ⭐ Parallel: buildings + special_areas (độc lập với nhau)
+  const [buildingsRes, specialRes] = await Promise.all([
+    supabase.from('buildings').select('*').order('name'),
+    supabase.from('special_areas').select('*'),
+  ]);
 
+  if (buildingsRes.error) { console.error(buildingsRes.error); return; }
+  state.buildings = buildingsRes.data || [];
+
+  // Floors phải chờ buildings (cần building_id)
   if (state.buildings.length) {
     const ids = state.buildings.map(b => b.id);
     const { data: floors } = await supabase
       .from('floors').select('*').in('building_id', ids).order('floor_number');
     state.floors = floors || [];
-  } else state.floors = [];
+  } else {
+    state.floors = [];
+  }
 
   if (state.buildings.length > 0 && state.expandedBuildings.size === 0) {
     state.expandedBuildings.add(state.buildings[0].id);
   }
 
-  const { data: special, error: e2 } = await supabase.from('special_areas').select('*');
-  if (!e2 && special) {
+  // Apply special_areas (đã fetch song song ở trên)
+  if (!specialRes.error && specialRes.data) {
     state.specialAreas = { external: null, night: null };
-    for (const row of special) {
+    for (const row of specialRes.data) {
       if (row.type === 'external' || row.type === 'night') {
         state.specialAreas[row.type] = row;
       }
@@ -278,7 +287,6 @@ export function renderBuildings() {
   updateCreateButtons();
   populateBulkEmpSelect();
 
-  // ⭐ Show/hide bulk actions row
   const $bulkActions = document.getElementById('areasBulkActions');
   if ($bulkActions) $bulkActions.style.display = state.areasBulkEmpId ? 'flex' : 'none';
 
@@ -457,7 +465,6 @@ export function renderBuildings() {
         ? `<span class="floor-people-count">${visible.length} người</span>`
         : `<span class="floor-people-count is-empty">Trống</span>`;
 
-      // ⭐ FIX #3: Checkbox khi ở bulk mode, button khi bình thường
       let assignControl = '';
       if (bulkMode) {
         const key = String(f.id);
@@ -541,7 +548,6 @@ export function renderBuildings() {
     });
   });
 
-  // ⭐ FIX #3: Bind checkboxes cho bulk mode
   wrap.querySelectorAll('.bulk-assign-check').forEach(cb => {
     cb.addEventListener('change', () => {
       if (!(state._bulkAssignments instanceof Set)) state._bulkAssignments = new Set();
@@ -551,7 +557,6 @@ export function renderBuildings() {
     });
   });
 
-  // ⭐ Bind checkbox cho external/night (nếu ở bulk mode)
   wrap.querySelectorAll('.bulk-assign-special').forEach(cb => {
     cb.addEventListener('change', () => {
       if (!(state._bulkAssignments instanceof Set)) state._bulkAssignments = new Set();
@@ -607,7 +612,6 @@ function renderSpecialCard(opts) {
          Chưa có nhân viên nào làm ${title.toLowerCase()}.
        </p>`;
 
-  // ⭐ Checkbox bulk mode cho external/night
   let bulkCheckbox = '';
   if (bulkMode) {
     const key = `__${type}__`;
@@ -858,7 +862,6 @@ async function saveAssignments() {
       .from('attendance').select('*').eq('date', dateStr);
     if (fetchErr) throw fetchErr;
 
-    // ⭐ FIX #1: Detect existing users on floor
     const existingFloorUsers = (allAtt || []).filter(a => {
       if (a.is_off) return false;
       if (a.mode === 'leave' || a.mode === 'off') return false;
@@ -1033,7 +1036,6 @@ export async function saveBulkAssignments() {
       .eq('employee_id', empId).eq('date', dateStr).maybeSingle();
     if (error) throw error;
 
-    // Confirm ghi đè special mode
     if (existing && (existing.is_off || existing.mode === 'leave' || existing.mode === 'off' || existing.mode === 'manual')) {
       const ok = confirm(`NV đang có "${existing.mode || 'off'}" ngày này. Ghi đè bằng gán tầng mới?`);
       if (!ok) {
@@ -1042,7 +1044,6 @@ export async function saveBulkAssignments() {
       }
     }
 
-    // Build new areas from selection
     const newAreas = [];
     for (const key of selectedSet) {
       if (key === '__external__') {
@@ -1094,7 +1095,6 @@ export async function saveBulkAssignments() {
       toast(`✅ Đã gán ${newAreas.length} khu vực cho ${emp.full_name || emp.username}`);
     }
 
-    // Reset bulk mode
     state.areasBulkEmpId = null;
     state._bulkAssignments = new Set();
 
@@ -1167,7 +1167,6 @@ export async function handleResetAreasData() {
     if (att.invalidateDayAssignCache) att.invalidateDayAssignCache();
   } catch {}
 
-  // Reset bulk mode nếu đang bật
   state.areasBulkEmpId = null;
   state._bulkAssignments = new Set();
 
