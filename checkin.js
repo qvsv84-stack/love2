@@ -92,7 +92,6 @@ function renderCheckin(){
     <div style="font-size:15px;color:var(--text-muted);margin-top:6px;">${formatDateCompact(now.toISOString())} · ${formatHHMMPeriod(now.toISOString())}</div>
   </div>`;
 
-  // 1. Kiểm tra xem đã cấu hình IP trường chưa
   let statusHtml = '';
   let actionHtml = '';
   
@@ -103,7 +102,7 @@ function renderCheckin(){
   } 
   else if (_isCheckingNetwork) {
     statusHtml = `<div style="padding:24px; background:#e0e7ff; border:2px solid #a5b4fc; border-radius:14px; text-align:center; color:#3730a3; font-size:18px; font-weight:600;">
-      📡 Đang kiểm tra kết nối mạng...
+      📡 Đang kiểm tra kết nối WiFi...
     </div>`;
   }
   else {
@@ -128,7 +127,6 @@ function renderCheckin(){
       </div>`;
     }
 
-    // 2. Nút Chấm Công
     const canCheckin = isConnectedToSchool;
     if (currentState === 'need_in') {
       actionHtml = `<button id="checkinActionBtn" ${canCheckin ? '' : 'disabled'} style="width:100%; margin-top:20px; padding:30px 20px; font-size:26px; font-weight:700; font-family:inherit; background:${canCheckin ? 'linear-gradient(135deg,#16a34a,#15803d)' : '#cbd5e1'}; color:white; border:none; border-radius:16px; cursor:${canCheckin ? 'pointer' : 'not-allowed'}; box-shadow:${canCheckin ? '0 4px 12px rgba(22,163,74,0.4)' : 'none'}; text-transform:uppercase; letter-spacing:0.5px;">CHẤM CÔNG ĐẾN</button>`;
@@ -155,7 +153,7 @@ function renderCheckin(){
   }
 
   const adminTodayHtml = state.isAdmin ? renderAdminTodaySection() : '';
-  const adminBtn = state.isAdmin ? '<button id="checkinSettingsBtn" style="position:absolute; top:12px; right:12px; padding:8px 14px; font-size:13px; background:#fff; border:1px solid var(--border); border-radius:8px; cursor:pointer; font-family:inherit; color:var(--text-muted); box-shadow:0 1px 3px rgba(0,0,0,0.05);">⚙️ Cài đặt IP</button>' : '';
+  const adminBtn = state.isAdmin ? '<button id="checkinSettingsBtn" style="position:absolute; top:12px; right:12px; padding:8px 14px; font-size:13px; background:#fff; border:1px solid var(--border); border-radius:8px; cursor:pointer; font-family:inherit; color:var(--text-muted); box-shadow:0 1px 3px rgba(0,0,0,0.05);">⚙️ Cài đặt WiFi</button>' : '';
 
   $root.innerHTML = `<div style="position:relative; padding:0 0 24px;">
     ${adminBtn}${headerHtml}${statusHtml}${actionHtml}${adminTodayHtml}
@@ -164,7 +162,6 @@ function renderCheckin(){
     </div>
   </div>`;
 
-  // Bind nút
   const $btnRetry = $('#btnRetryWifi');
   if ($btnRetry) $btnRetry.onclick = async () => {
     $btnRetry.textContent = '⏳ Đang kiểm tra...';
@@ -218,68 +215,85 @@ async function doCheckin(type){
   }
 }
 
-// ─────────────────────── CÀI ĐẶT IP CHO ADMIN ───────────────────────
+// ─────────────────────── CÀI ĐẶT IP CHO ADMIN (QUAN TRỌNG) ───────────────────────
 async function openSettingsModal(){
   if (!state.isAdmin) return;
   
-  // Lấy IP hiện tại của Admin
+  openModal('checkinUpdateModal');
+  
+  const $coords = $('#checkinUpdateCoords');
+  const $list = $('#checkinIpList');
+  const $btnAdd = $('#btnAddCurrentIp');
+  
+  if ($coords) $coords.innerHTML = '⏳ Đang lấy IP mạng hiện tại...';
+  if ($btnAdd) $btnAdd.style.display = 'none';
+  
+  // 1. Lấy IP hiện tại
   const currentIp = await getPublicIP();
   const loc = state.checkinLocation;
   const currentAllowed = loc?.allowed_ips || [];
   
-  const $coords = $('#checkinUpdateCoords');
   if ($coords) {
-    $coords.innerHTML = `
-      <div style="font-size:18px; font-weight:bold; color:var(--ocean-700);">${currentIp || 'Không lấy được IP'}</div>
-      <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Địa chỉ IP mạng đang kết nối</div>
-    `;
+    if (!currentIp) {
+      $coords.innerHTML = `<span style="color:#dc2626;">❌ Lỗi mạng. Không lấy được IP.</span>`;
+    } else {
+      $coords.innerHTML = `
+        <div style="font-size:18px; font-weight:bold; color:var(--ocean-700);">${currentIp}</div>
+        <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">IP của mạng WiFi bạn đang kết nối</div>
+      `;
+    }
   }
 
-  // Hiển thị danh sách IP đã có
-  const $list = $('#checkinIpList');
+  // 2. Render danh sách IP đã có
   if ($list) {
     if (currentAllowed.length === 0) {
-      $list.innerHTML = `<div style="color:#b45309; font-size:13px;">Chưa có IP nào được cấu hình.</div>`;
+      $list.innerHTML = `<div style="color:#b45309; font-size:13px; text-align:center; padding:10px;">Chưa có WiFi nào được lưu.</div>`;
     } else {
       $list.innerHTML = currentAllowed.map(ip => `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:#f1f5f9; border-radius:8px; margin-bottom:6px; border:1px solid #e2e8f0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#f1f5f9; border-radius:8px; margin-bottom:8px; border:1px solid #e2e8f0;">
           <span style="font-weight:600; font-size:14px;">${ip}</span>
-          <button class="btn-remove-ip" data-ip="${ip}" style="background:#fee2e2; color:#dc2626; border:none; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:bold; cursor:pointer;">Xoá</button>
+          <button class="btn-remove-ip" data-ip="${ip}" style="background:#fee2e2; color:#dc2626; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:bold; cursor:pointer;">Xoá</button>
         </div>
       `).join('');
       
-      // Gắn sự kiện xoá
       $list.querySelectorAll('.btn-remove-ip').forEach(btn => {
         btn.onclick = async () => {
+          if (!confirm('Xoá IP này khỏi danh sách cho phép?')) return;
           const ipToRemove = btn.dataset.ip;
           const newIps = currentAllowed.filter(i => i !== ipToRemove);
           await supabase.from('cslx_checkin_location').update({ allowed_ips: newIps }).eq('id', LOCATION_ID);
           toast('Đã xoá IP');
           await loadLocation();
-          openSettingsModal(); // Mở lại để refresh
+          openSettingsModal(); // refresh lại modal
         };
       });
     }
   }
 
-  // Nút thêm IP hiện tại
-  const $btnAdd = $('#btnAddCurrentIp');
+  // 3. Nút thêm IP mới
   if ($btnAdd) {
     if (currentIp && !currentAllowed.includes(currentIp)) {
       $btnAdd.style.display = 'block';
       $btnAdd.onclick = async () => {
+        $btnAdd.textContent = '⏳ Đang lưu...';
+        $btnAdd.disabled = true;
         const newIps = [...currentAllowed, currentIp];
-        await supabase.from('cslx_checkin_location').upsert({ id: LOCATION_ID, allowed_ips: newIps }, { onConflict: 'id' });
-        toast(`Đã thêm IP ${currentIp}`);
-        await loadLocation();
-        openSettingsModal(); // Mở lại để refresh
+        const { error } = await supabase.from('cslx_checkin_location').upsert({ id: LOCATION_ID, allowed_ips: newIps }, { onConflict: 'id' });
+        if (error) {
+          toast('Lỗi: ' + error.message);
+          $btnAdd.textContent = '+ Thêm IP này';
+          $btnAdd.disabled = false;
+        } else {
+          toast(`✅ Đã lưu WiFi trường!`);
+          await loadLocation();
+          openSettingsModal(); // refresh
+        }
       };
-    } else {
-      $btnAdd.style.display = 'none';
+    } else if (currentIp && currentAllowed.includes(currentIp)) {
+      // Nếu IP hiện tại đã có trong danh sách
+      $coords.innerHTML += `<div style="font-size:13px; color:#16a34a; font-weight:bold; margin-top:6px;">✓ WiFi này đã được lưu</div>`;
     }
   }
-
-  openModal('checkinUpdateModal');
 }
 
 // ─────────────────────── KHỞI TẠO TAB ───────────────────────
@@ -296,12 +310,14 @@ export async function loadCheckinTab(){
     <div style="font-size:18px;font-weight:600;">Đang kiểm tra kết nối...</div>
   </div>`;
 
+  // Tải cấu hình và lịch sử
   await Promise.all([loadLocation(), loadTodayCheckins()]);
-  await checkNetworkStatus(); // Lấy IP hiện tại
+  
+  // Check IP hiện tại
+  await checkNetworkStatus(); 
 
   renderCheckin();
 }
 
-// (Các hàm Admin (renderAdminTodaySection), Lịch sử (openHistoryModal), v.v... 
-// tôi giữ nguyên y hệt bản trước để bạn không phải sửa nhiều. 
-// Bạn chỉ cần đảm bảo file có các hàm đó là được.)
+// (Các hàm hiển thị Modal xác nhận, AdminTodaySection, Lịch sử, v.v... 
+// Bạn giữ nguyên như bản trước, không cần thay đổi).
