@@ -4,13 +4,25 @@ function ensureState(){if(!state.checkinLocation)state.checkinLocation=null;if(!
 function haversine(lat1,lng1,lat2,lng2){const R=6371000;const toRad=x=>x*Math.PI/180;const dLat=toRad(lat2-lat1);const dLng=toRad(lng2-lng1);const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
 
 /* =========================================================
-   GPS — iOS + Android (fix full)
+   GPS — iOS + Android + PWA (fix full)
    ========================================================= */
 function isIOS(){return /iPad|iPhone|iPod/.test(navigator.userAgent||"")}
 function isAndroid(){return /Android/.test(navigator.userAgent||"")}
 function isInAppBrowser(){
   const ua=navigator.userAgent||"";
-  return /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Zalo|Line\/|Twitter|Telegram|MicroMessenger|CocCoc|SamsungBrowser\/[0-9]+\.[0-9].*Mobile.*SamsungBrowser/.test(ua)&&/Zalo|FBAN|FBAV|FB_IAB|FBIOS|Instagram|Line\/|Twitter|Telegram|MicroMessenger/i.test(ua);
+  return /Zalo|FBAN|FBAV|FB_IAB|FBIOS|Instagram|Line\/|Twitter|Telegram|MicroMessenger/i.test(ua);
+}
+function isPWAStandalone(){
+  if(window.matchMedia){
+    try{
+      if(window.matchMedia("(display-mode: standalone)").matches)return true;
+      if(window.matchMedia("(display-mode: fullscreen)").matches)return true;
+      if(window.matchMedia("(display-mode: minimal-ui)").matches)return true;
+    }catch{}
+  }
+  if(navigator.standalone===true)return true;
+  if(document.referrer&&document.referrer.startsWith("android-app://"))return true;
+  return false;
 }
 async function getPermissionState(){
   if(!navigator.permissions||!navigator.permissions.query)return"unknown";
@@ -46,52 +58,63 @@ function getInAppBrowserMessage(){
   return `<div style="text-align:left;"><div style="font-size:20px;font-weight:700;margin-bottom:10px;text-align:center;">⚠ Trình duyệt trong ứng dụng</div><div style="font-size:14px;color:#991b1b;line-height:1.75;">Bạn đang mở trang bằng <b>trình duyệt trong ứng dụng</b> (Zalo / Facebook / Messenger...). Các trình duyệt này <b>không cho phép lấy GPS</b>.<br><br><b>Cách khắc phục:</b><br>1. Bấm nút <b>⋮</b> hoặc <b>...</b> ở góc trên bên phải<br>2. Chọn <b>"Mở bằng trình duyệt"</b> / <b>"Mở bằng Chrome"</b><br><br>Nếu không có tuỳ chọn đó:<br>• Giữ thanh địa chỉ → <b>Copy link</b><br>• Mở app <b>Chrome</b> → dán link → Enter</div></div>`;
 }
 function getPermissionDeniedMessage(){
+  const pwa=isPWAStandalone();
+  if(isAndroid()&&pwa){
+    return `<div style="text-align:left;">
+      <div style="font-size:20px;font-weight:700;margin-bottom:12px;text-align:center;">📱 App đã cài chưa có quyền vị trí</div>
+      <div style="font-size:13px;color:#991b1b;line-height:1.8;">
+        Bạn đang dùng <b>app đã cài lên màn hình chính</b>. App này cần quyền vị trí <b>riêng</b> ở cấp Android (không dùng chung với Chrome).<br><br>
+
+        <b>① Cài đặt Android (chắc chắn 100%):</b><br>
+        • Mở <b>Cài đặt</b> máy Android<br>
+        • <b>Ứng dụng</b> (hoặc <b>Quản lý ứng dụng</b>)<br>
+        • Tìm và bấm vào app <b>"Chấm Công"</b> / <b>"Giám Sát Chấm Công"</b><br>
+        • <b>Quyền</b> → <b>Vị trí</b> → <b>Cho phép</b><br>
+        • Bật thêm <b>"Vị trí chính xác"</b><br><br>
+
+        <b>② Bấm giữ icon app:</b><br>
+        • Ở màn hình chính, <b>bấm giữ</b> icon app<br>
+        • Chọn <b>Thông tin ứng dụng</b> (ⓘ)<br>
+        • <b>Quyền</b> → <b>Vị trí</b> → <b>Cho phép</b><br><br>
+
+        <b>③ Nếu vẫn không thấy mục "Vị trí":</b><br>
+        • <b>Gỡ app</b> khỏi màn hình chính (bấm giữ → Gỡ cài đặt)<br>
+        • Mở <b>Chrome</b> → vào link → bấm <b>⋮</b> → <b>Cài đặt ứng dụng</b> lại<br>
+        • Khi cài lại, Android sẽ hỏi quyền → bấm <b>Cho phép</b>
+      </div>
+      <div style="margin-top:18px;text-align:center;">
+        <button id="checkinRetryBtn" style="padding:14px 28px;font-size:16px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Đã bật xong — Thử lại</button>
+        <div style="font-size:11.5px;color:#7f1d1d;margin-top:10px;line-height:1.5;">Sau khi bật, <b>tắt hẳn app</b> (vuốt khỏi recents) rồi mở lại</div>
+      </div>
+    </div>`;
+  }
   if(isAndroid()){
     return `<div style="text-align:left;">
       <div style="font-size:20px;font-weight:700;margin-bottom:12px;text-align:center;">🔒 Chrome chưa có quyền vị trí</div>
       <div style="font-size:13px;color:#991b1b;line-height:1.8;">
-        <b>① Cấp quyền cho trang web (nhanh nhất):</b><br>
-        • Bấm vào <b>🔒</b> hoặc <b>⚙️</b> trên thanh địa chỉ<br>
-        • Chọn <b>Quyền</b> → <b>Vị trí</b> → <b>Cho phép</b><br><br>
-
-        <b>② Nếu bước ① không có tuỳ chọn:</b><br>
-        • Chrome → <b>⋮</b> → Cài đặt → <b>Cài đặt trang web</b> → <b>Vị trí</b><br>
-        • Tìm trang này trong danh sách → bấm vào → <b>Cho phép</b><br><br>
-
-        <b>③ Cấp quyền hệ thống Android:</b><br>
-        • Cài đặt → Ứng dụng → <b>Chrome</b> → Quyền → <b>Vị trí</b> → Cho phép<br>
-        • Bật thêm <b>Vị trí chính xác</b> (Precise Location)<br><br>
-
-        <b>④ Bật GPS:</b><br>
-        • Cài đặt → Vị trí → <b>Bật</b> (hoặc từ thanh thông báo)
+        <b>① Bấm 🔒 trên thanh địa chỉ</b> → Quyền → Vị trí → Cho phép<br><br>
+        <b>② Nếu không thấy:</b> Chrome → ⋮ → Cài đặt → Cài đặt trang web → Vị trí<br><br>
+        <b>③ Hoặc:</b> Cài đặt Android → Ứng dụng → Chrome → Quyền → Vị trí<br><br>
+        <b>④ Bật thêm:</b> Cài đặt → Vị trí → chọn <b>"Vị trí chính xác"</b>
       </div>
       <div style="margin-top:18px;text-align:center;">
         <button id="checkinRetryBtn" style="padding:14px 28px;font-size:16px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Đã bật xong — Thử lại</button>
-        <div style="font-size:11.5px;color:#7f1d1d;margin-top:10px;line-height:1.5;">Nếu vẫn lỗi, hãy <b>tắt hẳn Chrome</b> rồi mở lại</div>
       </div>
     </div>`;
   }
   if(isIOS()){
     return `<div style="text-align:left;">
-      <div style="font-size:20px;font-weight:700;margin-bottom:12px;text-align:center;">🔒 Safari chưa có quyền vị trí</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:12px;text-align:center;">🔒 ${pwa?"App đã cài chưa có quyền vị trí":"Safari chưa có quyền vị trí"}</div>
       <div style="font-size:13px;color:#991b1b;line-height:1.8;">
-        <b>① Cấp quyền cho trang:</b><br>
-        • Bấm nút <b>aA</b> bên trái thanh địa chỉ<br>
-        • <b>Cài đặt trang web</b> → <b>Vị trí</b> → <b>Cho phép</b><br><br>
-
-        <b>② Nếu bước ① không có:</b><br>
-        • Cài đặt iOS → <b>Safari</b> → <b>Vị trí</b> → Cho phép<br><br>
-
-        <b>③ Cấp quyền hệ thống iOS:</b><br>
-        • Cài đặt iOS → Quyền riêng tư → <b>Dịch vụ định vị</b> → Bật<br>
-        • Cho phép <b>Safari</b> + bật <b>Vị trí chính xác</b>
+        <b>① ${pwa?"Cài đặt iOS → Ứng dụng → [tên app] → Vị trí":"Bấm aA → Cài đặt trang web → Vị trí"}</b><br><br>
+        <b>② Cài đặt iOS → Quyền riêng tư → Dịch vụ định vị</b> → bật + chọn <b>"Vị trí chính xác"</b>
       </div>
       <div style="margin-top:18px;text-align:center;">
         <button id="checkinRetryBtn" style="padding:14px 28px;font-size:16px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Đã bật xong — Thử lại</button>
       </div>
     </div>`;
   }
-  return `<div style="text-align:center;"><div style="font-size:20px;font-weight:700;margin-bottom:10px;">🔒 Chưa cấp quyền vị trí</div><div style="font-size:14px;color:#991b1b;line-height:1.7;">Vào cài đặt trình duyệt → Quyền → Vị trí → <b>Cho phép</b>.</div><div style="margin-top:16px;"><button id="checkinRetryBtn" style="padding:14px 28px;font-size:16px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Thử lại</button></div></div>`;
+  return `<div style="text-align:center;"><div style="font-size:20px;font-weight:700;margin-bottom:10px;">🔒 Chưa cấp quyền vị trí</div><div style="margin-top:16px;"><button id="checkinRetryBtn" style="padding:14px 28px;font-size:16px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Thử lại</button></div></div>`;
 }
 function onGpsSuccess(pos){
   state.checkinUserPos={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy||0,timestamp:pos.timestamp};
@@ -111,39 +134,20 @@ function onGpsError(err){
 }
 async function startGPSWatch(){
   if(_watchId!=null)return;
-  if(!window.isSecureContext){
-    state.checkinGpsError=getInsecureContextMessage();scheduleRender(true);return;
-  }
-  if(!navigator.geolocation){
-    state.checkinGpsError="⚠ Trình duyệt không hỗ trợ định vị GPS";scheduleRender(true);return;
-  }
-  if(isInAppBrowser()){
-    state.checkinGpsError=getInAppBrowserMessage();scheduleRender(true);return;
-  }
+  if(!window.isSecureContext){state.checkinGpsError=getInsecureContextMessage();scheduleRender(true);return;}
+  if(!navigator.geolocation){state.checkinGpsError="⚠ Trình duyệt không hỗ trợ định vị GPS";scheduleRender(true);return;}
+  if(isInAppBrowser()){state.checkinGpsError=getInAppBrowserMessage();scheduleRender(true);return;}
+  if(isPWAStandalone()&&isAndroid())console.log("[GPS] PWA standalone (Android) — cần quyền Location riêng");
   state.checkinGpsError=null;
   const perm=await getPermissionState();
-  console.log("[GPS] permission state:",perm,"UA:",navigator.userAgent.slice(0,80));
-  if(perm==="denied"){
-    state.checkinGpsError=getPermissionDeniedMessage();
-    attachPermissionWatcher();
-    scheduleRender(true);
-    return;
-  }
+  console.log("[GPS] permission:",perm,"PWA:",isPWAStandalone());
+  if(perm==="denied"){state.checkinGpsError=getPermissionDeniedMessage();attachPermissionWatcher();scheduleRender(true);return;}
   try{
-    _watchId=navigator.geolocation.watchPosition(
-      onGpsSuccess,onGpsError,
-      {enableHighAccuracy:true,timeout:30000,maximumAge:5000}
-    );
+    _watchId=navigator.geolocation.watchPosition(onGpsSuccess,onGpsError,{enableHighAccuracy:true,timeout:30000,maximumAge:5000});
   }catch(e){
     console.warn("[GPS] watch throw:",e);
-    try{
-      _watchId=navigator.geolocation.watchPosition(
-        onGpsSuccess,onGpsError,
-        {enableHighAccuracy:false,timeout:30000,maximumAge:10000}
-      );
-    }catch(e2){
-      state.checkinGpsError="Không khởi động được GPS: "+(e2.message||"lỗi");scheduleRender(true);
-    }
+    try{_watchId=navigator.geolocation.watchPosition(onGpsSuccess,onGpsError,{enableHighAccuracy:false,timeout:30000,maximumAge:10000});}
+    catch(e2){state.checkinGpsError="Không khởi động được GPS: "+(e2.message||"lỗi");scheduleRender(true);}
   }
 }
 export function stopCheckinWatch(){
@@ -152,7 +156,7 @@ export function stopCheckinWatch(){
 }
 
 /* =========================================================
-   Phần còn lại giữ NGUYÊN (copy từ file cũ của bạn)
+   Phần còn lại giữ NGUYÊN
    ========================================================= */
 function scheduleRender(immediate=false){clearTimeout(_renderTimer);if(immediate){if($("#tab-checkin")?.classList.contains("active"))renderCheckin();return}_renderTimer=setTimeout(()=>{if(!$("#tab-checkin")?.classList.contains("active"))return;const $card=$("#checkinStatusCard");if(!$card)renderCheckin();else updateLiveStatus()},500)}async function loadLocation(){const{data,error}=await supabase.from("cslx_checkin_location").select("*").eq("id",LOCATION_ID).maybeSingle();if(error){console.error("[checkin] location:",error);return}state.checkinLocation=data||null}async function loadTodayCheckins(){if(!state.user?.id)return;const today=toDateStr(new Date());const{data,error}=await supabase.from("cslx_checkins").select("*").eq("employee_id",state.user.id).eq("checkin_date",today).order("checkin_at",{ascending:true});if(error){console.error(error);_todayCheckins=[];return}_todayCheckins=data||[]}async function loadAdminTodayCheckins(){if(!state.isAdmin){_adminTodayCheckins=[];return}const today=toDateStr(new Date());const{data,error}=await supabase.from("cslx_checkins").select("*").eq("checkin_date",today).order("checkin_at",{ascending:true});if(error){console.error("[admin checkins]",error);_adminTodayCheckins=[];return}_adminTodayCheckins=data||[]}function formatTime(iso){try{const d=new Date(iso);const h=d.getHours();const m=d.getMinutes();const period=h<12?"sáng":h<18?"chiều":"tối";const displayH=h===0?12:h>12?h-12:h;return`${displayH} giờ ${String(m).padStart(2,"0")} phút ${period}`}catch{return"—"}}function formatHHMM(iso){try{const d=new Date(iso);return`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`}catch{return"—"}}function formatHHMMPeriod(iso){try{const d=new Date(iso);const h=d.getHours();const m=d.getMinutes();const period=h<12?"sáng":h<18?"chiều":"tối";return`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")} ${period}`}catch{return"—"}}function formatDateVN(iso){try{const d=new Date(iso);const days=["Chủ nhật","Thứ 2","Thứ 3","Thứ 4","Thứ 5","Thứ 6","Thứ 7"];return`${days[d.getDay()]}, ${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`}catch{return"—"}}function formatDateCompact(iso){try{const d=new Date(iso);return`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`}catch{return"—"}}function formatDateShort(dateStr){try{const parts=dateStr.split("-");return`${parts[2]}/${parts[1]}/${parts[0]}`}catch{return dateStr}}function formatDuration(ms){const totalMin=Math.round(ms/6e4);const h=Math.floor(totalMin/60);const m=totalMin%60;if(h===0)return`${m} phút`;if(m===0)return`${h} giờ`;return`${h} giờ ${m} phút`}function formatDurationShort(ms){const totalMin=Math.round(ms/6e4);const h=Math.floor(totalMin/60);const m=totalMin%60;if(h===0)return`${m}p`;if(m===0)return`${h}h`;return`${h}h${m}p`}function getUserName(){const emp=(state.employees||[]).find(e=>e.id===state.user?.id);return emp?.full_name||emp?.username||state.user?.email||""}function getDistanceInfo(){if(!state.checkinLocation||!state.checkinUserPos)return null;const loc=state.checkinLocation;const pos=state.checkinUserPos;const dist=haversine(pos.lat,pos.lng,loc.lat,loc.lng);return{distance:dist,radius:loc.radius_m,inRange:dist<=loc.radius_m,accuracy:pos.accuracy}}function getCurrentState(){if(_todayCheckins.length===0)return"need_in";if(_todayCheckins.length===1)return"need_out";return"done"}async function deleteCheckinsByEmpDate(empId,empName,dateStr){if(!state.isAdmin){toast("Chỉ admin được xoá");return false}if(!empId||!dateStr)return false;const ok=confirm(`⚠️ Xoá TẤT CẢ chấm công của\n\n👤 "${empName||"NV"}"\n📅 ngày ${formatDateShort(dateStr)}\n\nBao gồm cả đến và về.\nKhông thể hoàn tác!`);if(!ok)return false;const{error}=await supabase.from("cslx_checkins").delete().eq("employee_id",empId).eq("checkin_date",dateStr);if(error){toast("Lỗi xoá: "+error.message);return false}toast("🗑 Đã xoá");return true}async function deleteAllTodayCheckins(){if(!state.isAdmin)return;const today=toDateStr(new Date());const count=_adminTodayCheckins.length;if(count===0){toast("Không có dữ liệu để xoá");return}const ok=confirm(`⚠️ Xoá TẤT CẢ ${count} chấm công hôm nay?\n\n📅 Ngày ${formatDateShort(today)}\n👥 Bao gồm mọi nhân viên.\n\nKhông thể hoàn tác!`);if(!ok)return;const{error}=await supabase.from("cslx_checkins").delete().eq("checkin_date",today);if(error){toast("Lỗi xoá: "+error.message);return}toast(`🗑 Đã xoá ${count} chấm công hôm nay`);await loadAdminTodayCheckins();await loadTodayCheckins();renderCheckin()}async function refreshAfterDelete(dateStr,empId){await loadAdminTodayCheckins();await loadTodayCheckins();renderCheckin()}async function tryAutoCheckin(){if(_anyCheckinInFlight)return;if(Date.now()<_autoCheckinCooldown)return;if(!state.user?.id)return;if(getCurrentState()!=="need_in")return;const distInfo=getDistanceInfo();if(!distInfo||!distInfo.inRange)return;await doAutoCheckin()}async function doAutoCheckin(){const loc=state.checkinLocation;const pos=state.checkinUserPos;if(!loc||!pos)return;const dist=haversine(pos.lat,pos.lng,loc.lat,loc.lng);_anyCheckinInFlight=true;try{const{error}=await supabase.from("cslx_checkins").insert({employee_id:state.user.id,employee_name:getUserName(),checkin_date:toDateStr(new Date()),type:"in",lat:pos.lat,lng:pos.lng,accuracy_m:pos.accuracy,distance_m:dist,device_info:"AUTO · "+(navigator.userAgent||"").slice(0,180)});if(error)throw error;try{navigator.vibrate([100,50,200])}catch{}await loadTodayCheckins();renderCheckin();showSuccessModal("in",true)}catch(err){console.error("[auto-checkin]",err);_autoCheckinCooldown=Date.now()+3e4}finally{_anyCheckinInFlight=false}}function getAudioCtx(){if(_audioCtx)return _audioCtx;try{_audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch{}return _audioCtx}function playCheckinSound(){const ctx=getAudioCtx();if(!ctx)return;if(ctx.state==="suspended"){ctx.resume().catch(()=>{})}try{const now=ctx.currentTime;const o1=ctx.createOscillator(),g1=ctx.createGain();o1.frequency.value=880;o1.type="sine";g1.gain.setValueAtTime(1e-4,now);g1.gain.exponentialRampToValueAtTime(.28,now+.02);g1.gain.exponentialRampToValueAtTime(1e-4,now+.18);o1.connect(g1).connect(ctx.destination);o1.start(now);o1.stop(now+.2);const o2=ctx.createOscillator(),g2=ctx.createGain();o2.frequency.value=1320;o2.type="sine";g2.gain.setValueAtTime(1e-4,now+.14);g2.gain.exponentialRampToValueAtTime(.28,now+.16);g2.gain.exponentialRampToValueAtTime(1e-4,now+.32);o2.connect(g2).connect(ctx.destination);o2.start(now+.14);o2.stop(now+.34)}catch{}}function bindAudioUnlock(){if(_audioUnlockBound)return;_audioUnlockBound=true;const unlock=()=>{const ctx=getAudioCtx();if(ctx&&ctx.state==="suspended")ctx.resume().catch(()=>{})};document.addEventListener("touchstart",unlock,{once:true,passive:true});document.addEventListener("click",unlock,{once:true})}function groupAdminCheckins(){const map={};for(const c of _adminTodayCheckins){if(!map[c.employee_id]){map[c.employee_id]={employee_id:c.employee_id,employee_name:c.employee_name||"—",in:null,out:null}}const t=c.type||"in";if(t==="out"){if(!map[c.employee_id].out)map[c.employee_id].out=c}else{if(!map[c.employee_id].in)map[c.employee_id].in=c}}return Object.values(map).sort((a,b)=>{const ta=a.in?new Date(a.in.checkin_at).getTime():a.out?new Date(a.out.checkin_at).getTime():0;const tb=b.in?new Date(b.in.checkin_at).getTime():b.out?new Date(b.out.checkin_at).getTime():0;return tb-ta})}function renderAdminTodaySection(){if(!state.isAdmin)return"";const groups=groupAdminCheckins();const today=toDateStr(new Date());const rows=groups.length>0?groups.map(g=>{const inTime=g.in?formatHHMM(g.in.checkin_at):null;const outTime=g.out?formatHHMM(g.out.checkin_at):null;const isComplete=!!(g.in&&g.out);const name=g.employee_name||"—";const initial=name.charAt(0).toUpperCase();const safeName=name.replace(/"/g,"&quot;");return`<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0ea5b7,#0a6b7a);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${initial}</div><div style="flex:1;min-width:0;"><div style="font-weight:600;color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div><div style="font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.4;">${inTime?`Đến <strong style="color:#16a34a;">${inTime}</strong>`:'<span style="color:#94a3b8;">Chưa đến</span>'}${outTime?` · Về <strong style="color:#0891b2;">${outTime}</strong>`:""}</div></div>${isComplete?'<span style="font-size:11px;padding:3px 8px;background:#dcfce7;color:#15803d;border-radius:20px;font-weight:600;white-space:nowrap;">✓ Xong</span>':'<span style="font-size:11px;padding:3px 8px;background:#fef3c7;color:#b45309;border-radius:20px;font-weight:600;white-space:nowrap;">Đang làm</span>'}<button class="admin-del-btn" type="button" data-del-emp="${g.employee_id}" data-del-name="${safeName}" data-del-date="${today}" title="Xoá chấm công hôm nay" style="width:32px;height:32px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;">🗑</button></div>`}).join(""):'<div style="padding:22px 16px;text-align:center;color:var(--text-muted);font-size:14px;">Chưa có nhân viên nào chấm công hôm nay</div>';const bulkBtn=groups.length>0?'<button id="adminBulkDeleteBtn" type="button" style="width:100%;margin-top:8px;padding:11px 14px;font-size:13px;font-weight:600;background:#fff;color:#dc2626;border:1.5px solid #fecaca;border-radius:10px;cursor:pointer;font-family:inherit;">🗑 Xoá tất cả hôm nay</button>':"";return`<div style="margin-top:24px;"><div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px;">👥 Nhân viên hôm nay <span style="color:var(--ocean-600);">(${groups.length})</span></div><div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;">${rows}</div>${bulkBtn}</div>`}function bindAdminDeleteButtons(){if(!state.isAdmin)return;document.querySelectorAll(".admin-del-btn").forEach(btn=>{btn.onclick=async()=>{if(btn.disabled)return;btn.disabled=true;const empId=btn.dataset.delEmp;const empName=btn.dataset.delName;const dateStr=btn.dataset.delDate;try{const ok=await deleteCheckinsByEmpDate(empId,empName,dateStr);if(ok){await loadAdminTodayCheckins();await loadTodayCheckins();renderCheckin()}}finally{btn.disabled=false}}});const $bulkBtn=document.getElementById("adminBulkDeleteBtn");if($bulkBtn){$bulkBtn.onclick=async()=>{if($bulkBtn.disabled)return;$bulkBtn.disabled=true;$bulkBtn.textContent="⏳ Đang xoá...";try{await deleteAllTodayCheckins()}finally{const b=document.getElementById("adminBulkDeleteBtn");if(b){b.disabled=false;b.textContent="🗑 Xoá tất cả hôm nay"}}}}}function updateCheckinTabBadge(){const $tab=document.querySelector('[data-tab="checkin"]');if(!$tab)return;let $badge=$tab.querySelector(".checkin-badge");if(_unseenCheckinCount>0){if(!$badge){$badge=document.createElement("span");$badge.className="checkin-badge";$badge.style.cssText="position:absolute;top:-2px;right:-4px;min-width:18px;height:18px;line-height:18px;background:#dc2626;color:white;border-radius:9px;padding:0 5px;font-size:11px;font-weight:700;text-align:center;box-sizing:border-box;box-shadow:0 2px 4px rgba(0,0,0,0.2);pointer-events:none;";$tab.style.position="relative";$tab.appendChild($badge)}$badge.textContent=_unseenCheckinCount>99?"99+":String(_unseenCheckinCount)}else if($badge){$badge.remove()}}async function checkAdminForNewCheckins(){if(!state.isAdmin)return;if(_checkingAdmin)return;_checkingAdmin=true;try{const beforeIds=new Set(_adminTodayCheckins.map(c=>c.id));await loadAdminTodayCheckins();const newOnes=_adminTodayCheckins.filter(c=>!beforeIds.has(c.id)&&c.employee_id!==state.user?.id);if(newOnes.length===0)return;try{playCheckinSound()}catch{}if(newOnes.length===1){const c=newOnes[0];const label=c.type==="out"?"về":"đến";toast(`🔔 ${c.employee_name||"NV"} vừa chấm công ${label}`)}else{toast(`🔔 ${newOnes.length} nhân viên vừa chấm công`)}const onCheckinTab=$("#tab-checkin")?.classList.contains("active");if(onCheckinTab){_unseenCheckinCount=0;updateCheckinTabBadge();renderCheckin()}else{_unseenCheckinCount+=newOnes.length;updateCheckinTabBadge()}}finally{_checkingAdmin=false}}function startAdminRealtime(){if(!state.isAdmin)return;if(_realtimeChannel)return;try{_realtimeChannel=supabase.channel("cslx_checkins_admin_watch").on("postgres_changes",{event:"INSERT",schema:"public",table:"cslx_checkins"},()=>{checkAdminForNewCheckins().catch(err=>console.warn("[rt]",err))}).subscribe()}catch(err){console.warn("[rt subscribe]",err)}}function stopAdminRealtime(){if(_realtimeChannel){try{supabase.removeChannel(_realtimeChannel)}catch{}_realtimeChannel=null}}function startAdminPolling(){if(!state.isAdmin)return;if(_adminPollTimer)return;_adminPollTimer=setInterval(()=>{if(!state.isAdmin)return;if(document.visibilityState!=="visible")return;checkAdminForNewCheckins().catch(err=>console.warn("[poll]",err))},15e3)}function stopAdminPolling(){if(_adminPollTimer){clearInterval(_adminPollTimer);_adminPollTimer=null}}function updateHistoryModeUI(){const $btnDay=document.getElementById("historyModeDay");const $btnMonth=document.getElementById("historyModeMonth");const $hint=document.getElementById("historyScopeHint");const $dateInput=document.getElementById("historyDateInput");const activeStyle="flex:1;padding:9px 12px;font-size:13px;font-weight:700;background:var(--ocean-500);color:white;border:1.5px solid var(--ocean-500);border-radius:9px;cursor:pointer;font-family:inherit;";const inactiveStyle="flex:1;padding:9px 12px;font-size:13px;font-weight:600;background:#fff;color:var(--text-muted);border:1.5px solid var(--border);border-radius:9px;cursor:pointer;font-family:inherit;";if($btnDay)$btnDay.style.cssText=_historyMode==="day"?activeStyle:inactiveStyle;if($btnMonth)$btnMonth.style.cssText=_historyMode==="month"?activeStyle:inactiveStyle;const dateVal=$dateInput?.value||"";if($hint&&dateVal){if(_historyMode==="day"){$hint.textContent=`🎯 Đang xem ngày ${formatDateShort(dateVal)}`}else{const[y,mo]=dateVal.split("-");$hint.textContent=`📅 Đang xem cả tháng ${mo}/${y}`}}else if($hint){$hint.textContent=""}}function ensureHistoryModal(){let $m=document.getElementById("checkinHistoryModal");if($m)return $m;const html=`<div id="checkinHistoryModal" class="modal-overlay" style="display:none;z-index:10001;align-items:center;justify-content:center;padding:12px;"><div style="background:#fff;border-radius:18px;max-width:480px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0;"><h3 style="margin:0;font-size:17px;font-weight:700;color:var(--ocean-700);">📜 Lịch sử chấm công</h3><button id="historyCloseBtn" type="button" style="background:var(--ocean-50);border:none;width:32px;height:32px;border-radius:8px;font-size:15px;color:var(--text-muted);cursor:pointer;font-family:inherit;">✕</button></div><div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:10px;"><select id="historyEmpSelect" class="input" style="display:none;padding:10px 12px;font-size:14px;"><option value="">👤 Tất cả NV</option></select><input type="date" id="historyDateInput" class="input" style="padding:10px 12px;font-size:14px;" /><div style="display:flex;gap:8px;"><button id="historyModeDay" type="button">📍 Ngày này</button><button id="historyModeMonth" type="button">📅 Cả tháng</button></div><div id="historyScopeHint" style="font-size:11.5px;color:var(--text-muted);line-height:1.4;text-align:center;"></div></div><div id="historyContent" style="flex:1;overflow-y:auto;padding:12px 16px;-webkit-overflow-scrolling:touch;min-height:0;"><div style="text-align:center;padding:40px;color:var(--text-muted);">⏳ Đang tải...</div></div><div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;justify-content:center;"><button id="historyCloseBtn2" type="button" style="padding:10px 24px;font-size:13px;font-weight:600;background:#fff;color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;">Đóng</button></div></div></div>`;document.body.insertAdjacentHTML("beforeend",html);$m=document.getElementById("checkinHistoryModal");const closeFn=()=>{$m.style.display="none"};document.getElementById("historyCloseBtn").onclick=closeFn;document.getElementById("historyCloseBtn2").onclick=closeFn;$m.onclick=(e)=>{if(e.target===$m)closeFn()};document.getElementById("historyDateInput").onchange=()=>{updateHistoryModeUI();loadHistoryData().catch(err=>console.warn("[history]",err))};document.getElementById("historyEmpSelect").onchange=()=>{loadHistoryData().catch(err=>console.warn("[history]",err))};document.getElementById("historyModeDay").onclick=()=>{_historyMode="day";updateHistoryModeUI();loadHistoryData().catch(err=>console.warn("[history]",err))};document.getElementById("historyModeMonth").onclick=()=>{_historyMode="month";updateHistoryModeUI();loadHistoryData().catch(err=>console.warn("[history]",err))};return $m}function openHistoryModal(defaultEmpId=""){_historyDefaultEmpId=defaultEmpId||"";_historyMode="day";const $m=ensureHistoryModal();const $date=document.getElementById("historyDateInput");if($date)$date.value=toDateStr(new Date());const $empSel=document.getElementById("historyEmpSelect");if($empSel){if(state.isAdmin){$empSel.style.display="block";const emps=(state.employees||[]).filter(e=>e.status!=="inactive").sort((a,b)=>(a.full_name||a.username||"").localeCompare(b.full_name||b.username||"","vi"));$empSel.innerHTML='<option value="">👤 Tất cả NV</option>'+emps.map(e=>`<option value="${e.id}">${e.full_name||e.username||""}</option>`).join("");$empSel.value=_historyDefaultEmpId||""}else{$empSel.style.display="none";$empSel.value=""}}updateHistoryModeUI();$m.style.display="flex";loadHistoryData().catch(err=>{console.warn("[history]",err);const $c=document.getElementById("historyContent");if($c)$c.innerHTML='<div style="text-align:center;padding:40px;color:#dc2626;">⚠ Lỗi tải dữ liệu</div>'})}async function loadHistoryData(){const $content=document.getElementById("historyContent");if(!$content)return;const $date=document.getElementById("historyDateInput");const $empSel=document.getElementById("historyEmpSelect");const dateVal=$date?.value||"";if(!dateVal){$content.innerHTML='<div style="text-align:center;padding:40px;color:var(--text-muted);">Chọn ngày để xem</div>';return}let query=supabase.from("cslx_checkins").select("*");if(_historyMode==="day"){query=query.eq("checkin_date",dateVal)}else{const[y,mo]=dateVal.split("-").map(Number);const lastDay=new Date(y,mo,0).getDate();const start=`${y}-${String(mo).padStart(2,"0")}-01`;const end=`${y}-${String(mo).padStart(2,"0")}-${String(lastDay).padStart(2,"0")}`;query=query.gte("checkin_date",start).lte("checkin_date",end)}let selEmpId=null;if(!state.isAdmin){selEmpId=state.user?.id}else{selEmpId=$empSel?.value||null}if(!state.isAdmin&&!selEmpId){$content.innerHTML='<div style="text-align:center;padding:40px;color:var(--text-muted);">Vui lòng đăng nhập</div>';return}if(selEmpId)query=query.eq("employee_id",selEmpId);query=query.order("checkin_date",{ascending:false}).order("checkin_at",{ascending:true});$content.innerHTML='<div style="text-align:center;padding:40px;color:var(--text-muted);">⏳ Đang tải...</div>';const{data,error}=await query;if(error){$content.innerHTML=`<div style="text-align:center;padding:40px;color:#dc2626;">⚠ Lỗi: ${error.message}</div>`;return}if(!data||data.length===0){const scope=_historyMode==="day"?`ngày ${formatDateShort(dateVal)}`:`tháng ${dateVal.slice(5,7)}/${dateVal.slice(0,4)}`;$content.innerHTML=`<div style="text-align:center;padding:40px;color:var(--text-muted);">📭 Chưa có dữ liệu chấm công ${scope}</div>`;return}const byDate={};for(const c of data){if(!byDate[c.checkin_date])byDate[c.checkin_date]={};if(!byDate[c.checkin_date][c.employee_id]){byDate[c.checkin_date][c.employee_id]={employee_id:c.employee_id,employee_name:c.employee_name||"—",in:null,out:null}}const rec=byDate[c.checkin_date][c.employee_id];const t=c.type||"in";if(t==="out"){if(!rec.out)rec.out=c}else{if(!rec.in)rec.in=c}}const todayStr=toDateStr(new Date());const days=Object.keys(byDate).sort().reverse();const dayNames=["CN","T2","T3","T4","T5","T6","T7"];$content.innerHTML=days.map(d=>{const dateObj=new Date(d+"T00:00:00");const dow=dayNames[dateObj.getDay()];const dd=String(dateObj.getDate()).padStart(2,"0");const mm=String(dateObj.getMonth()+1).padStart(2,"0");const isToday=d===todayStr;const empRecs=Object.values(byDate[d]).sort((a,b)=>{const ta=a.in?new Date(a.in.checkin_at).getTime():a.out?new Date(a.out.checkin_at).getTime():0;const tb=b.in?new Date(b.in.checkin_at).getTime():b.out?new Date(b.out.checkin_at).getTime():0;return ta-tb});const dayHeaderStyle=isToday?"background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#15803d;border-color:#86efac;":"background:var(--ocean-50);color:var(--ocean-700);border-color:var(--ocean-200);";return`<div style="margin-bottom:14px;"><div style="padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700;margin-bottom:8px;border:1px solid;${dayHeaderStyle}">${isToday?"📍 Hôm nay · ":""}${dow}, ${dd}/${mm}/${dateObj.getFullYear()}</div><div style="background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;">${empRecs.map(r=>{const inTime=r.in?formatHHMM(r.in.checkin_at):null;const outTime=r.out?formatHHMM(r.out.checkin_at):null;let durText="";if(r.in&&r.out){const ms=new Date(r.out.checkin_at)-new Date(r.in.checkin_at);durText=` <span style="color:#0f766e;font-weight:600;">(${formatDurationShort(ms)})</span>`}const safeName=(r.employee_name||"").replace(/"/g,"&quot;");return`<div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px;"><div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:13px;color:var(--text);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.employee_name}</div><div style="font-size:12.5px;color:var(--text-muted);line-height:1.6;">${inTime?`🟢 Đến <strong style="color:#16a34a;">${inTime}</strong>`:'<span style="color:#94a3b8;">— Chưa đến</span>'}${outTime?` · 🔵 Về <strong style="color:#0891b2;">${outTime}</strong>${durText}`:""}</div></div>${state.isAdmin?`<button class="hist-del-btn" type="button" data-hist-del-emp="${r.employee_id}" data-hist-del-name="${safeName}" data-hist-del-date="${d}" title="Xoá chấm công NV này trong ngày" style="width:32px;height:32px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;">🗑</button>`:""}</div>`}).join("")}</div></div>`}).join("");if(state.isAdmin){document.querySelectorAll(".hist-del-btn").forEach(btn=>{btn.onclick=async()=>{if(btn.disabled)return;btn.disabled=true;const empId=btn.dataset.histDelEmp;const empName=btn.dataset.histDelName;const dateStr=btn.dataset.histDelDate;try{const ok=await deleteCheckinsByEmpDate(empId,empName,dateStr);if(ok){await loadAdminTodayCheckins();await loadTodayCheckins();renderCheckin();await loadHistoryData()}}finally{btn.disabled=false}}})}}
 
@@ -183,13 +187,9 @@ function renderCheckin(){
   let statusHtml="";
   if(!loc){statusHtml=`<div style="padding:24px 20px;background:#fef3c7;border:2px solid #fbbf24;border-radius:14px;text-align:center;font-size:16px;color:#92400e;line-height:1.6;"><div style="font-size:20px;font-weight:700;margin-bottom:10px;">⚠ Chưa có điểm chấm công</div><div>Vui lòng liên hệ quản lý để cài đặt.</div></div>`}
   else if(err){
-    /* Rich HTML error (từ getPermissionDeniedMessage / getInAppBrowserMessage / getInsecureContextMessage) */
     const isRich=typeof err==="string"&&err.trimStart().startsWith("<");
-    if(isRich){
-      statusHtml=`<div style="padding:20px 18px;background:#fee2e2;border:2px solid #fca5a5;border-radius:14px;color:#991b1b;line-height:1.6;">${err}</div>`;
-    }else{
-      statusHtml=`<div style="padding:24px 20px;background:#fee2e2;border:2px solid #fca5a5;border-radius:14px;text-align:center;font-size:16px;color:#991b1b;line-height:1.6;"><div style="font-size:20px;font-weight:700;margin-bottom:10px;">⚠ ${err}</div><div style="font-size:13px;margin-top:8px;color:#7f1d1d;">Nếu vẫn không được, hãy gọi quản lý</div><div style="margin-top:16px;"><button id="checkinRetryBtn" style="padding:14px 28px;font-size:16px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Thử lại</button></div></div>`;
-    }
+    if(isRich){statusHtml=`<div style="padding:20px 18px;background:#fee2e2;border:2px solid #fca5a5;border-radius:14px;color:#991b1b;line-height:1.6;">${err}</div>`;}
+    else{statusHtml=`<div style="padding:24px 20px;background:#fee2e2;border:2px solid #fca5a5;border-radius:14px;text-align:center;font-size:16px;color:#991b1b;line-height:1.6;"><div style="font-size:20px;font-weight:700;margin-bottom:10px;">⚠ ${err}</div><div style="font-size:13px;margin-top:8px;color:#7f1d1d;">Nếu vẫn không được, hãy gọi quản lý</div><div style="margin-top:16px;"><button id="checkinRetryBtn" style="padding:14px 28px;font-size:16px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Thử lại</button></div></div>`;}
   }
   else if(distInfo){
     const poorAccuracy=pos&&pos.accuracy>Math.max(80,loc.radius_m*1.5);
