@@ -118,7 +118,8 @@ async function openCamera(type) {
     let html = '<div id="cameraModal" style="display:none; position:fixed; inset:0; background:#000; z-index:99999; flex-direction:column;">';
     html += '<div style="padding:16px; text-align:center; color:white; font-size:16px; font-weight:600; background:rgba(0,0,0,0.5);">Chụp ảnh xác nhận</div>';
     html += '<div style="flex:1; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center;">';
-    html += '<video id="cameraVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>';
+    // Thêm CSS transform: scaleX(-1) để video hiển thị dạng gương (giống camera trước mặc định)
+    html += '<video id="cameraVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover; transform: scaleX(-1);"></video>';
     html += '</div>';
     html += '<div style="padding:30px; display:flex; justify-content:center; align-items:center; background:#111; gap:40px;">';
     html += '<button id="cameraCloseBtn" style="background:transparent; border:none; color:white; font-size:16px; font-weight:600; cursor:pointer;">Huỷ</button>';
@@ -174,11 +175,19 @@ async function capturePhoto() {
   canvas.height = video.videoHeight || 720;
   const ctx = canvas.getContext('2d');
   
-  // Vẽ hình ảnh từ camera
+  // ==========================================
+  // LẬT ẢNH (MIRROR) ĐỂ KHÔNG BỊ NGƯỢC MẶT
+  // ==========================================
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
+  // Reset lại hệ tọa độ để vẽ watermark không bị ngược
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   // ==========================================
-  // BẮT ĐẦU VẼ WATERMARK (TÊN, NGÀY GIỜ, LOẠI)
+  
+  // ==========================================
+  // BẮT ĐẦU VẼ WATERMARK (NHỎ GỌN - GÓC DƯỚI TRÁI)
   // ==========================================
   const userName = getUserName();
   const now = new Date();
@@ -186,42 +195,61 @@ async function capturePhoto() {
   const timeStr = formatHHMMPeriod(now.toISOString());
   const typeStr = _captureType === 'in' ? 'CHẤM CÔNG ĐẾN' : 'CHẤM CÔNG VỀ';
 
-  // Tính toán kích thước dựa trên độ phân giải ảnh để chữ luôn cân đối
-  const fontSize = Math.round(canvas.width * 0.045); 
-  const padding = Math.round(canvas.width * 0.04);
+  // Cấu hình kích thước (nhỏ gọn hơn)
+  const fontSize = Math.round(canvas.width * 0.03); // ~3% chiều rộng ảnh
+  const padding = Math.round(canvas.width * 0.015);
   const lineHeight = fontSize * 1.4;
-  const boxHeight = lineHeight * 3 + padding * 2;
+
+  // Cấu hình font để đo kích thước
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  const nameWidth = ctx.measureText(userName).width;
   
-  // Vẽ dải nền đen mờ ở dưới cùng
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-  ctx.fillRect(0, canvas.height - boxHeight, canvas.width, boxHeight);
+  ctx.font = `${fontSize - 2}px Arial, sans-serif`;
+  const timeWidth = ctx.measureText(`${timeStr} - ${dateStr}`).width;
+  
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  const typeWidth = ctx.measureText(typeStr).width;
 
-  // Cấu hình font chữ
+  // Tính toán khung bao quanh
+  const textWidth = Math.max(nameWidth, timeWidth, typeWidth);
+  const boxWidth = textWidth + padding * 2;
+  const boxHeight = lineHeight * 3 + padding * 1.5;
+  const boxX = padding;
+  const boxY = canvas.height - boxHeight - padding;
+
+  // Vẽ nền đen mờ cho khung
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
+  ctx.fill();
+
+  // Bắt đầu vẽ text
   ctx.textBaseline = 'top';
-  let startY = canvas.height - boxHeight + padding;
+  let textY = boxY + padding * 0.75;
+  let textX = boxX + padding;
 
-  // Dòng 1: Tên nhân viên (Màu vàng)
+  // Dòng 1: Tên nhân viên (Vàng)
   ctx.fillStyle = '#facc15'; 
   ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  ctx.fillText(userName, padding, startY);
+  ctx.fillText(userName, textX, textY);
   
-  // Dòng 2: Thời gian (Màu trắng)
-  startY += lineHeight;
+  // Dòng 2: Thời gian (Trắng)
+  textY += lineHeight;
   ctx.fillStyle = '#ffffff';
-  ctx.font = `${fontSize}px Arial, sans-serif`;
-  ctx.fillText(`${timeStr} - ${dateStr}`, padding, startY);
+  ctx.font = `${fontSize - 2}px Arial, sans-serif`;
+  ctx.fillText(`${timeStr} - ${dateStr}`, textX, textY);
 
-  // Dòng 3: Trạng thái (Màu xanh lá)
-  startY += lineHeight;
+  // Dòng 3: Trạng thái (Xanh lá)
+  textY += lineHeight;
   ctx.fillStyle = '#4ade80'; 
   ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  ctx.fillText(typeStr, padding, startY);
+  ctx.fillText(typeStr, textX, textY);
   // ==========================================
   // KẾT THÚC VẼ WATERMARK
   // ==========================================
   
-  // Chuyển sang ảnh JPEG (tăng chất lượng lên 0.8 để chữ không bị mờ)
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+  // Chuyển sang ảnh JPEG
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
   
   stopCamera();
   await uploadAndCheckin(dataUrl, _captureType);
@@ -234,27 +262,21 @@ async function uploadAndCheckin(base64Image, type) {
   toast('Đang gửi ảnh chấm công...');
   
   try {
-    // 1. Chuyển Base64 sang Blob
     const res = await fetch(base64Image);
     const blob = await res.blob();
-    
-    // 2. Tạo tên file duy nhất
     const fileName = `${state.user.id}_${Date.now()}.jpg`;
     
-    // 3. Upload lên Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from('checkin_photos')
       .upload(fileName, blob, { contentType: 'image/jpeg' });
       
     if (uploadError) throw new Error('Lỗi upload ảnh: ' + uploadError.message);
     
-    // 4. Lấy link ảnh public
     const { data: publicUrlData } = supabase.storage
       .from('checkin_photos')
       .getPublicUrl(fileName);
     const photoUrl = publicUrlData.publicUrl;
     
-    // 5. Lưu record vào Database
     const { error: dbError } = await supabase.from('cslx_checkins').insert({
       employee_id: state.user.id,
       employee_name: getUserName(),
