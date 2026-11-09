@@ -6,8 +6,11 @@ let _todayCheckins = [];
 let _anyCheckinInFlight = false;
 let _adminTodayCheckins = [];
 let _realtimeChannel = null;
+let _adminPollTimer = null;
 let _checkingAdmin = false;
 let _unseenCheckinCount = 0;
+let _audioCtx = null;
+let _audioUnlockBound = false;
 let _historyMode = 'day';
 let _currentIP = null;
 let _isCheckingNetwork = false;
@@ -19,7 +22,6 @@ function ensureState(){
 // ─────────────────────── LẤY IP PUBLIC ───────────────────────
 async function getPublicIP() {
   try {
-    // Dùng 2 API dự phòng để đảm bảo không bao giờ lỗi
     const res = await fetch('https://api.ipify.org?format=json');
     if (res.ok) {
       const data = await res.json();
@@ -50,6 +52,7 @@ function formatDateVN(iso){ try{ const d=new Date(iso),days=['Chủ nhật','Th�
 function formatDateCompact(iso){ try{ const d=new Date(iso); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }catch{return '—'} }
 function formatDateShort(dateStr){ try{ const p=dateStr.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }catch{return dateStr} }
 function formatDuration(ms){ const t=Math.round(ms/6e4),h=Math.floor(t/60),m=t%60; return h===0?`${m} phút`:m===0?`${h} giờ`:`${h} giờ ${m} phút`; }
+function formatDurationShort(ms){ const t=Math.round(ms/6e4),h=Math.floor(t/60),m=t%60; return h===0?`${m}p`:m===0?`${h}h`:`${h}h${m}p`; }
 
 function getUserName(){
   const emp = (state.employees || []).find(e => e.id === state.user?.id);
@@ -75,6 +78,14 @@ async function loadTodayCheckins(){
     .order('checkin_at', { ascending: true });
   if (error) { console.error(error); _todayCheckins = []; return; }
   _todayCheckins = data || [];
+}
+async function loadAdminTodayCheckins(){
+  if (!state.isAdmin) { _adminTodayCheckins = []; return; }
+  const today = toDateStr(new Date());
+  const { data, error } = await supabase.from('cslx_checkins').select('*')
+    .eq('checkin_date', today).order('checkin_at', { ascending: true });
+  if (error) { console.error('[admin checkins]', error); _adminTodayCheckins = []; return; }
+  _adminTodayCheckins = data || [];
 }
 
 // ─────────────────────── RENDER GIAO DIỆN ───────────────────────
@@ -152,6 +163,7 @@ function renderCheckin(){
     }
   }
 
+  // Lấy HTML phần admin (nếu là admin)
   const adminTodayHtml = state.isAdmin ? renderAdminTodaySection() : '';
   const adminBtn = state.isAdmin ? '<button id="checkinSettingsBtn" style="position:absolute; top:12px; right:12px; padding:8px 14px; font-size:13px; background:#fff; border:1px solid var(--border); border-radius:8px; cursor:pointer; font-family:inherit; color:var(--text-muted); box-shadow:0 1px 3px rgba(0,0,0,0.05);">⚙️ Cài đặt WiFi</button>' : '';
 
@@ -162,6 +174,7 @@ function renderCheckin(){
     </div>
   </div>`;
 
+  // Bind sự kiện
   const $btnRetry = $('#btnRetryWifi');
   if ($btnRetry) $btnRetry.onclick = async () => {
     $btnRetry.textContent = '⏳ Đang kiểm tra...';
@@ -181,7 +194,79 @@ function renderCheckin(){
   bindAdminDeleteButtons();
 }
 
-// ─────────────────────── CHẤM CÔNG ───────────────────────
+// ─────────────────────── ADMIN SECTION ───────────────────────
+function groupAdminCheckins(){
+  const map = {};
+  for (const c of _adminTodayCheckins) {
+    if (!map[c.employee_id]) map[c.employee_id] = { employee_id: c.employee_id, employee_name: c.employee_name || '—', in: null, out: null };
+    const t = c.type || 'in';
+    if (t === 'out') { if (!map[c.employee_id].out) map[c.employee_id].out = c; }
+    else { if (!map[c.employee_id].in) map[c.employee_id].in = c; }
+  }
+  return Object.values(map).sort((a, b) => {
+    const ta = a.in ? new Date(a.in.checkin_at).getTime() : a.out ? new Date(a.out.checkin_at).getTime() : 0;
+    const tb = b.in ? new Date(b.in.checkin_at).getTime() : b.out ? new Date(b.out.checkin_at).getTime() : 0;
+    return tb - ta;
+  });
+}
+
+function renderAdminTodaySection(){
+  if (!state.isAdmin) return '';
+  const groups = groupAdminCheckins();
+  const today = toDateStr(new Date());
+  
+  const rows = groups.length > 0 ? groups.map(g => {
+    const inTime = g.in ? formatHHMM(g.in.checkin_at) : null;
+    const outTime = g.out ? formatHHMM(g.out.checkin_at) : null;
+    const isComplete = !!(g.in && g.out);
+    const name = g.employee_name || '—';
+    const initial = name.charAt(0).toUpperCase();
+    const safeName = name.replace(/"/g, '&quot;');
+    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);">
+      <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0ea5b7,#0a6b7a);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${initial}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.4;">${inTime ? `Đến <strong style="color:#16a34a;">${inTime}</strong>` : '<span style="color:#94a3b8;">Chưa đến</span>'}${outTime ? ` · Về <strong style="color:#0891b2;">${outTime}</strong>` : ''}</div>
+      </div>
+      ${isComplete ? '<span style="font-size:11px;padding:3px 8px;background:#dcfce7;color:#15803d;border-radius:20px;font-weight:600;white-space:nowrap;">✓ Xong</span>' : '<span style="font-size:11px;padding:3px 8px;background:#fef3c7;color:#b45309;border-radius:20px;font-weight:600;white-space:nowrap;">Đang làm</span>'}
+      <button class="admin-del-btn" type="button" data-del-emp="${g.employee_id}" data-del-name="${safeName}" data-del-date="${today}" title="Xoá chấm công hôm nay" style="width:32px;height:32px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;">🗑</button>
+    </div>`;
+  }).join('') : '<div style="padding:22px 16px;text-align:center;color:var(--text-muted);font-size:14px;">Chưa có nhân viên nào chấm công hôm nay</div>';
+
+  const bulkBtn = groups.length > 0 ? '<button id="adminBulkDeleteBtn" type="button" style="width:100%;margin-top:8px;padding:11px 14px;font-size:13px;font-weight:600;background:#fff;color:#dc2626;border:1.5px solid #fecaca;border-radius:10px;cursor:pointer;font-family:inherit;">🗑 Xoá tất cả hôm nay</button>' : '';
+
+  return `<div style="margin-top:24px;">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px;">👥 Nhân viên hôm nay <span style="color:var(--ocean-600);">(${groups.length})</span></div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;">${rows}</div>
+    ${bulkBtn}
+  </div>`;
+}
+
+function bindAdminDeleteButtons(){
+  if (!state.isAdmin) return;
+  document.querySelectorAll('.admin-del-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const empId = btn.dataset.delEmp, empName = btn.dataset.delName, dateStr = btn.dataset.delDate;
+      try {
+        const ok = await deleteCheckinsByEmpDate(empId, empName, dateStr);
+        if (ok) { await loadAdminTodayCheckins(); await loadTodayCheckins(); renderCheckin(); }
+      } finally { btn.disabled = false; }
+    };
+  });
+  const $bulkBtn = document.getElementById('adminBulkDeleteBtn');
+  if ($bulkBtn) {
+    $bulkBtn.onclick = async () => {
+      if ($bulkBtn.disabled) return;
+      $bulkBtn.disabled = true; $bulkBtn.textContent = '⏳ Đang xoá...';
+      try { await deleteAllTodayCheckins(); }
+      finally { const b = document.getElementById('adminBulkDeleteBtn'); if (b) { b.disabled = false; b.textContent = '🗑 Xoá tất cả hôm nay'; } }
+    };
+  }
+}
+
+// ─────────────────────── CHẤM CÔNG & MODALS ───────────────────────
 function handleActionClick(){
   const currentState = getCurrentState();
   const now = new Date();
@@ -191,8 +276,36 @@ function handleActionClick(){
   else if (currentState === 'need_out') showConfirmModal('CHẤM CÔNG VỀ', nowStr, dateStr, () => doCheckin('out'));
 }
 
+function showConfirmModal(title, timeStr, dateStr, onConfirm){
+  let $m = document.getElementById('checkinConfirmModal');
+  if (!$m) {
+    const html = `<div id="checkinConfirmModal" class="modal-overlay" style="display:none;z-index:10001;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:18px;max-width:380px;width:calc(100% - 32px);margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="padding:32px 24px;text-align:center;">
+          <div id="checkinConfirmTitle" style="font-size:22px;font-weight:700;margin-bottom:20px;color:var(--text);"></div>
+          <div style="font-size:15px;color:var(--text-muted);margin-bottom:8px;">Bạn muốn chấm công lúc:</div>
+          <div id="checkinConfirmTime" style="font-size:24px;font-weight:700;color:var(--ocean-700);margin:12px 0;line-height:1.3;"></div>
+          <div id="checkinConfirmDate" style="font-size:15px;color:var(--text-muted);margin-bottom:28px;"></div>
+          <div style="display:flex;gap:10px;">
+            <button id="checkinConfirmCancel" style="flex:1;padding:18px;font-size:18px;font-weight:600;font-family:inherit;background:#f1f5f9;color:var(--text);border:1px solid var(--border);border-radius:12px;cursor:pointer;">HUỶ</button>
+            <button id="checkinConfirmOk" style="flex:1;padding:18px;font-size:18px;font-weight:700;font-family:inherit;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:12px;cursor:pointer;">ĐỒNG Ý ✓</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    $m = document.getElementById('checkinConfirmModal');
+  }
+  document.getElementById('checkinConfirmTitle').textContent = title;
+  document.getElementById('checkinConfirmTime').textContent = timeStr;
+  document.getElementById('checkinConfirmDate').textContent = dateStr;
+  $m.style.display = 'flex';
+  document.getElementById('checkinConfirmCancel').onclick = () => { $m.style.display = 'none'; };
+  document.getElementById('checkinConfirmOk').onclick = () => { $m.style.display = 'none'; onConfirm(); };
+}
+
 async function doCheckin(type){
-  if (_anyCheckinInFlight) return;
+  if (_anyCheckinInFlight) { toast('Đang xử lý...'); return; }
   _anyCheckinInFlight = true;
   try {
     const { error } = await supabase.from('cslx_checkins').insert({
@@ -206,6 +319,7 @@ async function doCheckin(type){
     try { navigator.vibrate([100, 50, 200]); } catch {}
     showSuccessModal(type);
     await loadTodayCheckins();
+    if (state.isAdmin) await loadAdminTodayCheckins();
     renderCheckin();
   } catch (err) {
     console.error('[checkin]', err);
@@ -215,7 +329,51 @@ async function doCheckin(type){
   }
 }
 
-// ─────────────────────── CÀI ĐẶT IP CHO ADMIN (QUAN TRỌNG) ───────────────────────
+function showSuccessModal(type){
+  const title = type === 'in' ? 'CHẤM CÔNG ĐẾN THÀNH CÔNG' : 'CHẤM CÔNG VỀ THÀNH CÔNG';
+  const now = new Date();
+  let $m = document.getElementById('checkinSuccessModal');
+  if (!$m) {
+    const html = `<div id="checkinSuccessModal" class="modal-overlay" style="display:none;z-index:10002;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:20px;max-width:360px;width:calc(100% - 40px);margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+        <div style="padding:44px 24px;text-align:center;">
+          <div style="font-size:88px;color:#16a34a;line-height:1;margin-bottom:24px;">✓</div>
+          <div id="checkinSuccessTitle" style="font-size:22px;font-weight:700;color:#15803d;margin-bottom:20px;line-height:1.3;"></div>
+          <div id="checkinSuccessTime" style="font-size:24px;font-weight:700;color:var(--text);margin-bottom:8px;"></div>
+          <div id="checkinSuccessDate" style="font-size:15px;color:var(--text-muted);"></div>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    $m = document.getElementById('checkinSuccessModal');
+  }
+  document.getElementById('checkinSuccessTitle').textContent = title;
+  document.getElementById('checkinSuccessTime').textContent = formatTime(now.toISOString());
+  document.getElementById('checkinSuccessDate').textContent = formatDateVN(now.toISOString());
+  $m.style.display = 'flex';
+  setTimeout(() => { if ($m) $m.style.display = 'none'; }, 3500);
+}
+
+// ─────────────────────── XOÁ DỮ LIỆU ADMIN ───────────────────────
+async function deleteCheckinsByEmpDate(empId, empName, dateStr){
+  if (!state.isAdmin) return false;
+  if (!confirm(`⚠️ Xoá TẤT CẢ chấm công của\n\n👤 "${empName || 'NV'}"\n📅 ngày ${formatDateShort(dateStr)}?`)) return false;
+  const { error } = await supabase.from('cslx_checkins').delete().eq('employee_id', empId).eq('checkin_date', dateStr);
+  if (error) { toast('Lỗi xoá: ' + error.message); return false; }
+  toast('🗑 Đã xoá');
+  return true;
+}
+async function deleteAllTodayCheckins(){
+  if (!state.isAdmin) return;
+  const today = toDateStr(new Date());
+  if (!confirm(`⚠️ Xoá TẤT CẢ ${_adminTodayCheckins.length} chấm công hôm nay?`)) return;
+  const { error } = await supabase.from('cslx_checkins').delete().eq('checkin_date', today);
+  if (error) { toast('Lỗi xoá: ' + error.message); return; }
+  toast(`🗑 Đã xoá sạch hôm nay`);
+  await loadAdminTodayCheckins(); await loadTodayCheckins(); renderCheckin();
+}
+
+// ─────────────────────── CÀI ĐẶT IP CHO ADMIN ───────────────────────
 async function openSettingsModal(){
   if (!state.isAdmin) return;
   
@@ -228,7 +386,6 @@ async function openSettingsModal(){
   if ($coords) $coords.innerHTML = '⏳ Đang lấy IP mạng hiện tại...';
   if ($btnAdd) $btnAdd.style.display = 'none';
   
-  // 1. Lấy IP hiện tại
   const currentIp = await getPublicIP();
   const loc = state.checkinLocation;
   const currentAllowed = loc?.allowed_ips || [];
@@ -244,7 +401,6 @@ async function openSettingsModal(){
     }
   }
 
-  // 2. Render danh sách IP đã có
   if ($list) {
     if (currentAllowed.length === 0) {
       $list.innerHTML = `<div style="color:#b45309; font-size:13px; text-align:center; padding:10px;">Chưa có WiFi nào được lưu.</div>`;
@@ -264,16 +420,17 @@ async function openSettingsModal(){
           await supabase.from('cslx_checkin_location').update({ allowed_ips: newIps }).eq('id', LOCATION_ID);
           toast('Đã xoá IP');
           await loadLocation();
-          openSettingsModal(); // refresh lại modal
+          openSettingsModal();
         };
       });
     }
   }
 
-  // 3. Nút thêm IP mới
   if ($btnAdd) {
     if (currentIp && !currentAllowed.includes(currentIp)) {
       $btnAdd.style.display = 'block';
+      $btnAdd.textContent = '+ Lưu WiFi này cho Nhân viên';
+      $btnAdd.disabled = false;
       $btnAdd.onclick = async () => {
         $btnAdd.textContent = '⏳ Đang lưu...';
         $btnAdd.disabled = true;
@@ -281,16 +438,15 @@ async function openSettingsModal(){
         const { error } = await supabase.from('cslx_checkin_location').upsert({ id: LOCATION_ID, allowed_ips: newIps }, { onConflict: 'id' });
         if (error) {
           toast('Lỗi: ' + error.message);
-          $btnAdd.textContent = '+ Thêm IP này';
+          $btnAdd.textContent = '+ Lưu WiFi này cho Nhân viên';
           $btnAdd.disabled = false;
         } else {
           toast(`✅ Đã lưu WiFi trường!`);
           await loadLocation();
-          openSettingsModal(); // refresh
+          openSettingsModal();
         }
       };
     } else if (currentIp && currentAllowed.includes(currentIp)) {
-      // Nếu IP hiện tại đã có trong danh sách
       $coords.innerHTML += `<div style="font-size:13px; color:#16a34a; font-weight:bold; margin-top:6px;">✓ WiFi này đã được lưu</div>`;
     }
   }
@@ -310,14 +466,10 @@ export async function loadCheckinTab(){
     <div style="font-size:18px;font-weight:600;">Đang kiểm tra kết nối...</div>
   </div>`;
 
-  // Tải cấu hình và lịch sử
-  await Promise.all([loadLocation(), loadTodayCheckins()]);
+  const tasks = [loadLocation(), loadTodayCheckins()];
+  if (state.isAdmin) tasks.push(loadAdminTodayCheckins());
+  await Promise.all(tasks);
   
-  // Check IP hiện tại
   await checkNetworkStatus(); 
-
   renderCheckin();
 }
-
-// (Các hàm hiển thị Modal xác nhận, AdminTodaySection, Lịch sử, v.v... 
-// Bạn giữ nguyên như bản trước, không cần thay đổi).
