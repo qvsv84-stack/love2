@@ -82,7 +82,7 @@ function getCurrentState() {
   return 'done';
 }
 
-// Hàm vẽ bo góc tương thích mọi thiết bị (Fix lỗi kẹt nút)
+// Hàm vẽ bo góc tương thích mọi thiết bị
 function drawRoundRect(ctx, x, y, w, h, r) {
   if (typeof ctx.roundRect === 'function') {
     ctx.beginPath();
@@ -100,6 +100,13 @@ function drawRoundRect(ctx, x, y, w, h, r) {
   ctx.lineTo(x, y + r);
   ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
+}
+
+// Hàm trích xuất tên file từ URL để xoá
+function extractFileNameFromUrl(url) {
+  if (!url) return null;
+  const parts = url.split('/');
+  return parts[parts.length - 1];
 }
 
 // ─────────────────────── LOAD DATA ───────────────────────
@@ -150,8 +157,6 @@ async function openCamera(type) {
     $modal = document.getElementById('cameraModal');
     
     document.getElementById('cameraCloseBtn').onclick = stopCamera;
-    
-    // Đổi lại thành onclick, đã có touch-action manipulation ở trên để chống ăn cắp touch
     document.getElementById('cameraCaptureBtn').onclick = (e) => {
       e.preventDefault();
       capturePhoto();
@@ -161,7 +166,6 @@ async function openCamera(type) {
   $modal.style.display = 'flex';
   
   try {
-    // Lấy camera mặc định (không ép tỉ lệ 720x720 nữa để tránh bị zoom quá to)
     _mediaStream = await navigator.mediaDevices.getUserMedia({ 
       video: { facingMode: 'user' },
       audio: false 
@@ -195,84 +199,62 @@ async function capturePhoto() {
   btn.disabled = true;
   btn.style.background = '#ccc';
   
-  // Bọc try-catch để không bao giờ bị kẹt nút nếu có lỗi
   try {
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth || 720;
     canvas.height = video.videoHeight || 720;
     const ctx = canvas.getContext('2d');
     
-    // 1. ÁP DỤNG FILTER LÀM ĐẸP
+    // Filter làm đẹp
     ctx.filter = 'contrast(1.05) brightness(1.06) saturate(1.1)';
     
-    // 2. LẬT ẢNH (MIRROR)
+    // Lật ảnh
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // Reset transform để vẽ chữ
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.filter = 'none';
     
     // ==========================================
-    // 3. VẼ TIME MARK (THẺ TÊN)
+    // VẼ TIME MARK 1 DÒNG SIÊU GỌN
     // ==========================================
     const userName = getUserName();
     const now = new Date();
-    const dateStr = formatDateVN(now.toISOString());
+    const dateStr = formatDateCompact(now.toISOString());
     const timeStr = formatHHMMPeriod(now.toISOString());
-    const typeStr = _captureType === 'in' ? 'CHẤM CÔNG ĐẾN' : 'CHẤM CÔNG VỀ';
+    const typeStr = _captureType === 'in' ? 'ĐẾN' : 'VỀ';
 
-    const fontSize = Math.round(canvas.width * 0.04); 
-    const padding = Math.round(canvas.width * 0.03);
-    const boxW = canvas.width - (padding * 2);
-    const boxH = fontSize * 4;
+    // Tạo chuỗi 1 dòng
+    const text = `${userName} • ${timeStr} ${dateStr} • ${typeStr}`;
+
+    // Kích thước nhỏ gọn
+    const fontSize = Math.round(canvas.width * 0.028); 
+    const padding = Math.round(canvas.width * 0.02);
+    
+    ctx.font = `bold ${fontSize}px "Be Vietnam Pro", Arial, sans-serif`;
+    const textWidth = ctx.measureText(text).width;
+    
+    // Khung bao quanh
+    const boxW = textWidth + padding * 2 + 12; 
+    const boxH = fontSize * 2.2;
     const boxX = padding;
     const boxY = canvas.height - boxH - padding;
 
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 4;
-
+    // Vẽ nền đen mờ
     ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-    drawRoundRect(ctx, boxX, boxY, boxW, boxH, 12); // Dùng hàm tương thích
+    drawRoundRect(ctx, boxX, boxY, boxW, boxH, 8);
     ctx.fill();
 
-    ctx.shadowColor = 'transparent';
-
-    // Thanh Accent Vàng
-    ctx.fillStyle = '#facc15';
-    drawRoundRect(ctx, boxX, boxY, 8, boxH, [12, 0, 0, 12]); // Dùng hàm tương thích
+    // Thanh Accent màu
+    ctx.fillStyle = _captureType === 'in' ? '#4ade80' : '#38bdf8'; 
+    drawRoundRect(ctx, boxX, boxY, 6, boxH, [8, 0, 0, 8]);
     ctx.fill();
 
-    // Text
-    ctx.textBaseline = 'top';
-    let textX = boxX + 24;
-    let textY = boxY + padding * 0.8;
-
-    // Tên
+    // Vẽ Text
     ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${fontSize}px "Be Vietnam Pro", Arial, sans-serif`;
-    ctx.fillText(userName, textX, textY);
-    
-    // Thời gian
-    textY += fontSize + 6;
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = `${fontSize * 0.7}px "Be Vietnam Pro", Arial, sans-serif`;
-    ctx.fillText(`${timeStr} - ${dateStr}`, textX, textY);
-
-    // Trạng thái + Chấm tròn
-    textY += fontSize * 0.7 + 8;
-    const statusColor = _captureType === 'in' ? '#4ade80' : '#38bdf8';
-    
-    ctx.fillStyle = statusColor;
-    ctx.beginPath();
-    ctx.arc(textX + 6, textY + (fontSize * 0.35), 5, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.fillStyle = statusColor;
-    ctx.font = `bold ${fontSize * 0.75}px "Be Vietnam Pro", Arial, sans-serif`;
-    ctx.fillText(typeStr, textX + 20, textY);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, boxX + padding + 6, boxY + boxH / 2);
 
     // Xuất ảnh
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
@@ -517,25 +499,79 @@ function bindAdminDeleteButtons() {
   }
 }
 
+// HÀM XOÁ CÓ KÈM XOÁ ẢNH TRÊN STORAGE
 async function deleteCheckinsByEmpDate(empId, empName, dateStr) {
   if (!state.isAdmin) return false;
   if (!confirm('⚠️ Xoá TẤT CẢ chấm công của\n\n👤 "' + (empName || 'NV') + '"\n📅 ngày ' + formatDateShort(dateStr) + '?')) return false;
-  const { error } = await supabase.from('cslx_checkins').delete().eq('employee_id', empId).eq('checkin_date', dateStr);
-  if (error) { toast('Lỗi xoá: ' + error.message); return false; }
-  toast('🗑 Đã xoá');
-  return true;
+  
+  try {
+    // 1. Lấy danh sách ảnh để xoá
+    const { data: checkins, error: fetchErr } = await supabase.from('cslx_checkins')
+      .select('photo_url')
+      .eq('employee_id', empId)
+      .eq('checkin_date', dateStr);
+      
+    if (fetchErr) throw fetchErr;
+
+    // 2. Xoá ảnh trên Storage nếu có
+    if (checkins && checkins.length > 0) {
+      const filesToDelete = checkins
+        .map(c => extractFileNameFromUrl(c.photo_url))
+        .filter(Boolean);
+      
+      if (filesToDelete.length > 0) {
+        await supabase.storage.from('checkin_photos').remove(filesToDelete);
+      }
+    }
+
+    // 3. Xoá dòng trong Database
+    const { error } = await supabase.from('cslx_checkins').delete().eq('employee_id', empId).eq('checkin_date', dateStr);
+    if (error) throw error;
+    
+    toast('🗑 Đã xoá');
+    return true;
+  } catch (err) {
+    console.error('[delete]', err);
+    toast('Lỗi xoá: ' + err.message);
+    return false;
+  }
 }
 
 async function deleteAllTodayCheckins() {
   if (!state.isAdmin) return;
   const today = toDateStr(new Date());
   if (!confirm('⚠️ Xoá TẤT CẢ ' + _adminTodayCheckins.length + ' chấm công hôm nay?')) return;
-  const { error } = await supabase.from('cslx_checkins').delete().eq('checkin_date', today);
-  if (error) { toast('Lỗi xoá: ' + error.message); return; }
-  toast('🗑 Đã xoá sạch hôm nay');
-  await loadAdminTodayCheckins(); 
-  await loadTodayCheckins(); 
-  renderCheckin();
+  
+  try {
+    // 1. Lấy danh sách ảnh
+    const { data: checkins, error: fetchErr } = await supabase.from('cslx_checkins')
+      .select('photo_url')
+      .eq('checkin_date', today);
+    if (fetchErr) throw fetchErr;
+
+    // 2. Xoá ảnh trên Storage
+    if (checkins && checkins.length > 0) {
+      const filesToDelete = checkins
+        .map(c => extractFileNameFromUrl(c.photo_url))
+        .filter(Boolean);
+      
+      if (filesToDelete.length > 0) {
+        await supabase.storage.from('checkin_photos').remove(filesToDelete);
+      }
+    }
+
+    // 3. Xoá dữ liệu
+    const { error } = await supabase.from('cslx_checkins').delete().eq('checkin_date', today);
+    if (error) throw error;
+    
+    toast('🗑 Đã xoá sạch hôm nay');
+    await loadAdminTodayCheckins(); 
+    await loadTodayCheckins(); 
+    renderCheckin();
+  } catch (err) {
+    console.error('[delete all]', err);
+    toast('Lỗi xoá: ' + err.message);
+  }
 }
 
 // ─────────────────────── LỊCH SỬ ───────────────────────
