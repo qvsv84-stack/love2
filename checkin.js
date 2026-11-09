@@ -118,13 +118,13 @@ async function openCamera(type) {
     let html = '<div id="cameraModal" style="display:none; position:fixed; inset:0; background:#000; z-index:99999; flex-direction:column;">';
     html += '<div style="padding:16px; text-align:center; color:white; font-size:16px; font-weight:600; background:rgba(0,0,0,0.5);">Chụp ảnh xác nhận</div>';
     html += '<div style="flex:1; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center;">';
-    // Thêm CSS transform: scaleX(-1) để video hiển thị dạng gương (giống camera trước mặc định)
+    // CSS scaleX(-1) để video preview nhìn như gương
     html += '<video id="cameraVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover; transform: scaleX(-1);"></video>';
     html += '</div>';
     html += '<div style="padding:30px; display:flex; justify-content:center; align-items:center; background:#111; gap:40px;">';
     html += '<button id="cameraCloseBtn" style="background:transparent; border:none; color:white; font-size:16px; font-weight:600; cursor:pointer;">Huỷ</button>';
     html += '<button id="cameraCaptureBtn" style="width:80px; height:80px; border-radius:50%; background:#fff; border:6px solid #ccc; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5);"></button>';
-    html += '<div style="width:48px;"></div>'; // Spacer
+    html += '<div style="width:48px;"></div>';
     html += '</div>';
     html += '</div>';
     document.body.insertAdjacentHTML('beforeend', html);
@@ -146,7 +146,7 @@ async function openCamera(type) {
   } catch (err) {
     console.error('[camera]', err);
     stopCamera();
-    toast('Không mở được Camera. Vui lòng kiểm tra quyền truy cập Camera trong Cài đặt!', 4000);
+    toast('Không mở được Camera. Vui lòng kiểm tra quyền truy cập Camera!', 4000);
   }
 }
 
@@ -169,25 +169,25 @@ async function capturePhoto() {
   btn.disabled = true;
   btn.style.background = '#ccc';
   
-  // Tạo canvas để cắt frame từ video
   const canvas = document.createElement('canvas');
   canvas.width = video.videoWidth || 720;
   canvas.height = video.videoHeight || 720;
   const ctx = canvas.getContext('2d');
   
-  // ==========================================
-  // LẬT ẢNH (MIRROR) ĐỂ KHÔNG BỊ NGƯỢC MẶT
-  // ==========================================
+  // 1. ÁP DỤNG FILTER LÀM ĐẸP (Tăng sáng, tương phản, màu tươi)
+  ctx.filter = 'contrast(1.05) brightness(1.06) saturate(1.1)';
+  
+  // 2. LẬT ẢNH (MIRROR) - Để mặt không bị ngược
   ctx.translate(canvas.width, 0);
   ctx.scale(-1, 1);
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
-  // Reset lại hệ tọa độ để vẽ watermark không bị ngược
+  // Reset lại transform và filter để vẽ chữ
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  // ==========================================
+  ctx.filter = 'none';
   
   // ==========================================
-  // BẮT ĐẦU VẼ WATERMARK (NHỎ GỌN - GÓC DƯỚI TRÁI)
+  // 3. VẼ TIME MARK (THẺ TÊN) PHONG CÁCH MỚI
   // ==========================================
   const userName = getUserName();
   const now = new Date();
@@ -195,60 +195,68 @@ async function capturePhoto() {
   const timeStr = formatHHMMPeriod(now.toISOString());
   const typeStr = _captureType === 'in' ? 'CHẤM CÔNG ĐẾN' : 'CHẤM CÔNG VỀ';
 
-  // Cấu hình kích thước (nhỏ gọn hơn)
-  const fontSize = Math.round(canvas.width * 0.03); // ~3% chiều rộng ảnh
-  const padding = Math.round(canvas.width * 0.015);
-  const lineHeight = fontSize * 1.4;
-
-  // Cấu hình font để đo kích thước
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  const nameWidth = ctx.measureText(userName).width;
-  
-  ctx.font = `${fontSize - 2}px Arial, sans-serif`;
-  const timeWidth = ctx.measureText(`${timeStr} - ${dateStr}`).width;
-  
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  const typeWidth = ctx.measureText(typeStr).width;
-
-  // Tính toán khung bao quanh
-  const textWidth = Math.max(nameWidth, timeWidth, typeWidth);
-  const boxWidth = textWidth + padding * 2;
-  const boxHeight = lineHeight * 3 + padding * 1.5;
+  // Tính toán kích thước
+  const fontSize = Math.round(canvas.width * 0.04); 
+  const padding = Math.round(canvas.width * 0.03);
+  const boxW = canvas.width - (padding * 2);
+  const boxH = fontSize * 4;
   const boxX = padding;
-  const boxY = canvas.height - boxHeight - padding;
+  const boxY = canvas.height - boxH - padding;
 
-  // Vẽ nền đen mờ cho khung
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  // Vẽ đổ bóng cho thẻ
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 4;
+
+  // Vẽ nền thẻ đen mờ, bo góc
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
   ctx.beginPath();
-  ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
+  ctx.roundRect(boxX, boxY, boxW, boxH, 12);
   ctx.fill();
 
-  // Bắt đầu vẽ text
-  ctx.textBaseline = 'top';
-  let textY = boxY + padding * 0.75;
-  let textX = boxX + padding;
+  // Tắt đổ bóng
+  ctx.shadowColor = 'transparent';
 
-  // Dòng 1: Tên nhân viên (Vàng)
-  ctx.fillStyle = '#facc15'; 
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  // Vẽ thanh Accent màu Vàng bên trái
+  ctx.fillStyle = '#facc15';
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, 8, boxH, [12, 0, 0, 12]);
+  ctx.fill();
+
+  // Bắt đầu vẽ Text
+  ctx.textBaseline = 'top';
+  let textX = boxX + 24;
+  let textY = boxY + padding * 0.8;
+
+  // Dòng 1: Tên (Chữ trắng, đậm)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${fontSize}px "Be Vietnam Pro", Arial, sans-serif`;
   ctx.fillText(userName, textX, textY);
   
-  // Dòng 2: Thời gian (Trắng)
-  textY += lineHeight;
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `${fontSize - 2}px Arial, sans-serif`;
+  // Dòng 2: Thời gian (Xám nhạt)
+  textY += fontSize + 6;
+  ctx.fillStyle = '#cbd5e1';
+  ctx.font = `${fontSize * 0.7}px "Be Vietnam Pro", Arial, sans-serif`;
   ctx.fillText(`${timeStr} - ${dateStr}`, textX, textY);
 
-  // Dòng 3: Trạng thái (Xanh lá)
-  textY += lineHeight;
-  ctx.fillStyle = '#4ade80'; 
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  ctx.fillText(typeStr, textX, textY);
-  // ==========================================
-  // KẾT THÚC VẼ WATERMARK
+  // Dòng 3: Trạng thái (Có chấm tròn)
+  textY += fontSize * 0.7 + 8;
+  const statusColor = _captureType === 'in' ? '#4ade80' : '#38bdf8';
+  
+  // Vẽ chấm tròn
+  ctx.fillStyle = statusColor;
+  ctx.beginPath();
+  ctx.arc(textX + 6, textY + (fontSize * 0.35), 5, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Vẽ chữ trạng thái
+  ctx.fillStyle = statusColor;
+  ctx.font = `bold ${fontSize * 0.75}px "Be Vietnam Pro", Arial, sans-serif`;
+  ctx.fillText(typeStr, textX + 20, textY);
+
   // ==========================================
   
-  // Chuyển sang ảnh JPEG
+  // Xuất ảnh (chất lượng 0.85 để nét chữ)
   const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
   
   stopCamera();
