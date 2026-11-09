@@ -1,13 +1,13 @@
-// geo.js — GPS service layer thuần, không UI, không side effect
-// Chuyên trách: permission, getCurrent, watch, phân loại lỗi
+// geo.js — Lớp xử lý GPS thuần (không UI, không side effect)
+// Đảm bảo trigger đúng permission popup trên Chrome Android
 
 export const GeoError = {
-  INSECURE: 'insecure',        // Không phải HTTPS
-  UNSUPPORTED: 'unsupported',  // Browser không có geolocation
-  IN_APP: 'in_app',            // Zalo/FB/Messenger
-  DENIED: 'denied',            // User bấm Block
-  UNAVAILABLE: 'unavailable',  // GPS tắt / không tín hiệu
-  TIMEOUT: 'timeout',          // Quá thời gian
+  INSECURE: 'insecure',
+  UNSUPPORTED: 'unsupported',
+  IN_APP: 'in_app',
+  DENIED: 'denied',
+  UNAVAILABLE: 'unavailable',
+  TIMEOUT: 'timeout',
   UNKNOWN: 'unknown',
 };
 
@@ -28,31 +28,18 @@ function isStandalone(){
   return navigator.standalone === true;
 }
 
-/**
- * Kiểm tra môi trường trước khi gọi GPS.
- * Trả về { ok: true } hoặc { ok: false, code, platform, inApp }
- */
 export async function checkEnvironment(){
   const platform = isIOS() ? 'ios' : isAndroid() ? 'android' : 'other';
   const inApp = isInAppBrowser();
   const standalone = isStandalone();
 
-  if (!window.isSecureContext) {
-    return { ok: false, code: GeoError.INSECURE, platform, inApp, standalone };
-  }
-  if (!navigator.geolocation) {
-    return { ok: false, code: GeoError.UNSUPPORTED, platform, inApp, standalone };
-  }
-  if (inApp) {
-    return { ok: false, code: GeoError.IN_APP, platform, inApp, standalone };
-  }
+  if (!window.isSecureContext) return { ok: false, code: GeoError.INSECURE, platform, inApp, standalone };
+  if (!navigator.geolocation) return { ok: false, code: GeoError.UNSUPPORTED, platform, inApp, standalone };
+  if (inApp) return { ok: false, code: GeoError.IN_APP, platform, inApp, standalone };
+  
   return { ok: true, platform, inApp, standalone };
 }
 
-/**
- * Đọc permission state hiện tại.
- * Trả về 'granted' | 'prompt' | 'denied' | 'unknown'
- */
 export async function getPermissionState(){
   if (!navigator.permissions?.query) return 'unknown';
   try {
@@ -63,10 +50,6 @@ export async function getPermissionState(){
   }
 }
 
-/**
- * Lắng nghe thay đổi permission (khi user vào Settings bật lại).
- * onGranted được gọi khi user bật quyền thành công.
- */
 export async function watchPermission(onChange){
   if (!navigator.permissions?.query) return;
   try {
@@ -75,16 +58,10 @@ export async function watchPermission(onChange){
   } catch {}
 }
 
-/**
- * Gọi getCurrentPosition 1 lần — BẮT BUỘC dùng cái này để trigger permission popup.
- * Phải gọi trong user gesture (sau khi user tap vào nút).
- * Trả về { ok: true, pos } | { ok: false, code, rawError }
- */
 export function getCurrentOnce({ timeout = 20000, highAccuracy = true } = {}){
   return new Promise(resolve => {
-    if (!navigator.geolocation) {
-      return resolve({ ok: false, code: GeoError.UNSUPPORTED, rawError: null });
-    }
+    if (!navigator.geolocation) return resolve({ ok: false, code: GeoError.UNSUPPORTED, rawError: null });
+    
     let done = false;
     const timer = setTimeout(() => {
       if (done) return;
@@ -114,10 +91,6 @@ export function getCurrentOnce({ timeout = 20000, highAccuracy = true } = {}){
   });
 }
 
-/**
- * Watch position — CHỈ gọi sau khi getCurrentOnce đã OK.
- * Trả về { cancel() }
- */
 export function startWatch({ onPos, onErr, highAccuracy = true, maximumAge = 5000 }){
   let wid = null;
   try {
