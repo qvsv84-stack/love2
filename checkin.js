@@ -6,37 +6,16 @@ let _todayCheckins = [];
 let _anyCheckinInFlight = false;
 let _adminTodayCheckins = [];
 let _historyMode = 'day';
-let _currentIP = null;
-let _isCheckingNetwork = false;
+
+// Camera State
+let _mediaStream = null;
+let _captureType = 'in';
 
 function ensureState() {
   if (!state.checkinLocation) state.checkinLocation = null;
 }
 
-async function getPublicIP() {
-  try {
-    const res = await fetch('https://api.ipify.org?format=json');
-    if (res.ok) {
-      const data = await res.json();
-      return data.ip;
-    }
-    const res2 = await fetch('https://ipapi.co/json/');
-    if (res2.ok) {
-      const data2 = await res2.json();
-      return data2.ip;
-    }
-    return null;
-  } catch (e) {
-    return null;
-  }
-}
-
-async function checkNetworkStatus() {
-  _isCheckingNetwork = true;
-  _currentIP = await getPublicIP();
-  _isCheckingNetwork = false;
-}
-
+// ─────────────────────── HELPERS ───────────────────────
 function formatTime(iso) { 
   try { 
     const d = new Date(iso), h = d.getHours(), m = d.getMinutes();
@@ -103,6 +82,7 @@ function getCurrentState() {
   return 'done';
 }
 
+// ─────────────────────── LOAD DATA ───────────────────────
 async function loadLocation() {
   const { data, error } = await supabase.from('cslx_checkin_location').select('*').eq('id', LOCATION_ID).maybeSingle();
   if (error) { console.error('[checkin] location:', error); return; }
@@ -128,6 +108,135 @@ async function loadAdminTodayCheckins() {
   _adminTodayCheckins = data || [];
 }
 
+// ─────────────────────── CAMERA LOGIC ───────────────────────
+async function openCamera(type) {
+  if (_anyCheckinInFlight) { toast('Đang xử lý, vui lòng đợi...'); return; }
+  _captureType = type;
+  
+  let $modal = document.getElementById('cameraModal');
+  if (!$modal) {
+    let html = '<div id="cameraModal" style="display:none; position:fixed; inset:0; background:#000; z-index:99999; flex-direction:column;">';
+    html += '<div style="padding:16px; text-align:center; color:white; font-size:16px; font-weight:600; background:rgba(0,0,0,0.5);">Chụp ảnh xác nhận</div>';
+    html += '<div style="flex:1; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center;">';
+    html += '<video id="cameraVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>';
+    html += '</div>';
+    html += '<div style="padding:30px; display:flex; justify-content:center; align-items:center; background:#111; gap:40px;">';
+    html += '<button id="cameraCloseBtn" style="background:transparent; border:none; color:white; font-size:16px; font-weight:600; cursor:pointer;">Huỷ</button>';
+    html += '<button id="cameraCaptureBtn" style="width:80px; height:80px; border-radius:50%; background:#fff; border:6px solid #ccc; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5);"></button>';
+    html += '<div style="width:48px;"></div>'; // Spacer
+    html += '</div>';
+    html += '</div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    $modal = document.getElementById('cameraModal');
+    
+    document.getElementById('cameraCloseBtn').onclick = stopCamera;
+    document.getElementById('cameraCaptureBtn').onclick = capturePhoto;
+  }
+  
+  $modal.style.display = 'flex';
+  
+  try {
+    _mediaStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } },
+      audio: false 
+    });
+    const video = document.getElementById('cameraVideo');
+    video.srcObject = _mediaStream;
+  } catch (err) {
+    console.error('[camera]', err);
+    stopCamera();
+    toast('Không mở được Camera. Vui lòng kiểm tra quyền truy cập Camera trong Cài đặt!', 4000);
+  }
+}
+
+function stopCamera() {
+  if (_mediaStream) {
+    _mediaStream.getTracks().forEach(track => track.stop());
+    _mediaStream = null;
+  }
+  const $modal = document.getElementById('cameraModal');
+  if ($modal) $modal.style.display = 'none';
+  const video = document.getElementById('cameraVideo');
+  if (video) video.srcObject = null;
+}
+
+async function capturePhoto() {
+  const video = document.getElementById('cameraVideo');
+  if (!video || !_mediaStream) return;
+  
+  const btn = document.getElementById('cameraCaptureBtn');
+  btn.disabled = true;
+  btn.style.background = '#ccc';
+  
+  // Tạo canvas để cắt frame từ video
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 720;
+  canvas.height = video.videoHeight || 720;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  
+  // Chuyển sang ảnh JPEG chất lượng 0.7 (nhẹ, up mạng yếu vẫn được)
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+  
+  stopCamera();
+  await uploadAndCheckin(dataUrl, _captureType);
+}
+
+// ─────────────────────── UPLOAD & CHECK-IN ───────────────────────
+async function uploadAndCheckin(base64Image, type) {
+  if (_anyCheckinInFlight) return;
+  _anyCheckinInFlight = true;
+  toast('Đang gửi ảnh chấm công...');
+  
+  try {
+    // 1. Chuyển Base64 sang Blob
+    const res = await fetch(base64Image);
+    const blob = await res.blob();
+    
+    // 2. Tạo tên file duy nhất
+    const fileName = `${state.user.id}_${Date.now()}.jpg`;
+    
+    // 3. Upload lên Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('checkin_photos')
+      .upload(fileName, blob, { contentType: 'image/jpeg' });
+      
+    if (uploadError) throw new Error('Lỗi upload ảnh: ' + uploadError.message);
+    
+    // 4. Lấy link ảnh public
+    const { data: publicUrlData } = supabase.storage
+      .from('checkin_photos')
+      .getPublicUrl(fileName);
+    const photoUrl = publicUrlData.publicUrl;
+    
+    // 5. Lưu record vào Database
+    const { error: dbError } = await supabase.from('cslx_checkins').insert({
+      employee_id: state.user.id,
+      employee_name: getUserName(),
+      checkin_date: toDateStr(new Date()),
+      type: type,
+      photo_url: photoUrl,
+      device_info: (navigator.userAgent || '').slice(0, 150),
+    });
+    
+    if (dbError) throw dbError;
+    
+    try { navigator.vibrate([100, 50, 200]); } catch {}
+    
+    showSuccessModal(type);
+    await loadTodayCheckins();
+    if (state.isAdmin) await loadAdminTodayCheckins();
+    renderCheckin();
+    
+  } catch (err) {
+    console.error('[checkin]', err);
+    toast('Lỗi chấm công: ' + (err.message || 'Vui lòng thử lại'));
+  } finally {
+    _anyCheckinInFlight = false;
+  }
+}
+
+// ─────────────────────── RENDER CHÍNH ───────────────────────
 function renderCheckin() {
   const $root = $('#checkinRoot');
   if (!$root) return;
@@ -135,7 +244,6 @@ function renderCheckin() {
   const userName = getUserName();
   const now = new Date();
   const currentState = getCurrentState();
-  const loc = state.checkinLocation;
 
   let headerHtml = '<div style="text-align:center;margin-bottom:20px;">';
   headerHtml += '<div style="font-size:24px;font-weight:700;color:var(--text);line-height:1.3;">' + userName + '</div>';
@@ -144,87 +252,41 @@ function renderCheckin() {
 
   let statusHtml = '';
   let actionHtml = '';
-  
-  if (!loc) {
-    statusHtml = '<div style="padding:24px; background:#fef3c7; border:2px solid #fbbf24; border-radius:14px; text-align:center; color:#92400e; font-size:16px;">⚠ Chưa cấu hình điểm chấm công.<br>Vui lòng báo Quản lý.</div>';
-  } 
-  else if (_isCheckingNetwork) {
-    statusHtml = '<div style="padding:24px; background:#e0e7ff; border:2px solid #a5b4fc; border-radius:14px; text-align:center; color:#3730a3; font-size:18px; font-weight:600;">📡 Đang kiểm tra kết nối WiFi...</div>';
-  } 
-  else {
-    const allowedIPs = loc.allowed_ips || [];
-    const isConnectedToSchool = _currentIP && allowedIPs.includes(_currentIP);
 
-    if (isConnectedToSchool) {
-      statusHtml = '<div style="padding:26px 20px; background:#dcfce7; border:2px solid #86efac; border-radius:14px; text-align:center;">';
-      statusHtml += '<div style="font-size:48px; margin-bottom:10px; color:#16a34a; line-height:1;">✓</div>';
-      statusHtml += '<div style="font-size:22px; font-weight:700; color:#15803d; line-height:1.3;">ĐÃ KẾT NỐI WIFI TRƯỜNG</div>';
-      statusHtml += '<div style="font-size:14px; color:#166534; margin-top:8px;">Sẵn sàng chấm công</div>';
-      statusHtml += '</div>';
-    } else {
-      statusHtml = '<div style="padding:26px 20px; background:#fee2e2; border:2px solid #fca5a5; border-radius:14px; text-align:center;">';
-      statusHtml += '<div style="font-size:48px; margin-bottom:10px; line-height:1;">📵</div>';
-      statusHtml += '<div style="font-size:20px; font-weight:700; color:#991b1b; line-height:1.3; margin-bottom:8px;">CHƯA KẾT NỐI WIFI TRƯỜNG</div>';
-      statusHtml += '<div style="font-size:15px; color:#7f1d1d; line-height:1.6;">Vui lòng bật WiFi và kết nối vào mạng của trường.<br>';
-      statusHtml += '<span style="font-size:12px; color:#b91c1c; margin-top:10px; display:block;">(Mã mạng của bạn: ' + (_currentIP || 'Đang ẩn') + ')</span></div>';
-      statusHtml += '<button id="btnRetryWifi" style="margin-top:16px; padding:12px 24px; font-size:15px; font-weight:700; background:#fff; color:#dc2626; border:2px solid #dc2626; border-radius:10px; cursor:pointer;">🔄 Kiểm tra lại</button>';
-      statusHtml += '</div>';
-    }
-
-    const canCheckin = isConnectedToSchool;
+  if (currentState === 'need_in') {
+    actionHtml = '<button id="btnCameraIn" style="width:100%; margin-top:20px; padding:30px 20px; font-size:26px; font-weight:700; font-family:inherit; background:linear-gradient(135deg,#16a34a,#15803d); color:white; border:none; border-radius:16px; cursor:pointer; box-shadow:0 4px 12px rgba(22,163,74,0.4); text-transform:uppercase; letter-spacing:0.5px;">📸 CHẤM CÔNG ĐẾN</button>';
+  } else if (currentState === 'need_out') {
+    const inTime = _todayCheckins[0] ? formatHHMMPeriod(_todayCheckins[0].checkin_at) : '—';
+    actionHtml = '<div style="margin-top:16px; padding:16px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; text-align:center; font-size:15px; color:var(--text);">Hôm nay đã chấm công lúc<br><strong style="font-size:17px; color:#0369a1;">' + inTime + '</strong></div>';
+    actionHtml += '<button id="btnCameraOut" style="width:100%; margin-top:12px; padding:30px 20px; font-size:26px; font-weight:700; font-family:inherit; background:linear-gradient(135deg,#0891b2,#0e7490); color:white; border:none; border-radius:16px; cursor:pointer; box-shadow:0 4px 12px rgba(8,145,178,0.4); text-transform:uppercase; letter-spacing:0.5px;">📸 CHẤM CÔNG VỀ</button>';
+  } else {
+    const inTime = _todayCheckins[0] ? formatHHMMPeriod(_todayCheckins[0].checkin_at) : '—';
+    const outTime = _todayCheckins[1] ? formatHHMMPeriod(_todayCheckins[1].checkin_at) : '—';
+    const totalMs = _todayCheckins.length >= 2 ? new Date(_todayCheckins[1].checkin_at) - new Date(_todayCheckins[0].checkin_at) : 0;
     
-    if (currentState === 'need_in') {
-      const btnBg = canCheckin ? 'linear-gradient(135deg,#16a34a,#15803d)' : '#cbd5e1';
-      const btnCursor = canCheckin ? 'pointer' : 'not-allowed';
-      const btnShadow = canCheckin ? '0 4px 12px rgba(22,163,74,0.4)' : 'none';
-      actionHtml = '<button id="checkinActionBtn" ' + (canCheckin ? '' : 'disabled') + ' style="width:100%; margin-top:20px; padding:30px 20px; font-size:26px; font-weight:700; font-family:inherit; background:' + btnBg + '; color:white; border:none; border-radius:16px; cursor:' + btnCursor + '; box-shadow:' + btnShadow + '; text-transform:uppercase; letter-spacing:0.5px;">CHẤM CÔNG ĐẾN</button>';
-    } else if (currentState === 'need_out') {
-      const inTime = _todayCheckins[0] ? formatHHMMPeriod(_todayCheckins[0].checkin_at) : '—';
-      actionHtml = '<div style="margin-top:16px; padding:16px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; text-align:center; font-size:15px; color:var(--text);">Hôm nay đã chấm công lúc<br><strong style="font-size:17px; color:#0369a1;">' + inTime + '</strong></div>';
-      
-      const btnBg = canCheckin ? 'linear-gradient(135deg,#0891b2,#0e7490)' : '#cbd5e1';
-      const btnCursor = canCheckin ? 'pointer' : 'not-allowed';
-      const btnShadow = canCheckin ? '0 4px 12px rgba(8,145,178,0.4)' : 'none';
-      actionHtml += '<button id="checkinActionBtn" ' + (canCheckin ? '' : 'disabled') + ' style="width:100%; margin-top:12px; padding:30px 20px; font-size:26px; font-weight:700; font-family:inherit; background:' + btnBg + '; color:white; border:none; border-radius:16px; cursor:' + btnCursor + '; box-shadow:' + btnShadow + '; text-transform:uppercase; letter-spacing:0.5px;">CHẤM CÔNG VỀ</button>';
-    } else {
-      const inTime = _todayCheckins[0] ? formatHHMMPeriod(_todayCheckins[0].checkin_at) : '—';
-      const outTime = _todayCheckins[1] ? formatHHMMPeriod(_todayCheckins[1].checkin_at) : '—';
-      const totalMs = _todayCheckins.length >= 2 ? new Date(_todayCheckins[1].checkin_at) - new Date(_todayCheckins[0].checkin_at) : 0;
-      
-      actionHtml = '<div style="margin-top:20px; padding:28px 20px; background:#dcfce7; border:2px solid #86efac; border-radius:14px; text-align:center;">';
-      actionHtml += '<div style="font-size:44px; margin-bottom:10px; line-height:1;">🎉</div>';
-      actionHtml += '<div style="font-size:20px; font-weight:700; color:#15803d; margin-bottom:14px;">HOÀN THÀNH HÔM NAY</div>';
-      actionHtml += '<div style="font-size:16px; color:#166534; line-height:1.9;">';
-      actionHtml += '<div>Đến: <strong>' + inTime + '</strong></div>';
-      actionHtml += '<div>Về: <strong>' + outTime + '</strong></div>';
-      if (totalMs > 0) {
-        actionHtml += '<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #86efac; font-size:17px;">Tổng: <strong>' + formatDuration(totalMs) + '</strong></div>';
-      }
-      actionHtml += '</div></div>';
+    actionHtml = '<div style="margin-top:20px; padding:28px 20px; background:#dcfce7; border:2px solid #86efac; border-radius:14px; text-align:center;">';
+    actionHtml += '<div style="font-size:44px; margin-bottom:10px; line-height:1;">🎉</div>';
+    actionHtml += '<div style="font-size:20px; font-weight:700; color:#15803d; margin-bottom:14px;">HOÀN THÀNH HÔM NAY</div>';
+    actionHtml += '<div style="font-size:16px; color:#166534; line-height:1.9;">';
+    actionHtml += '<div>Đến: <strong>' + inTime + '</strong></div>';
+    actionHtml += '<div>Về: <strong>' + outTime + '</strong></div>';
+    if (totalMs > 0) {
+      actionHtml += '<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #86efac; font-size:17px;">Tổng: <strong>' + formatDuration(totalMs) + '</strong></div>';
     }
+    actionHtml += '</div></div>';
   }
 
   const adminTodayHtml = state.isAdmin ? renderAdminTodaySection() : '';
-  const adminBtn = state.isAdmin ? '<button id="checkinSettingsBtn" style="position:absolute; top:12px; right:12px; padding:8px 14px; font-size:13px; background:#fff; border:1px solid var(--border); border-radius:8px; cursor:pointer; font-family:inherit; color:var(--text-muted); box-shadow:0 1px 3px rgba(0,0,0,0.05);">⚙️ Cài đặt WiFi</button>' : '';
 
-  $root.innerHTML = '<div style="position:relative; padding:0 0 24px;">' + adminBtn + headerHtml + statusHtml + actionHtml + adminTodayHtml +
+  $root.innerHTML = '<div style="position:relative; padding:0 0 24px;">' + headerHtml + statusHtml + actionHtml + adminTodayHtml +
     '<div style="margin-top:24px;"><button id="openHistoryBtn" type="button" style="width:100%; padding:16px 20px; font-size:15px; font-weight:700; background:#fff; color:var(--ocean-700); border:1.5px solid var(--ocean-200); border-radius:14px; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">📜 Xem lịch sử chấm công</button></div>' +
   '</div>';
 
-  const $btnRetry = $('#btnRetryWifi');
-  if ($btnRetry) {
-    $btnRetry.onclick = async () => {
-      $btnRetry.textContent = '⏳ Đang kiểm tra...';
-      await checkNetworkStatus();
-      renderCheckin();
-    };
-  }
+  const $btnIn = $('#btnCameraIn');
+  if ($btnIn) $btnIn.onclick = () => openCamera('in');
 
-  const $action = $('#checkinActionBtn');
-  if ($action && !$action.disabled) $action.onclick = handleActionClick;
-
-  const $settings = $('#checkinSettingsBtn');
-  if ($settings) $settings.onclick = openSettingsModal;
+  const $btnOut = $('#btnCameraOut');
+  if ($btnOut) $btnOut.onclick = () => openCamera('out');
 
   const $history = $('#openHistoryBtn');
   if ($history) $history.onclick = () => openHistoryModal('');
@@ -232,6 +294,30 @@ function renderCheckin() {
   bindAdminDeleteButtons();
 }
 
+function showSuccessModal(type) {
+  const title = type === 'in' ? 'CHẤM CÔNG ĐẾN THÀNH CÔNG' : 'CHẤM CÔNG VỀ THÀNH CÔNG';
+  const now = new Date();
+  let $m = document.getElementById('checkinSuccessModal');
+  if (!$m) {
+    let html = '<div id="checkinSuccessModal" class="modal-overlay" style="display:none;z-index:10002;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;">';
+    html += '<div style="background:#fff;border-radius:20px;max-width:360px;width:calc(100% - 40px);margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">';
+    html += '<div style="padding:44px 24px;text-align:center;">';
+    html += '<div style="font-size:88px;color:#16a34a;line-height:1;margin-bottom:24px;">✓</div>';
+    html += '<div id="checkinSuccessTitle" style="font-size:22px;font-weight:700;color:#15803d;margin-bottom:20px;line-height:1.3;"></div>';
+    html += '<div id="checkinSuccessTime" style="font-size:24px;font-weight:700;color:var(--text);margin-bottom:8px;"></div>';
+    html += '<div id="checkinSuccessDate" style="font-size:15px;color:var(--text-muted);"></div>';
+    html += '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    $m = document.getElementById('checkinSuccessModal');
+  }
+  document.getElementById('checkinSuccessTitle').textContent = title;
+  document.getElementById('checkinSuccessTime').textContent = formatTime(now.toISOString());
+  document.getElementById('checkinSuccessDate').textContent = formatDateVN(now.toISOString());
+  $m.style.display = 'flex';
+  setTimeout(() => { if ($m) $m.style.display = 'none'; }, 3500);
+}
+
+// ─────────────────────── ADMIN SECTION ───────────────────────
 function groupAdminCheckins() {
   const map = {};
   for (const c of _adminTodayCheckins) {
@@ -262,14 +348,28 @@ function renderAdminTodaySection() {
       const initial = name.charAt(0).toUpperCase();
       const safeName = name.replace(/"/g, '&quot;');
       
+      // Nút xem ảnh (nếu có)
+      let viewPhotoBtn = '';
+      if (g.in && g.in.photo_url) {
+        viewPhotoBtn += '<a href="' + g.in.photo_url + '" target="_blank" style="display:inline-block; margin-right:6px; text-decoration:none; font-size:11px; padding:3px 8px; background:#e0f2fe; color:#0369a1; border-radius:20px; font-weight:600;">📸 Ảnh đến</a>';
+      }
+      if (g.out && g.out.photo_url) {
+        viewPhotoBtn += '<a href="' + g.out.photo_url + '" target="_blank" style="display:inline-block; margin-right:6px; text-decoration:none; font-size:11px; padding:3px 8px; background:#e0f2fe; color:#0369a1; border-radius:20px; font-weight:600;">📸 Ảnh về</a>';
+      }
+
       rows += '<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);">';
       rows += '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0ea5b7,#0a6b7a);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">' + initial + '</div>';
       rows += '<div style="flex:1;min-width:0;">';
       rows += '<div style="font-weight:600;color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + name + '</div>';
+      
       rows += '<div style="font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.4;">';
       rows += inTime ? 'Đến <strong style="color:#16a34a;">' + inTime + '</strong>' : '<span style="color:#94a3b8;">Chưa đến</span>';
       rows += outTime ? ' · Về <strong style="color:#0891b2;">' + outTime + '</strong>' : '';
-      rows += '</div></div>';
+      rows += '</div>';
+      if (viewPhotoBtn) {
+         rows += '<div style="margin-top:6px;">' + viewPhotoBtn + '</div>';
+      }
+      rows += '</div>';
       
       if (isComplete) {
         rows += '<span style="font-size:11px;padding:3px 8px;background:#dcfce7;color:#15803d;border-radius:20px;font-weight:600;white-space:nowrap;">✓ Xong</span>';
@@ -318,89 +418,6 @@ function bindAdminDeleteButtons() {
   }
 }
 
-function handleActionClick() {
-  const currentState = getCurrentState();
-  const now = new Date();
-  const nowStr = formatTime(now.toISOString());
-  const dateStr = formatDateVN(now.toISOString());
-  if (currentState === 'need_in') showConfirmModal('CHẤM CÔNG ĐẾN', nowStr, dateStr, () => doCheckin('in'));
-  else if (currentState === 'need_out') showConfirmModal('CHẤM CÔNG VỀ', nowStr, dateStr, () => doCheckin('out'));
-}
-
-function showConfirmModal(title, timeStr, dateStr, onConfirm) {
-  let $m = document.getElementById('checkinConfirmModal');
-  if (!$m) {
-    let html = '<div id="checkinConfirmModal" class="modal-overlay" style="display:none;z-index:10001;align-items:center;justify-content:center;">';
-    html += '<div style="background:#fff;border-radius:18px;max-width:380px;width:calc(100% - 32px);margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">';
-    html += '<div style="padding:32px 24px;text-align:center;">';
-    html += '<div id="checkinConfirmTitle" style="font-size:22px;font-weight:700;margin-bottom:20px;color:var(--text);"></div>';
-    html += '<div style="font-size:15px;color:var(--text-muted);margin-bottom:8px;">Bạn muốn chấm công lúc:</div>';
-    html += '<div id="checkinConfirmTime" style="font-size:24px;font-weight:700;color:var(--ocean-700);margin:12px 0;line-height:1.3;"></div>';
-    html += '<div id="checkinConfirmDate" style="font-size:15px;color:var(--text-muted);margin-bottom:28px;"></div>';
-    html += '<div style="display:flex;gap:10px;">';
-    html += '<button id="checkinConfirmCancel" style="flex:1;padding:18px;font-size:18px;font-weight:600;font-family:inherit;background:#f1f5f9;color:var(--text);border:1px solid var(--border);border-radius:12px;cursor:pointer;">HUỶ</button>';
-    html += '<button id="checkinConfirmOk" style="flex:1;padding:18px;font-size:18px;font-weight:700;font-family:inherit;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:12px;cursor:pointer;">ĐỒNG Ý ✓</button>';
-    html += '</div></div></div></div>';
-    document.body.insertAdjacentHTML('beforeend', html);
-    $m = document.getElementById('checkinConfirmModal');
-  }
-  document.getElementById('checkinConfirmTitle').textContent = title;
-  document.getElementById('checkinConfirmTime').textContent = timeStr;
-  document.getElementById('checkinConfirmDate').textContent = dateStr;
-  $m.style.display = 'flex';
-  document.getElementById('checkinConfirmCancel').onclick = () => { $m.style.display = 'none'; };
-  document.getElementById('checkinConfirmOk').onclick = () => { $m.style.display = 'none'; onConfirm(); };
-}
-
-async function doCheckin(type) {
-  if (_anyCheckinInFlight) { toast('Đang xử lý...'); return; }
-  _anyCheckinInFlight = true;
-  try {
-    const { error } = await supabase.from('cslx_checkins').insert({
-      employee_id: state.user.id,
-      employee_name: getUserName(),
-      checkin_date: toDateStr(new Date()),
-      type,
-      lat: 0, lng: 0, accuracy_m: 0, distance_m: 0,
-      device_info: 'IP: ' + (_currentIP || 'unknown') + ' | ' + (navigator.userAgent || '').slice(0, 150),
-    });
-    if (error) throw error;
-    try { navigator.vibrate([100, 50, 200]); } catch {}
-    showSuccessModal(type);
-    await loadTodayCheckins();
-    if (state.isAdmin) await loadAdminTodayCheckins();
-    renderCheckin();
-  } catch (err) {
-    console.error('[checkin]', err);
-    toast('Lỗi: ' + (err.message || 'không xác định'));
-  } finally {
-    _anyCheckinInFlight = false;
-  }
-}
-
-function showSuccessModal(type) {
-  const title = type === 'in' ? 'CHẤM CÔNG ĐẾN THÀNH CÔNG' : 'CHẤM CÔNG VỀ THÀNH CÔNG';
-  const now = new Date();
-  let $m = document.getElementById('checkinSuccessModal');
-  if (!$m) {
-    let html = '<div id="checkinSuccessModal" class="modal-overlay" style="display:none;z-index:10002;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;">';
-    html += '<div style="background:#fff;border-radius:20px;max-width:360px;width:calc(100% - 40px);margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">';
-    html += '<div style="padding:44px 24px;text-align:center;">';
-    html += '<div style="font-size:88px;color:#16a34a;line-height:1;margin-bottom:24px;">✓</div>';
-    html += '<div id="checkinSuccessTitle" style="font-size:22px;font-weight:700;color:#15803d;margin-bottom:20px;line-height:1.3;"></div>';
-    html += '<div id="checkinSuccessTime" style="font-size:24px;font-weight:700;color:var(--text);margin-bottom:8px;"></div>';
-    html += '<div id="checkinSuccessDate" style="font-size:15px;color:var(--text-muted);"></div>';
-    html += '</div></div></div>';
-    document.body.insertAdjacentHTML('beforeend', html);
-    $m = document.getElementById('checkinSuccessModal');
-  }
-  document.getElementById('checkinSuccessTitle').textContent = title;
-  document.getElementById('checkinSuccessTime').textContent = formatTime(now.toISOString());
-  document.getElementById('checkinSuccessDate').textContent = formatDateVN(now.toISOString());
-  $m.style.display = 'flex';
-  setTimeout(() => { if ($m) $m.style.display = 'none'; }, 3500);
-}
-
 async function deleteCheckinsByEmpDate(empId, empName, dateStr) {
   if (!state.isAdmin) return false;
   if (!confirm('⚠️ Xoá TẤT CẢ chấm công của\n\n👤 "' + (empName || 'NV') + '"\n📅 ngày ' + formatDateShort(dateStr) + '?')) return false;
@@ -422,100 +439,7 @@ async function deleteAllTodayCheckins() {
   renderCheckin();
 }
 
-async function openSettingsModal() {
-  if (!state.isAdmin) return;
-  openModal('checkinUpdateModal');
-  
-  const $coords = $('#checkinUpdateCoords');
-  const $list = $('#checkinIpList');
-  const $btnAdd = $('#btnAddCurrentIp');
-  
-  if ($coords) $coords.innerHTML = '⏳ Đang lấy IP mạng hiện tại...';
-  if ($btnAdd) $btnAdd.style.display = 'none';
-  
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  const isCellular = conn && conn.type === 'cellular';
-  
-  const currentIp = await getPublicIP();
-  const loc = state.checkinLocation;
-  const currentAllowed = loc?.allowed_ips || [];
-  
-  if ($coords) {
-    if (!currentIp) {
-      $coords.innerHTML = '<span style="color:#dc2626;">❌ Lỗi mạng. Không lấy được IP.</span>';
-    } else {
-      let warningHtml = '';
-      if (isCellular) {
-        warningHtml = '<div style="font-size:13px; color:#dc2626; font-weight:bold; margin-top:8px; background:#fee2e2; padding:8px; border-radius:6px;">⚠ CẢNH BÁO: Bạn đang dùng mạng 4G!</div>';
-      }
-      
-      $coords.innerHTML = '<div style="font-size:18px; font-weight:bold; color:var(--ocean-700);">' + currentIp + '</div>' +
-        '<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">IP của mạng bạn đang kết nối</div>' + warningHtml;
-    }
-  }
-
-  if ($list) {
-    if (currentAllowed.length === 0) {
-      $list.innerHTML = '<div style="color:#b45309; font-size:13px; text-align:center; padding:10px;">Chưa có WiFi nào được lưu.</div>';
-    } else {
-      let listHtml = '';
-      for (const ip of currentAllowed) {
-        listHtml += '<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#f1f5f9; border-radius:8px; margin-bottom:8px; border:1px solid #e2e8f0;">';
-        listHtml += '<span style="font-weight:600; font-size:14px;">' + ip + '</span>';
-        listHtml += '<button class="btn-remove-ip" data-ip="' + ip + '" style="background:#fee2e2; color:#dc2626; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:bold; cursor:pointer;">Xoá</button>';
-        listHtml += '</div>';
-      }
-      $list.innerHTML = listHtml;
-      
-      $list.querySelectorAll('.btn-remove-ip').forEach(btn => {
-        btn.onclick = async () => {
-          if (!confirm('Xoá IP này khỏi danh sách cho phép?')) return;
-          const ipToRemove = btn.dataset.ip;
-          const newIps = currentAllowed.filter(i => i !== ipToRemove);
-          await supabase.from('cslx_checkin_location').update({ allowed_ips: newIps }).eq('id', LOCATION_ID);
-          toast('Đã xoá IP');
-          await loadLocation();
-          openSettingsModal();
-        };
-      });
-    }
-  }
-
-  if ($btnAdd) {
-    if (currentIp && !currentAllowed.includes(currentIp)) {
-      $btnAdd.style.display = 'block';
-      $btnAdd.textContent = '+ Lưu WiFi này cho Nhân viên';
-      $btnAdd.disabled = false;
-      
-      if (isCellular) $btnAdd.style.background = '#dc2626';
-      else $btnAdd.style.background = '';
-
-      $btnAdd.onclick = async () => {
-        if (isCellular) {
-          if(!confirm('⚠️ Bạn đang dùng 4G. IP này là của nhà mạng, không phải WiFi trường. Bạn có CHẮC CHẮN muốn lưu IP 4G này không?')) return;
-        }
-
-        $btnAdd.textContent = '⏳ Đang lưu...';
-        $btnAdd.disabled = true;
-        const newIps = [...currentAllowed, currentIp];
-        const { error } = await supabase.from('cslx_checkin_location').upsert({ id: LOCATION_ID, allowed_ips: newIps }, { onConflict: 'id' });
-        
-        if (error) {
-          toast('Lỗi: ' + error.message);
-          $btnAdd.textContent = '+ Lưu WiFi này cho Nhân viên';
-          $btnAdd.disabled = false;
-        } else {
-          toast('✅ Đã lưu IP thành công!');
-          await loadLocation();
-          openSettingsModal();
-        }
-      };
-    } else if (currentIp && currentAllowed.includes(currentIp)) {
-      $coords.innerHTML += '<div style="font-size:13px; color:#16a34a; font-weight:bold; margin-top:6px;">✓ IP này đã được lưu trong hệ thống</div>';
-    }
-  }
-}
-
+// ─────────────────────── LỊCH SỬ ───────────────────────
 function updateHistoryModeUI() {
   const $btnDay = document.getElementById('historyModeDay');
   const $btnMonth = document.getElementById('historyModeMonth');
@@ -670,7 +594,15 @@ async function loadHistoryData() {
       contentHtml += '<div style="font-size:12.5px;color:var(--text-muted);line-height:1.6;">';
       contentHtml += inTime ? '🟢 Đến <strong style="color:#16a34a;">' + inTime + '</strong>' : '<span style="color:#94a3b8;">— Chưa đến</span>';
       contentHtml += outTime ? ' · 🔵 Về <strong style="color:#0891b2;">' + outTime + '</strong>' + durText : '';
-      contentHtml += '</div></div>';
+      contentHtml += '</div>';
+      
+      // Link ảnh
+      let photoLinks = '';
+      if (r.in && r.in.photo_url) photoLinks += '<a href="' + r.in.photo_url + '" target="_blank" style="display:inline-block; margin-top:6px; margin-right:8px; font-size:12px; color:#0369a1; text-decoration:none; font-weight:600;">📸 Ảnh đến</a>';
+      if (r.out && r.out.photo_url) photoLinks += '<a href="' + r.out.photo_url + '" target="_blank" style="display:inline-block; margin-top:6px; margin-right:8px; font-size:12px; color:#0369a1; text-decoration:none; font-weight:600;">📸 Ảnh về</a>';
+      contentHtml += photoLinks;
+
+      contentHtml += '</div>';
       
       if (state.isAdmin) {
         contentHtml += '<button class="hist-del-btn" type="button" data-hist-del-emp="' + r.employee_id + '" data-hist-del-name="' + safeName + '" data-hist-del-date="' + d + '" title="Xoá chấm công NV này trong ngày" style="width:32px;height:32px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;">🗑</button>';
@@ -706,8 +638,8 @@ export async function loadCheckinTab() {
 
   if ($root) {
     let loadingHtml = '<div style="text-align:center;padding:60px 20px;color:var(--text-muted);">';
-    loadingHtml += '<div style="font-size:48px;margin-bottom:16px;">📡</div>';
-    loadingHtml += '<div style="font-size:18px;font-weight:600;">Đang kiểm tra kết nối...</div>';
+    loadingHtml += '<div style="font-size:48px;margin-bottom:16px;">📸</div>';
+    loadingHtml += '<div style="font-size:18px;font-weight:600;">Đang tải...</div>';
     loadingHtml += '</div>';
     $root.innerHTML = loadingHtml;
   }
@@ -716,6 +648,5 @@ export async function loadCheckinTab() {
   if (state.isAdmin) tasks.push(loadAdminTodayCheckins());
   await Promise.all(tasks);
   
-  await checkNetworkStatus(); 
   renderCheckin();
 }
