@@ -173,10 +173,55 @@ async function capturePhoto() {
   canvas.width = video.videoWidth || 720;
   canvas.height = video.videoHeight || 720;
   const ctx = canvas.getContext('2d');
+  
+  // Vẽ hình ảnh từ camera
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
-  // Chuyển sang ảnh JPEG chất lượng 0.7 (nhẹ, up mạng yếu vẫn được)
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+  // ==========================================
+  // BẮT ĐẦU VẼ WATERMARK (TÊN, NGÀY GIỜ, LOẠI)
+  // ==========================================
+  const userName = getUserName();
+  const now = new Date();
+  const dateStr = formatDateVN(now.toISOString());
+  const timeStr = formatHHMMPeriod(now.toISOString());
+  const typeStr = _captureType === 'in' ? 'CHẤM CÔNG ĐẾN' : 'CHẤM CÔNG VỀ';
+
+  // Tính toán kích thước dựa trên độ phân giải ảnh để chữ luôn cân đối
+  const fontSize = Math.round(canvas.width * 0.045); 
+  const padding = Math.round(canvas.width * 0.04);
+  const lineHeight = fontSize * 1.4;
+  const boxHeight = lineHeight * 3 + padding * 2;
+  
+  // Vẽ dải nền đen mờ ở dưới cùng
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+  ctx.fillRect(0, canvas.height - boxHeight, canvas.width, boxHeight);
+
+  // Cấu hình font chữ
+  ctx.textBaseline = 'top';
+  let startY = canvas.height - boxHeight + padding;
+
+  // Dòng 1: Tên nhân viên (Màu vàng)
+  ctx.fillStyle = '#facc15'; 
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  ctx.fillText(userName, padding, startY);
+  
+  // Dòng 2: Thời gian (Màu trắng)
+  startY += lineHeight;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `${fontSize}px Arial, sans-serif`;
+  ctx.fillText(`${timeStr} - ${dateStr}`, padding, startY);
+
+  // Dòng 3: Trạng thái (Màu xanh lá)
+  startY += lineHeight;
+  ctx.fillStyle = '#4ade80'; 
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  ctx.fillText(typeStr, padding, startY);
+  // ==========================================
+  // KẾT THÚC VẼ WATERMARK
+  // ==========================================
+  
+  // Chuyển sang ảnh JPEG (tăng chất lượng lên 0.8 để chữ không bị mờ)
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
   
   stopCamera();
   await uploadAndCheckin(dataUrl, _captureType);
@@ -348,7 +393,6 @@ function renderAdminTodaySection() {
       const initial = name.charAt(0).toUpperCase();
       const safeName = name.replace(/"/g, '&quot;');
       
-      // Nút xem ảnh (nếu có)
       let viewPhotoBtn = '';
       if (g.in && g.in.photo_url) {
         viewPhotoBtn += '<a href="' + g.in.photo_url + '" target="_blank" style="display:inline-block; margin-right:6px; text-decoration:none; font-size:11px; padding:3px 8px; background:#e0f2fe; color:#0369a1; border-radius:20px; font-weight:600;">📸 Ảnh đến</a>';
@@ -596,7 +640,6 @@ async function loadHistoryData() {
       contentHtml += outTime ? ' · 🔵 Về <strong style="color:#0891b2;">' + outTime + '</strong>' + durText : '';
       contentHtml += '</div>';
       
-      // Link ảnh
       let photoLinks = '';
       if (r.in && r.in.photo_url) photoLinks += '<a href="' + r.in.photo_url + '" target="_blank" style="display:inline-block; margin-top:6px; margin-right:8px; font-size:12px; color:#0369a1; text-decoration:none; font-weight:600;">📸 Ảnh đến</a>';
       if (r.out && r.out.photo_url) photoLinks += '<a href="' + r.out.photo_url + '" target="_blank" style="display:inline-block; margin-top:6px; margin-right:8px; font-size:12px; color:#0369a1; text-decoration:none; font-weight:600;">📸 Ảnh về</a>';
