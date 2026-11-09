@@ -1,6 +1,8 @@
-// sw.js — Service Worker cho PWA (network-first cho HTML/JS, cache-first cho ảnh/css)
-const CACHE_NAME = 'cslx-pwa-v1';
-const APP_SHELL = ['/', '/index.html', '/style.css'];
+// sw.js — Service Worker PWA (network-first cho HTML/JS, cache-first cho ảnh/css)
+// BUMP CACHE_VERSION mỗi lần deploy để xoá cache cũ
+const CACHE_VERSION = '2.0.2';
+const CACHE_NAME = 'cslx-pwa-' + CACHE_VERSION;
+const APP_SHELL = ['/', '/index.html', '/style.css', '/manifest.json'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -14,9 +16,16 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      ))
       .then(() => self.clients.claim())
   );
+});
+
+// Cho phép trang gửi "SKIP_WAITING" để kích hoạt SW mới ngay
+self.addEventListener('message', (e) => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (e) => {
@@ -25,26 +34,33 @@ self.addEventListener('fetch', (e) => {
 
   const url = new URL(req.url);
 
-  // Bỏ qua request khác origin (Supabase, Google Fonts, CDN...)
+  // Bỏ qua khác origin (Supabase, Google Fonts, CDN...)
   if (url.origin !== location.origin) return;
 
   // Bỏ qua API Supabase
-  if (url.pathname.startsWith('/rest/') || url.pathname.startsWith('/auth/') || url.pathname.startsWith('/realtime/')) return;
+  if (url.pathname.startsWith('/rest/') ||
+      url.pathname.startsWith('/auth/') ||
+      url.pathname.startsWith('/realtime/')) return;
 
-  // Network-first cho HTML, JS, JSON (để update bản mới ngay khi có mạng)
+  // Bỏ qua source map / HMR
+  if (url.pathname.endsWith('.map')) return;
+
+  // Network-first cho HTML, JS, JSON (update ngay khi có mạng)
   const isHTML = url.pathname === '/' || url.pathname.endsWith('.html');
-  const isJS = url.pathname.endsWith('.js');
+  const isJS   = url.pathname.endsWith('.js') || url.pathname.endsWith('.mjs');
   const isJSON = url.pathname.endsWith('.json');
 
   if (isHTML || isJS || isJSON) {
     e.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-store' })
         .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(req, clone)).catch(() => {});
+          if (res && res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(req, clone)).catch(() => {});
+          }
           return res;
         })
-        .catch(() => caches.match(req))
+        .catch(() => caches.match(req).then(c => c || fetch(req)))
     );
     return;
   }
@@ -54,8 +70,10 @@ self.addEventListener('fetch', (e) => {
     caches.match(req).then(cached => {
       if (cached) return cached;
       return fetch(req).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(c => c.put(req, clone)).catch(() => {});
+        if (res && res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(req, clone)).catch(() => {});
+        }
         return res;
       });
     })
