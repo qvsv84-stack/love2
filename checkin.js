@@ -82,6 +82,26 @@ function getCurrentState() {
   return 'done';
 }
 
+// Hàm vẽ bo góc tương thích mọi thiết bị (Fix lỗi kẹt nút)
+function drawRoundRect(ctx, x, y, w, h, r) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 // ─────────────────────── LOAD DATA ───────────────────────
 async function loadLocation() {
   const { data, error } = await supabase.from('cslx_checkin_location').select('*').eq('id', LOCATION_ID).maybeSingle();
@@ -116,17 +136,13 @@ async function openCamera(type) {
   let $modal = document.getElementById('cameraModal');
   if (!$modal) {
     let html = '<div id="cameraModal" style="display:none; position:fixed; inset:0; background:#000; z-index:99999; flex-direction:column; height:100dvh; width:100vw; overflow:hidden;">';
-    // Header
     html += '<div style="padding:16px; text-align:center; color:white; font-size:16px; font-weight:600; background:rgba(0,0,0,0.5); z-index:10; flex-shrink:0;">Chụp ảnh xác nhận</div>';
-    // Camera Frame (Cố định, không zoom)
     html += '<div style="flex:1; position:relative; overflow:hidden; background:#000;">';
     html += '<video id="cameraVideo" autoplay playsinline style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform: scaleX(-1);"></video>';
     html += '</div>';
-    // Footer / Nút bấm
     html += '<div style="padding:30px; display:flex; justify-content:center; align-items:center; background:#111; gap:40px; z-index:10; flex-shrink:0;">';
     html += '<button id="cameraCloseBtn" style="background:transparent; border:none; color:white; font-size:16px; font-weight:600; cursor:pointer; touch-action:manipulation;">Huỷ</button>';
-    // Nút chụp: Thêm touch-action: none để không bị hiểu nhầm là vuốt
-    html += '<button id="cameraCaptureBtn" style="width:80px; height:80px; border-radius:50%; background:#fff; border:6px solid #ccc; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); touch-action:none; -webkit-tap-highlight-color:transparent;"></button>';
+    html += '<button id="cameraCaptureBtn" style="width:80px; height:80px; border-radius:50%; background:#fff; border:6px solid #ccc; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); touch-action:manipulation; -webkit-tap-highlight-color:transparent;"></button>';
     html += '<div style="width:48px;"></div>';
     html += '</div>';
     html += '</div>';
@@ -135,10 +151,9 @@ async function openCamera(type) {
     
     document.getElementById('cameraCloseBtn').onclick = stopCamera;
     
-    // Dùng pointerdown thay vì click để bấm là ăn ngay lập tức
-    const captureBtn = document.getElementById('cameraCaptureBtn');
-    captureBtn.onpointerdown = (e) => {
-      e.preventDefault(); 
+    // Đổi lại thành onclick, đã có touch-action manipulation ở trên để chống ăn cắp touch
+    document.getElementById('cameraCaptureBtn').onclick = (e) => {
+      e.preventDefault();
       capturePhoto();
     };
   }
@@ -146,8 +161,9 @@ async function openCamera(type) {
   $modal.style.display = 'flex';
   
   try {
+    // Lấy camera mặc định (không ép tỉ lệ 720x720 nữa để tránh bị zoom quá to)
     _mediaStream = await navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } },
+      video: { facingMode: 'user' },
       audio: false 
     });
     const video = document.getElementById('cameraVideo');
@@ -179,90 +195,97 @@ async function capturePhoto() {
   btn.disabled = true;
   btn.style.background = '#ccc';
   
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth || 720;
-  canvas.height = video.videoHeight || 720;
-  const ctx = canvas.getContext('2d');
-  
-  // 1. ÁP DỤNG FILTER LÀM ĐẸP
-  ctx.filter = 'contrast(1.05) brightness(1.06) saturate(1.1)';
-  
-  // 2. LẬT ẢNH (MIRROR)
-  ctx.translate(canvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  
-  // Reset transform để vẽ chữ
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.filter = 'none';
-  
-  // ==========================================
-  // 3. VẼ TIME MARK (THẺ TÊN)
-  // ==========================================
-  const userName = getUserName();
-  const now = new Date();
-  const dateStr = formatDateVN(now.toISOString());
-  const timeStr = formatHHMMPeriod(now.toISOString());
-  const typeStr = _captureType === 'in' ? 'CHẤM CÔNG ĐẾN' : 'CHẤM CÔNG VỀ';
+  // Bọc try-catch để không bao giờ bị kẹt nút nếu có lỗi
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 720;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    
+    // 1. ÁP DỤNG FILTER LÀM ĐẸP
+    ctx.filter = 'contrast(1.05) brightness(1.06) saturate(1.1)';
+    
+    // 2. LẬT ẢNH (MIRROR)
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Reset transform để vẽ chữ
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.filter = 'none';
+    
+    // ==========================================
+    // 3. VẼ TIME MARK (THẺ TÊN)
+    // ==========================================
+    const userName = getUserName();
+    const now = new Date();
+    const dateStr = formatDateVN(now.toISOString());
+    const timeStr = formatHHMMPeriod(now.toISOString());
+    const typeStr = _captureType === 'in' ? 'CHẤM CÔNG ĐẾN' : 'CHẤM CÔNG VỀ';
 
-  const fontSize = Math.round(canvas.width * 0.04); 
-  const padding = Math.round(canvas.width * 0.03);
-  const boxW = canvas.width - (padding * 2);
-  const boxH = fontSize * 4;
-  const boxX = padding;
-  const boxY = canvas.height - boxH - padding;
+    const fontSize = Math.round(canvas.width * 0.04); 
+    const padding = Math.round(canvas.width * 0.03);
+    const boxW = canvas.width - (padding * 2);
+    const boxH = fontSize * 4;
+    const boxX = padding;
+    const boxY = canvas.height - boxH - padding;
 
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetY = 4;
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 4;
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-  ctx.beginPath();
-  ctx.roundRect(boxX, boxY, boxW, boxH, 12);
-  ctx.fill();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    drawRoundRect(ctx, boxX, boxY, boxW, boxH, 12); // Dùng hàm tương thích
+    ctx.fill();
 
-  ctx.shadowColor = 'transparent';
+    ctx.shadowColor = 'transparent';
 
-  // Thanh Accent Vàng
-  ctx.fillStyle = '#facc15';
-  ctx.beginPath();
-  ctx.roundRect(boxX, boxY, 8, boxH, [12, 0, 0, 12]);
-  ctx.fill();
+    // Thanh Accent Vàng
+    ctx.fillStyle = '#facc15';
+    drawRoundRect(ctx, boxX, boxY, 8, boxH, [12, 0, 0, 12]); // Dùng hàm tương thích
+    ctx.fill();
 
-  // Text
-  ctx.textBaseline = 'top';
-  let textX = boxX + 24;
-  let textY = boxY + padding * 0.8;
+    // Text
+    ctx.textBaseline = 'top';
+    let textX = boxX + 24;
+    let textY = boxY + padding * 0.8;
 
-  // Tên
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${fontSize}px "Be Vietnam Pro", Arial, sans-serif`;
-  ctx.fillText(userName, textX, textY);
-  
-  // Thời gian
-  textY += fontSize + 6;
-  ctx.fillStyle = '#cbd5e1';
-  ctx.font = `${fontSize * 0.7}px "Be Vietnam Pro", Arial, sans-serif`;
-  ctx.fillText(`${timeStr} - ${dateStr}`, textX, textY);
+    // Tên
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${fontSize}px "Be Vietnam Pro", Arial, sans-serif`;
+    ctx.fillText(userName, textX, textY);
+    
+    // Thời gian
+    textY += fontSize + 6;
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = `${fontSize * 0.7}px "Be Vietnam Pro", Arial, sans-serif`;
+    ctx.fillText(`${timeStr} - ${dateStr}`, textX, textY);
 
-  // Trạng thái + Chấm tròn
-  textY += fontSize * 0.7 + 8;
-  const statusColor = _captureType === 'in' ? '#4ade80' : '#38bdf8';
-  
-  ctx.fillStyle = statusColor;
-  ctx.beginPath();
-  ctx.arc(textX + 6, textY + (fontSize * 0.35), 5, 0, Math.PI * 2);
-  ctx.fill();
-  
-  ctx.fillStyle = statusColor;
-  ctx.font = `bold ${fontSize * 0.75}px "Be Vietnam Pro", Arial, sans-serif`;
-  ctx.fillText(typeStr, textX + 20, textY);
+    // Trạng thái + Chấm tròn
+    textY += fontSize * 0.7 + 8;
+    const statusColor = _captureType === 'in' ? '#4ade80' : '#38bdf8';
+    
+    ctx.fillStyle = statusColor;
+    ctx.beginPath();
+    ctx.arc(textX + 6, textY + (fontSize * 0.35), 5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = statusColor;
+    ctx.font = `bold ${fontSize * 0.75}px "Be Vietnam Pro", Arial, sans-serif`;
+    ctx.fillText(typeStr, textX + 20, textY);
 
-  // Xuất ảnh
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-  
-  stopCamera();
-  await uploadAndCheckin(dataUrl, _captureType);
+    // Xuất ảnh
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    
+    stopCamera();
+    await uploadAndCheckin(dataUrl, _captureType);
+
+  } catch (err) {
+    console.error('[capture] Lỗi vẽ ảnh:', err);
+    btn.disabled = false;
+    btn.style.background = '#fff';
+    toast('Lỗi chụp ảnh: ' + (err.message || 'Vui lòng thử lại'));
+  }
 }
 
 // ─────────────────────── UPLOAD & CHECK-IN ───────────────────────
