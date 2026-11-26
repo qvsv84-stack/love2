@@ -56,6 +56,8 @@ button.alt{background:transparent;color:var(--ac)}
 <section id="pick" hidden>
   <h2>Chọn trạng thái</h2>
   <div id="opts"></div>
+  <h2>Cột trong ảnh</h2>
+  <div id="cols"></div>
   <div class="row"><button id="make" type="button">Tạo ảnh</button></div>
 </section>
 <section id="outwrap" hidden><h2>Ảnh</h2><div id="out"></div></section>
@@ -71,17 +73,32 @@ function addDays(ds,n){var d=new Date(ds+'T00:00:00Z');d.setUTCDate(d.getUTCDate
 var HALL={'ht-tong-hop':'HT Tổng hợp','ht-nhan-van':'HT Nhân văn'};
 var HSTL={FREE:'Còn trống',CONFIRMED:'Đã duyệt',PENDING:'Chờ duyệt',NEEDS_INFO:'Yêu cầu bổ sung'};
 var COL={'Còn trống':'#5b6876','Đã duyệt':'#1b7a43','Chờ duyệt':'#a15c00','Yêu cầu bổ sung':'#b3261e','Chờ bổ sung':'#b3261e','Đang mượn':'#1f4e79'};
+var COLS={hall:{h:['Hội trường','Giờ','Trạng thái','Đơn vị / Ghi chú'],w:[210,230,190,0],st:2,title:'LỊCH ĐĂNG KÝ HỘI TRƯỜNG'},eve:{h:['Phòng','Sức chứa','Giờ','Trạng thái','Đơn vị / Ghi chú'],w:[170,130,220,190,0],st:3,title:'PHÒNG HỌC TỐI'}};
 var TAB='hall',HD=[],ED=null,G={},CUR='',BLOB=null;
 
 $('day').value=new Date(Date.now()+25200000).toISOString().slice(0,10);
 ['s1','s2','s3'].forEach(function(id){var v=ls('hs_'+id);if(v)$(id).value=v;$(id).addEventListener('input',function(){ls('hs_'+id,$(id).value)})});
 
+function selCols(){return [].slice.call($('cols').querySelectorAll('input')).filter(function(i){return i.checked}).map(function(i){return +i.value})}
+function saveCols(){ls('hs_cols_'+TAB,JSON.stringify(selCols()))}
+function renderCols(){
+  var C=COLS[TAB],saved=null;try{saved=JSON.parse(ls('hs_cols_'+TAB))}catch(e){}
+  var el=$('cols');el.innerHTML='';
+  C.h.forEach(function(h,i){
+    var l=document.createElement('label');l.className='opt';
+    var c=document.createElement('input');c.type='checkbox';c.value=i;c.checked=Array.isArray(saved)?saved.indexOf(i)>=0:true;
+    c.addEventListener('change',saveCols);
+    var sp=document.createElement('span');sp.textContent=h;
+    l.appendChild(c);l.appendChild(sp);el.appendChild(l);
+  });
+}
 function setTab(t){
   TAB=t;
   $('tab-hall').setAttribute('aria-selected',t=='hall');
   $('tab-eve').setAttribute('aria-selected',t=='eve');
   $('shiftbox').hidden=(t!='hall');
   $('dbgrow').hidden=(t!='eve');$('dbgout').hidden=true;
+  renderCols();
   $('pick').hidden=true;$('outwrap').hidden=true;
   load();
 }
@@ -180,13 +197,15 @@ $('make').onclick=function(){
   if(!rows.length){msg('Các mục đã chọn đều có 0 dòng.','err');return}
   rows.sort(function(a,b){return a.key<b.key?-1:a.key>b.key?1:a.sk<b.sk?-1:a.sk>b.sk?1:0});
   var names=sel.map(function(k){return HSTL[k]||k});
-  if(TAB=='hall')draw(rows,'LỊCH ĐĂNG KÝ HỘI TRƯỜNG',names,['Hội trường','Giờ','Trạng thái','Đơn vị / Ghi chú'],[210,230,190,0],2);
-  else draw(rows,'PHÒNG HỌC TỐI',names,['Phòng','Sức chứa','Giờ','Trạng thái','Đơn vị / Ghi chú'],[170,130,220,190,0],3);
+  var C=COLS[TAB],idx=selCols();
+  if(!idx.length){msg('Chưa chọn cột nào.','err');return}
+  var rows2=rows.map(function(r){return{key:r.key,sk:r.sk,lab:r.lab,c:idx.map(function(i){return r.c[i]})}});
+  draw(rows2,C.title,names,idx.map(function(i){return C.h[i]}),idx.map(function(i){return C.w[i]}),idx.indexOf(C.st));
 };
 
 function draw(rows,title,names,heads,CW,stCol){
   var W=1200,P=30,LH=28;
-  var sum=0;CW.forEach(function(w){sum+=w});CW[CW.length-1]=W-2*P-sum;
+  CW=CW.slice();var sum=0;CW.forEach(function(w){sum+=w});var z=CW.indexOf(0);if(z>=0)CW[z]=W-2*P-sum;else{var fc=(W-2*P)/sum;CW=CW.map(function(w){return Math.round(w*fc)})}
   var F='-apple-system,"Helvetica Neue",Arial,sans-serif';
   var c=document.createElement('canvas'),x=c.getContext('2d');
   function wrap(t,w){var o=[],l='';String(t||'').split(/\s+/).forEach(function(wd){var m=l?l+' '+wd:wd;if(x.measureText(m).width>w&&l){o.push(l);l=wd}else l=m});if(l)o.push(l);return o.length?o:['']}
@@ -262,6 +281,7 @@ $('dbg').onclick=function(){
   t.value=L.join('\n');t.focus();t.select();
 };
 
+renderCols();
 load();
 })();
 </script>
