@@ -30,6 +30,8 @@ button.alt{background:transparent;color:var(--ac)}
 #out{display:flex;flex-direction:column;gap:10px}
 #out img{width:100%;border:1px solid var(--ln);border-radius:6px;display:block}
 #dbgout{width:100%;height:280px;box-sizing:border-box;font-size:12px;color:var(--fg);background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:8px}
+#out .res{display:flex;flex-direction:column;gap:10px;padding-bottom:18px;border-bottom:1px solid var(--ln)}
+#out .res h3{margin:0;font-size:1rem}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -58,6 +60,11 @@ button.alt{background:transparent;color:var(--ac)}
   <div id="opts"></div>
   <h2>Cột trong ảnh</h2>
   <div id="cols"></div>
+  <div id="blkwrap" hidden>
+    <h2>Toà nhà</h2>
+    <div id="blks"></div>
+    <label class="opt"><input type="checkbox" id="split"><span>Tách ảnh riêng cho từng toà</span></label>
+  </div>
   <div class="row"><button id="make" type="button">Tạo ảnh</button></div>
 </section>
 <section id="outwrap" hidden><h2>Ảnh</h2><div id="out"></div></section>
@@ -99,7 +106,7 @@ function setTab(t){
   $('shiftbox').hidden=(t!='hall');
   $('dbgrow').hidden=(t!='eve');$('dbgout').hidden=true;
   renderCols();
-  $('pick').hidden=true;$('outwrap').hidden=true;
+  $('pick').hidden=true;$('outwrap').hidden=true;$('blkwrap').hidden=true;
   load();
 }
 $('tab-hall').onclick=function(){setTab('hall')};
@@ -155,10 +162,12 @@ function buildHall(){
   Object.keys(HALL).forEach(function(h){ss.forEach(function(s){if(!D.some(function(x){return x.hall==h&&x.shift==s}))G.FREE.push({key:h,sk:s,lab:'Còn trống',c:[HALL[h],shiftLabel(s),'Còn trống','']})})});
   var ks=['FREE','CONFIRMED','PENDING','NEEDS_INFO'];Object.keys(G).forEach(function(k){if(ks.indexOf(k)<0)ks.push(k)});
   renderOpts(ks,function(k){return HSTL[k]||('Mã lạ: '+k)},'CONFIRMED');
+  $('blkwrap').hidden=true;
 }
 function shiftLabel(c){var m=/^ca-(\d+)$/.exec(c);if(!m)return c;var t=($('s'+m[1])||{}).value;return 'Ca '+m[1]+(t&&t.trim()?' ('+t.trim()+')':'')}
 
 function hm(x){return('0'+x.getUTCHours()).slice(-2)+':'+('0'+x.getUTCMinutes()).slice(-2)}
+function bk(r,id){return r&&r.block?String(r.block):String(id).split('-')[0]}
 function rl(r){if(!r)return'';if(r.name)return r.name;var id=String(r.id);return(r.block&&id.indexOf(r.block)!==0)?r.block+'-'+id:id}
 function lab(s){
   var u=String(s).toUpperCase();
@@ -167,6 +176,20 @@ function lab(s){
   if(/PEND|WAIT|SUBMIT|REVIEW/.test(u))return'Chờ duyệt';
   if(/BORROW|IN_USE|USING|ACTIVE|ONGOING|OCCUP|CHECKED/.test(u))return'Đang mượn';
   return s;
+}
+function renderBlks(){
+  var keep={};[].slice.call($('blks').querySelectorAll('input')).forEach(function(i){keep[i.value]=i.checked});
+  var set={};Object.keys(G).forEach(function(k){G[k].forEach(function(r){set[r.blk]=1})});
+  ED.rooms.forEach(function(r){set[bk(r,r.id)]=1});
+  var list=Object.keys(set).sort();
+  var el=$('blks');el.innerHTML='';
+  list.forEach(function(b){
+    var l=document.createElement('label');l.className='opt';
+    var c=document.createElement('input');c.type='checkbox';c.value=b;c.checked=(b in keep)?keep[b]:true;
+    var sp=document.createElement('span');sp.textContent='Toà '+b;
+    l.appendChild(c);l.appendChild(sp);el.appendChild(l);
+  });
+  $('blkwrap').hidden=false;
 }
 function buildEve(){
   var ds=$('day').value;CUR=ds;if(!ds||!ED)return;
@@ -181,11 +204,12 @@ function buildEve(){
   var dow=new Date(ds+'T00:00:00Z').getUTCDay();
   var win=dow===0?'06:30 - 11:30':'17:00 - 20:30';
   G={'Còn trống':[]};
-  ED.rooms.forEach(function(r){if(r.booking_open!==false&&!occ[r.id])G['Còn trống'].push({key:rl(r),sk:win,lab:'Còn trống',c:[rl(r),String(r.capacity==null?'':r.capacity),win,'Còn trống',r.note||'']})});
-  sl.forEach(function(s){var L=lab(s.st);(G[L]=G[L]||[]).push({key:rl(rm[s.id]||{id:s.id}),sk:s.t,lab:L,c:[rl(rm[s.id]||{id:s.id}),String(((rm[s.id]||{}).capacity)==null?'':rm[s.id].capacity),s.t,L,s.u]})});
+  ED.rooms.forEach(function(r){if(r.booking_open!==false&&!occ[r.id])G['Còn trống'].push({blk:bk(r,r.id),key:rl(r),sk:win,lab:'Còn trống',c:[rl(r),String(r.capacity==null?'':r.capacity),win,'Còn trống',r.note||'']})});
+  sl.forEach(function(s){var L=lab(s.st);(G[L]=G[L]||[]).push({blk:bk(rm[s.id],s.id),key:rl(rm[s.id]||{id:s.id}),sk:s.t,lab:L,c:[rl(rm[s.id]||{id:s.id}),String(((rm[s.id]||{}).capacity)==null?'':rm[s.id].capacity),s.t,L,s.u]})});
   var ks=['Còn trống','Đã duyệt','Đang mượn','Chờ duyệt','Chờ bổ sung'];
   Object.keys(G).forEach(function(k){if(ks.indexOf(k)<0)ks.push(k)});
   renderOpts(ks,function(k){return ['Còn trống','Đã duyệt','Đang mượn','Chờ duyệt','Chờ bổ sung'].indexOf(k)<0?'Mã lạ: '+k:k},'Đã duyệt');
+  renderBlks();
   msg('Ngày '+fmt(ds)+': '+sl.length+' lượt có lịch, '+G['Còn trống'].length+' phòng còn trống.','ok');
 }
 
@@ -199,11 +223,27 @@ $('make').onclick=function(){
   var names=sel.map(function(k){return HSTL[k]||k});
   var C=COLS[TAB],idx=selCols();
   if(!idx.length){msg('Chưa chọn cột nào.','err');return}
-  var rows2=rows.map(function(r){return{key:r.key,sk:r.sk,lab:r.lab,c:idx.map(function(i){return r.c[i]})}});
-  draw(rows2,C.title,names,idx.map(function(i){return C.h[i]}),idx.map(function(i){return C.w[i]}),idx.indexOf(C.st));
+  var heads=idx.map(function(i){return C.h[i]}),cw=idx.map(function(i){return C.w[i]}),sc=idx.indexOf(C.st);
+  function cp(list){return list.map(function(r){return{key:r.key,sk:r.sk,lab:r.lab,c:idx.map(function(i){return r.c[i]})}})}
+  $('out').innerHTML='';
+  if(TAB!='eve'){draw(cp(rows),C.title,names,heads,cw,sc,'');return}
+  var all=[].slice.call($('blks').querySelectorAll('input')),bs=all.filter(function(i){return i.checked}).map(function(i){return i.value});
+  if(!bs.length){msg('Chưa chọn toà nào.','err');return}
+  rows=rows.filter(function(r){return bs.indexOf(r.blk)>=0});
+  if(!rows.length){msg('Các toà đã chọn không có dòng nào.','err');return}
+  ls('hs_split',$('split').checked?'1':'0');
+  if($('split').checked){
+    bs.forEach(function(b){
+      var g=rows.filter(function(r){return r.blk===b});
+      if(g.length)draw(cp(g),C.title+' - TOÀ '+b,names,heads,cw,sc,b);
+    });
+  }else{
+    var nm=names.slice();if(bs.length<all.length)nm.push('Toà '+bs.join(', '));
+    draw(cp(rows),C.title,nm,heads,cw,sc,bs.length<all.length?bs.join('-'):'');
+  }
 };
 
-function draw(rows,title,names,heads,CW,stCol){
+function draw(rows,title,names,heads,CW,stCol,fname){
   var P=36,F=40,LH=54,PAD=24,CAP=440,NOTE_W=480,MINW=720;
   var FF='-apple-system,"Helvetica Neue",Arial,sans-serif';
   var c=document.createElement('canvas'),x=c.getContext('2d');
@@ -258,17 +298,18 @@ function draw(rows,title,names,heads,CW,stCol){
     x.strokeStyle='#c9d3de';x.lineWidth=1;x.beginPath();x.moveTo(P,y+r.H);x.lineTo(W-P,y+r.H);x.stroke();
     y+=r.H;
   });
-  var out=$('out');out.innerHTML='';
+  var out=document.createElement('div');out.className='res';$('out').appendChild(out);
+  var h3=document.createElement('h3');h3.textContent=title;out.appendChild(h3);
   var row=document.createElement('div');row.className='row';
   var sb=document.createElement('button');sb.type='button';sb.textContent='Lưu / Chia sẻ';
   row.appendChild(sb);out.appendChild(row);
   var st=document.createElement('div');st.className='st';out.appendChild(st);
   var hint=document.createElement('p');hint.className='hint';hint.textContent='Hoặc nhấn giữ vào ảnh rồi chọn Lưu vào Ảnh.';out.appendChild(hint);
   var im=document.createElement('img');im.alt='Ảnh '+title;im.src=c.toDataURL('image/png');out.appendChild(im);
-  BLOB=null;c.toBlob(function(b){BLOB=b});
+  var BLOB=null;c.toBlob(function(b){BLOB=b});
   sb.onclick=function(){
     if(!BLOB){st.textContent='Ảnh chưa sẵn sàng, bấm lại sau 1 giây.';st.className='st err';return}
-    var f=new File([BLOB],(TAB=='hall'?'hoi-truong-':'phong-hoc-toi-')+CUR+'.png',{type:'image/png'});
+    var f=new File([BLOB],(TAB=='hall'?'hoi-truong-':'phong-hoc-toi-')+(fname?fname+'-':'')+CUR+'.png',{type:'image/png'});
     if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:title+' '+fmt(CUR)}).catch(function(){})}
     else{st.textContent='Máy không hỗ trợ chia sẻ. Hãy nhấn giữ vào ảnh để lưu.';st.className='st err'}
   };
@@ -299,6 +340,7 @@ $('dbg').onclick=function(){
 };
 
 renderCols();
+try{if(ls('hs_split')==='1')$('split').checked=true}catch(e){}
 load();
 })();
 </script>
