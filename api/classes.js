@@ -1,6 +1,5 @@
-// Đổi dòng dưới thành địa chỉ web mượn phòng học, ví dụ 'https://ten-mien-cua-truong'
-// (hoặc đặt biến môi trường ROOMS_HOST trong Vercel). Không có dấu / ở cuối.
-const HOST = process.env.ROOMS_HOST || 'https://DOI-TEN-MIEN-O-DAY';
+// Địa chỉ web mượn phòng học (không có dấu / ở cuối).
+const HOST = process.env.ROOMS_HOST || 'https://dkph.hcmussh.edu.vn';
 
 module.exports = async (req, res) => {
   const { from, days } = req.query;
