@@ -15,6 +15,9 @@ h2{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mu
 input[type=date],input[type=text]{font:inherit;font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:10px;width:100%;box-sizing:border-box;min-width:0}
 button{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--ac);background:var(--ac);color:var(--acf);padding:11px 16px}
 button.alt{background:transparent;color:var(--ac)}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tabs button{background:transparent;color:var(--ac)}
+.tabs button[aria-selected=true]{background:var(--ac);color:var(--acf)}
 .row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1 1 auto}
 .hint{font-size:.85rem;color:var(--mu);margin:0}
 .st{font-size:.9rem;min-height:1.3em}.err{color:var(--bad)}.ok{color:var(--ok)}
@@ -31,13 +34,17 @@ button.alt{background:transparent;color:var(--ac)}
 </head>
 <body>
 <main>
-<header><h1>Lịch Hội Trường</h1><p class="sub">HT Tổng hợp và HT Nhân văn. Dữ liệu lấy mới từ web trường mỗi lần mở.</p></header>
+<header><h1>Lịch Hội Trường</h1><p class="sub">Hội trường và lịch học tối. Dữ liệu lấy mới từ web trường mỗi lần mở.</p></header>
 <section>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tab-hall" aria-selected="true">Hội trường</button>
+    <button type="button" role="tab" id="tab-eve" aria-selected="false">Lịch học tối</button>
+  </div>
   <h2>Ngày</h2>
   <input type="date" id="day" aria-label="Chọn ngày">
   <div class="row"><button id="reload" class="alt" type="button">Tải lại dữ liệu</button></div>
   <div id="msg" class="st" role="status">Đang tải dữ liệu...</div>
-  <div class="shifts">
+  <div id="shiftbox" class="shifts">
     <label>Giờ ca 1<input type="text" id="s1" placeholder="vd 7:00-11:30"></label>
     <label>Giờ ca 2<input type="text" id="s2" placeholder="vd 13:00-17:00"></label>
     <label>Giờ ca 3<input type="text" id="s3" placeholder="vd 18:00-21:00"></label>
@@ -52,89 +59,158 @@ button.alt{background:transparent;color:var(--ac)}
 </main>
 <script>
 (function(){
-var HALL={'ht-tong-hop':'HT Tổng hợp','ht-nhan-van':'HT Nhân văn'};
-var STL={FREE:'Còn trống',CONFIRMED:'Đã duyệt',PENDING:'Chờ duyệt',NEEDS_INFO:'Yêu cầu bổ sung'};
-var STC={FREE:'#5b6876',CONFIRMED:'#1b7a43',PENDING:'#a15c00',NEEDS_INFO:'#b3261e'};
-var DATA=[],G={},CUR='',BLOB=null;
 var $=function(i){return document.getElementById(i)};
 function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
 function fmt(d){return d.split('-').reverse().join('/')}
 function msg(t,c){var m=$('msg');m.textContent=t;m.className='st '+(c||'')}
+function addDays(ds,n){var d=new Date(ds+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+
+var HALL={'ht-tong-hop':'HT Tổng hợp','ht-nhan-van':'HT Nhân văn'};
+var HSTL={FREE:'Còn trống',CONFIRMED:'Đã duyệt',PENDING:'Chờ duyệt',NEEDS_INFO:'Yêu cầu bổ sung'};
+var COL={'Còn trống':'#5b6876','Đã duyệt':'#1b7a43','Chờ duyệt':'#a15c00','Yêu cầu bổ sung':'#b3261e','Chờ bổ sung':'#b3261e','Đang mượn':'#1f4e79'};
+var TAB='hall',HD=[],ED=null,G={},CUR='',BLOB=null;
+
 $('day').value=new Date(Date.now()+25200000).toISOString().slice(0,10);
 ['s1','s2','s3'].forEach(function(id){var v=ls('hs_'+id);if(v)$(id).value=v;$(id).addEventListener('input',function(){ls('hs_'+id,$(id).value)})});
+
+function setTab(t){
+  TAB=t;
+  $('tab-hall').setAttribute('aria-selected',t=='hall');
+  $('tab-eve').setAttribute('aria-selected',t=='eve');
+  $('shiftbox').hidden=(t!='hall');
+  $('pick').hidden=true;$('outwrap').hidden=true;
+  load();
+}
+$('tab-hall').onclick=function(){setTab('hall')};
+$('tab-eve').onclick=function(){setTab('eve')};
+$('reload').onclick=load;
+$('day').addEventListener('change',function(){if(TAB=='hall'){if(HD.length)buildHall()}else load()});
+
+function getJSON(url){
+  return fetch(url,{cache:'no-store'}).then(function(r){
+    if(!r.ok)throw new Error('Máy chủ trường trả lỗi '+r.status);return r.json();
+  });
+}
 function load(){
   msg('Đang tải dữ liệu...');
-  fetch('/api/bookings?t='+Date.now(),{cache:'no-store'}).then(function(r){
-    if(!r.ok)throw new Error('Máy chủ trường trả lỗi '+r.status);return r.json();
-  }).then(function(j){
-    var arr=Array.isArray(j)?j:j.data;if(!Array.isArray(arr))throw new Error('Dữ liệu không đúng dạng.');
-    DATA=arr.filter(function(x){return HALL[x.hall]});
-    msg('Đã cập nhật lúc '+new Date().toLocaleTimeString('vi-VN')+' ('+DATA.length+' đơn của 2 hội trường).','ok');
-    build();
-  }).catch(function(e){msg('Không tải được: '+e.message,'err')});
+  if(TAB=='hall'){
+    getJSON('/api/bookings?t='+Date.now()).then(function(j){
+      var arr=Array.isArray(j)?j:j.data;if(!Array.isArray(arr))throw new Error('Dữ liệu không đúng dạng.');
+      HD=arr.filter(function(x){return HALL[x.hall]});
+      msg('Đã cập nhật lúc '+new Date().toLocaleTimeString('vi-VN')+' ('+HD.length+' đơn của 2 hội trường).','ok');
+      buildHall();
+    }).catch(function(e){msg('Không tải được: '+e.message,'err')});
+  }else{
+    var ds=$('day').value;if(!ds){msg('Hãy chọn ngày.','err');return}
+    getJSON('/api/classes?from='+addDays(ds,-1)+'&days=3&t='+Date.now()).then(function(j){
+      if(!j||!Array.isArray(j.rooms)||!Array.isArray(j.slots))throw new Error('Dữ liệu không đúng dạng.');
+      ED=j;
+      msg('Đã cập nhật lúc '+new Date().toLocaleTimeString('vi-VN')+' ('+j.rooms.length+' phòng).','ok');
+      buildEve();
+    }).catch(function(e){msg('Không tải được: '+e.message,'err')});
+  }
 }
-$('reload').onclick=load;
-$('day').addEventListener('change',function(){if(DATA.length)build()});
-function build(){
-  var d=$('day').value;CUR=d;if(!d)return;
+
+function renderOpts(ks,labelFn,defKey){
   var keep={};[].slice.call($('opts').querySelectorAll('input')).forEach(function(i){keep[i.value]=i.checked});
-  var hadKeep=Object.keys(keep).length>0;
-  var D=DATA.filter(function(x){return String(x.usageDate).slice(0,10)==d});
-  var ss=['ca-1','ca-2','ca-3'];DATA.forEach(function(x){if(ss.indexOf(x.shift)<0)ss.push(x.shift)});
-  G={FREE:[]};
-  D.forEach(function(x){var k=x.status||'(không có)';(G[k]=G[k]||[]).push({hall:x.hall,shift:x.shift,st:k,note:[x.organization,x.purpose].filter(Boolean).join(' - ')})});
-  Object.keys(HALL).forEach(function(h){ss.forEach(function(s){if(!D.some(function(x){return x.hall==h&&x.shift==s}))G.FREE.push({hall:h,shift:s,st:'FREE',note:''})})});
-  var ks=['FREE','CONFIRMED','PENDING','NEEDS_INFO'];Object.keys(G).forEach(function(k){if(ks.indexOf(k)<0)ks.push(k)});
+  var had=Object.keys(keep).length>0;
   var o=$('opts');o.innerHTML='';
   ks.forEach(function(k){
     var l=document.createElement('label');l.className='opt';
-    var c=document.createElement('input');c.type='checkbox';c.value=k;c.checked=hadKeep?!!keep[k]:(k==='CONFIRMED');
-    var s=document.createElement('span');s.textContent=STL[k]||('Mã lạ: '+k);
+    var c=document.createElement('input');c.type='checkbox';c.value=k;c.checked=had&&k in keep?keep[k]:(k===defKey);
+    var s=document.createElement('span');s.textContent=labelFn(k);
     var n=document.createElement('span');n.className='n';n.textContent=G[k]?G[k].length:0;
     l.appendChild(c);l.appendChild(s);l.appendChild(n);o.appendChild(l);
   });
   $('pick').hidden=false;
 }
+
+function buildHall(){
+  var d=$('day').value;CUR=d;if(!d)return;
+  var D=HD.filter(function(x){return String(x.usageDate).slice(0,10)==d});
+  var ss=['ca-1','ca-2','ca-3'];HD.forEach(function(x){if(ss.indexOf(x.shift)<0)ss.push(x.shift)});
+  G={FREE:[]};
+  D.forEach(function(x){var k=x.status||'(không có)';(G[k]=G[k]||[]).push({key:x.hall,sk:x.shift,lab:HSTL[k]||k,c:[HALL[x.hall],shiftLabel(x.shift),HSTL[k]||k,[x.organization,x.purpose].filter(Boolean).join(' - ')]})});
+  Object.keys(HALL).forEach(function(h){ss.forEach(function(s){if(!D.some(function(x){return x.hall==h&&x.shift==s}))G.FREE.push({key:h,sk:s,lab:'Còn trống',c:[HALL[h],shiftLabel(s),'Còn trống','']})})});
+  var ks=['FREE','CONFIRMED','PENDING','NEEDS_INFO'];Object.keys(G).forEach(function(k){if(ks.indexOf(k)<0)ks.push(k)});
+  renderOpts(ks,function(k){return HSTL[k]||('Mã lạ: '+k)},'CONFIRMED');
+}
 function shiftLabel(c){var m=/^ca-(\d+)$/.exec(c);if(!m)return c;var t=($('s'+m[1])||{}).value;return 'Ca '+m[1]+(t&&t.trim()?' ('+t.trim()+')':'')}
+
+function hm(x){return('0'+x.getUTCHours()).slice(-2)+':'+('0'+x.getUTCMinutes()).slice(-2)}
+function lab(s){
+  var u=String(s).toUpperCase();
+  if(u==='APPROVED')return'Đã duyệt';
+  if(/SUPPL|INFO|ADD|MORE|NEED|REVIS/.test(u))return'Chờ bổ sung';
+  if(/PEND|WAIT|SUBMIT|REVIEW/.test(u))return'Chờ duyệt';
+  if(/BORROW|IN_USE|USING|ACTIVE|ONGOING|OCCUP|CHECKED/.test(u))return'Đang mượn';
+  return s;
+}
+function buildEve(){
+  var ds=$('day').value;CUR=ds;if(!ds||!ED)return;
+  var rm={};ED.rooms.forEach(function(r){rm[r.id]=r});
+  var sl=[];
+  ED.slots.forEach(function(s){
+    var a=new Date(new Date(s.starts_at).getTime()+252e5),b=new Date(new Date(s.ends_at).getTime()+252e5);
+    if(a.toISOString().slice(0,10)!==ds)return;
+    sl.push({id:s.room_id,st:s.status,t:hm(a)+' - '+hm(b),u:s.unit||''});
+  });
+  var occ={};sl.forEach(function(s){if(!/REJECT|CANCEL|DENY/i.test(s.st))occ[s.id]=1});
+  var dow=new Date(ds+'T00:00:00Z').getUTCDay();
+  var win=dow===0?'06:30 - 11:30':'17:00 - 20:30';
+  G={'Còn trống':[]};
+  ED.rooms.forEach(function(r){if(r.booking_open!==false&&!occ[r.id])G['Còn trống'].push({key:r.id,sk:win,lab:'Còn trống',c:[r.id,String(r.capacity==null?'':r.capacity),win,'Còn trống',r.note||'']})});
+  sl.forEach(function(s){var L=lab(s.st);(G[L]=G[L]||[]).push({key:s.id,sk:s.t,lab:L,c:[s.id,String(((rm[s.id]||{}).capacity)==null?'':rm[s.id].capacity),s.t,L,s.u]})});
+  var ks=['Còn trống','Đã duyệt','Đang mượn','Chờ duyệt','Chờ bổ sung'];
+  Object.keys(G).forEach(function(k){if(ks.indexOf(k)<0)ks.push(k)});
+  renderOpts(ks,function(k){return ['Còn trống','Đã duyệt','Đang mượn','Chờ duyệt','Chờ bổ sung'].indexOf(k)<0?'Mã lạ: '+k:k},'Đã duyệt');
+  msg('Ngày '+fmt(ds)+': '+sl.length+' lượt có lịch, '+G['Còn trống'].length+' phòng còn trống.','ok');
+}
+
 $('make').onclick=function(){
   if(!CUR)return;
   var sel=[].slice.call($('opts').querySelectorAll('input')).filter(function(i){return i.checked}).map(function(i){return i.value});
   if(!sel.length){msg('Chưa chọn trạng thái nào.','err');return}
   var rows=[];sel.forEach(function(k){rows=rows.concat(G[k]||[])});
   if(!rows.length){msg('Các mục đã chọn đều có 0 dòng.','err');return}
-  rows.sort(function(a,b){return a.hall<b.hall?-1:a.hall>b.hall?1:a.shift<b.shift?-1:a.shift>b.shift?1:0});
-  draw(rows,sel);
+  rows.sort(function(a,b){return a.key<b.key?-1:a.key>b.key?1:a.sk<b.sk?-1:a.sk>b.sk?1:0});
+  var names=sel.map(function(k){return HSTL[k]||k});
+  if(TAB=='hall')draw(rows,'LỊCH ĐĂNG KÝ HỘI TRƯỜNG',names,['Hội trường','Giờ','Trạng thái','Đơn vị / Ghi chú'],[210,230,190,0],2);
+  else draw(rows,'PHÒNG HỌC TỐI',names,['Phòng','Sức chứa','Giờ','Trạng thái','Đơn vị / Ghi chú'],[170,130,220,190,0],3);
 };
-function draw(rows,sel){
-  var W=1200,P=30,LH=28,CW=[210,230,190,W-2*P-630];
+
+function draw(rows,title,names,heads,CW,stCol){
+  var W=1200,P=30,LH=28;
+  var sum=0;CW.forEach(function(w){sum+=w});CW[CW.length-1]=W-2*P-sum;
   var F='-apple-system,"Helvetica Neue",Arial,sans-serif';
   var c=document.createElement('canvas'),x=c.getContext('2d');
   function wrap(t,w){var o=[],l='';String(t||'').split(/\s+/).forEach(function(wd){var m=l?l+' '+wd:wd;if(x.measureText(m).width>w&&l){o.push(l);l=wd}else l=m});if(l)o.push(l);return o.length?o:['']}
   x.font='20px '+F;
-  var fl=wrap('Hiển thị: '+sel.map(function(k){return STL[k]||k}).join(', ')+' ('+rows.length+' dòng)',W-2*P);
+  var fl=wrap('Hiển thị: '+names.join(', ')+' ('+rows.length+' dòng)',W-2*P);
   x.font='22px '+F;
   rows.forEach(function(r){
-    r.L=[wrap(HALL[r.hall],CW[0]-20),wrap(shiftLabel(r.shift),CW[1]-20),wrap(STL[r.st]||r.st,CW[2]-20),wrap(r.note,CW[3]-20)];
+    r.L=r.c.map(function(t,i){return wrap(t,CW[i]-20)});
     r.H=Math.max.apply(null,r.L.map(function(a){return a.length}))*LH+16;
   });
   var top=P+36+40+fl.length*26+20;
   var H=top+44+rows.reduce(function(s,r){return s+r.H},0)+P;
   c.width=W;c.height=H;
   x.fillStyle='#fff';x.fillRect(0,0,W,H);
-  x.fillStyle='#15202b';x.font='bold 36px '+F;x.fillText('LỊCH ĐĂNG KÝ HỘI TRƯỜNG',P,P+36);
-  x.font='26px '+F;x.fillText('Ngày '+fmt(CUR),P,P+76);
+  x.fillStyle='#15202b';x.font='bold 36px '+F;x.fillText(title,P,P+36);
+  var wd=['Chủ nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'][new Date(CUR+'T00:00:00Z').getUTCDay()];
+  x.font='26px '+F;x.fillText(wd+', '+fmt(CUR),P,P+76);
   x.font='20px '+F;x.fillStyle='#5b6876';fl.forEach(function(l,i){x.fillText(l,P,P+76+26*(i+1))});
   var y=top;
   x.fillStyle='#1f4e79';x.fillRect(P,y,W-2*P,44);
   x.fillStyle='#fff';x.font='bold 22px '+F;
-  var cx=P;['Hội trường','Giờ','Trạng thái','Đơn vị / Ghi chú'].forEach(function(t,i){x.fillText(t,cx+10,y+30);cx+=CW[i]});
+  var cx=P;heads.forEach(function(t,i){x.fillText(t,cx+10,y+30);cx+=CW[i]});
   y+=44;
   rows.forEach(function(r,n){
     x.fillStyle=(n&1)?'#eef3f9':'#fff';x.fillRect(P,y,W-2*P,r.H);
     var cx=P;
     r.L.forEach(function(a,i){
-      x.fillStyle=(i==2)?(STC[r.st]||'#15202b'):'#15202b';
-      x.font=(i==2?'bold ':'')+'22px '+F;
+      x.fillStyle=(i==stCol)?(COL[r.lab]||'#15202b'):'#15202b';
+      x.font=(i==stCol?'bold ':'')+'22px '+F;
       a.forEach(function(t,j){x.fillText(t,cx+10,y+8+LH*(j+1)-6)});
       cx+=CW[i];
     });
@@ -147,12 +223,12 @@ function draw(rows,sel){
   row.appendChild(sb);out.appendChild(row);
   var st=document.createElement('div');st.className='st';out.appendChild(st);
   var hint=document.createElement('p');hint.className='hint';hint.textContent='Hoặc nhấn giữ vào ảnh rồi chọn Lưu vào Ảnh.';out.appendChild(hint);
-  var im=document.createElement('img');im.alt='Ảnh lịch hội trường';im.src=c.toDataURL('image/png');out.appendChild(im);
+  var im=document.createElement('img');im.alt='Ảnh '+title;im.src=c.toDataURL('image/png');out.appendChild(im);
   BLOB=null;c.toBlob(function(b){BLOB=b});
   sb.onclick=function(){
     if(!BLOB){st.textContent='Ảnh chưa sẵn sàng, bấm lại sau 1 giây.';st.className='st err';return}
-    var f=new File([BLOB],'lich-hoi-truong-'+CUR+'.png',{type:'image/png'});
-    if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:'Lịch hội trường '+fmt(CUR)}).catch(function(){})}
+    var f=new File([BLOB],(TAB=='hall'?'hoi-truong-':'phong-hoc-toi-')+CUR+'.png',{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:title+' '+fmt(CUR)}).catch(function(){})}
     else{st.textContent='Máy không hỗ trợ chia sẻ. Hãy nhấn giữ vào ảnh để lưu.';st.className='st err'}
   };
   $('outwrap').hidden=false;$('outwrap').scrollIntoView({behavior:'smooth'});
