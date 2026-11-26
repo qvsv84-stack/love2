@@ -142,6 +142,7 @@ function buildHall(){
 function shiftLabel(c){var m=/^ca-(\d+)$/.exec(c);if(!m)return c;var t=($('s'+m[1])||{}).value;return 'Ca '+m[1]+(t&&t.trim()?' ('+t.trim()+')':'')}
 
 function hm(x){return('0'+x.getUTCHours()).slice(-2)+':'+('0'+x.getUTCMinutes()).slice(-2)}
+function rl(r){if(!r)return'';if(r.name)return r.name;var id=String(r.id);return(r.block&&id.indexOf(r.block)!==0)?r.block+'-'+id:id}
 function lab(s){
   var u=String(s).toUpperCase();
   if(u==='APPROVED')return'Đã duyệt';
@@ -159,12 +160,12 @@ function buildEve(){
     if(a.toISOString().slice(0,10)!==ds)return;
     sl.push({id:s.room_id,st:s.status,t:hm(a)+' - '+hm(b),u:s.unit||''});
   });
-  var occ={};sl.forEach(function(s){if(!/REJECT|CANCEL|DENY/i.test(s.st))occ[s.id]=1});
+  var occ={};sl.forEach(function(s){if(!/REJECT|DENY|^CANCELL?ED$/i.test(s.st))occ[s.id]=1});
   var dow=new Date(ds+'T00:00:00Z').getUTCDay();
   var win=dow===0?'06:30 - 11:30':'17:00 - 20:30';
   G={'Còn trống':[]};
-  ED.rooms.forEach(function(r){if(r.booking_open!==false&&!occ[r.id])G['Còn trống'].push({key:r.id,sk:win,lab:'Còn trống',c:[r.id,String(r.capacity==null?'':r.capacity),win,'Còn trống',r.note||'']})});
-  sl.forEach(function(s){var L=lab(s.st);(G[L]=G[L]||[]).push({key:s.id,sk:s.t,lab:L,c:[s.id,String(((rm[s.id]||{}).capacity)==null?'':rm[s.id].capacity),s.t,L,s.u]})});
+  ED.rooms.forEach(function(r){if(r.booking_open!==false&&!occ[r.id])G['Còn trống'].push({key:rl(r),sk:win,lab:'Còn trống',c:[rl(r),String(r.capacity==null?'':r.capacity),win,'Còn trống',r.note||'']})});
+  sl.forEach(function(s){var L=lab(s.st);(G[L]=G[L]||[]).push({key:rl(rm[s.id]||{id:s.id}),sk:s.t,lab:L,c:[rl(rm[s.id]||{id:s.id}),String(((rm[s.id]||{}).capacity)==null?'':rm[s.id].capacity),s.t,L,s.u]})});
   var ks=['Còn trống','Đã duyệt','Đang mượn','Chờ duyệt','Chờ bổ sung'];
   Object.keys(G).forEach(function(k){if(ks.indexOf(k)<0)ks.push(k)});
   renderOpts(ks,function(k){return ['Còn trống','Đã duyệt','Đang mượn','Chờ duyệt','Chờ bổ sung'].indexOf(k)<0?'Mã lạ: '+k:k},'Đã duyệt');
