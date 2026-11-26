@@ -29,6 +29,7 @@ button.alt{background:transparent;color:var(--ac)}
 .opt .n{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700;color:var(--mu)}
 #out{display:flex;flex-direction:column;gap:10px}
 #out img{width:100%;border:1px solid var(--ln);border-radius:6px;display:block}
+#dbgout{width:100%;height:280px;box-sizing:border-box;font-size:12px;color:var(--fg);background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:8px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -44,6 +45,8 @@ button.alt{background:transparent;color:var(--ac)}
   <input type="date" id="day" aria-label="Chọn ngày">
   <div class="row"><button id="reload" class="alt" type="button">Tải lại dữ liệu</button></div>
   <div id="msg" class="st" role="status">Đang tải dữ liệu...</div>
+  <div class="row" id="dbgrow" hidden><button id="dbg" class="alt" type="button">Xem dữ liệu thô để gửi Claude</button></div>
+  <textarea id="dbgout" hidden aria-label="Dữ liệu thô"></textarea>
   <div id="shiftbox" class="shifts">
     <label>Giờ ca 1<input type="text" id="s1" placeholder="vd 7:00-11:30"></label>
     <label>Giờ ca 2<input type="text" id="s2" placeholder="vd 13:00-17:00"></label>
@@ -78,6 +81,7 @@ function setTab(t){
   $('tab-hall').setAttribute('aria-selected',t=='hall');
   $('tab-eve').setAttribute('aria-selected',t=='eve');
   $('shiftbox').hidden=(t!='hall');
+  $('dbgrow').hidden=(t!='eve');$('dbgout').hidden=true;
   $('pick').hidden=true;$('outwrap').hidden=true;
   load();
 }
@@ -233,6 +237,30 @@ function draw(rows,title,names,heads,CW,stCol){
   };
   $('outwrap').hidden=false;$('outwrap').scrollIntoView({behavior:'smooth'});
 }
+$('dbg').onclick=function(){
+  var t=$('dbgout');t.hidden=false;
+  if(!ED){t.value='Chưa có dữ liệu. Bấm Tải lại dữ liệu rồi thử lại.';return}
+  function sh(v){var s=JSON.stringify(v);return s.length>700?s.slice(0,700)+'…':s}
+  var L=[];
+  L.push('NGÀY ĐANG CHỌN: '+$('day').value+' (dữ liệu tải 3 ngày quanh ngày này)');
+  L.push('KHOÁ CẤP 1: '+Object.keys(ED).map(function(k){var v=ED[k];return k+'('+(Array.isArray(v)?'mảng '+v.length:typeof v)+')'}).join(', '));
+  Object.keys(ED).forEach(function(k){if(k!='rooms'&&k!='slots'&&Array.isArray(ED[k])&&ED[k].length)L.push('MẪU '+k+'[0]: '+sh(ED[k][0]))});
+  var kinds={};ED.rooms.forEach(function(r){var k=String(r.kind);if(!kinds[k])kinds[k]={n:0,s:r};kinds[k].n++});
+  L.push('\n== LOẠI PHÒNG (kind) ==');
+  Object.keys(kinds).forEach(function(k){L.push(k+' x'+kinds[k].n+'  mẫu: '+sh(kinds[k].s))});
+  var ks={};ED.slots.forEach(function(s){var k=Object.keys(s).sort().join(',');if(!ks[k])ks[k]={n:0,s:s};ks[k].n++});
+  L.push('\n== CÁC DẠNG SLOT (theo bộ khoá) ==');
+  Object.keys(ks).forEach(function(k){L.push('['+k+'] x'+ks[k].n+'  mẫu: '+sh(ks[k].s))});
+  var st={};ED.slots.forEach(function(s){st[s.status]=(st[s.status]||0)+1});
+  L.push('\n== TRẠNG THÁI ==\n'+Object.keys(st).map(function(k){return k+' x'+st[k]}).join(' | '));
+  var re=/402|404/;
+  L.push('\n== PHÒNG KHỚP 402/404 ==');
+  ED.rooms.filter(function(r){return re.test(JSON.stringify(r))}).slice(0,6).forEach(function(r){L.push(sh(r))});
+  L.push('\n== SLOT KHỚP 402/404 ==');
+  ED.slots.filter(function(s){return re.test(JSON.stringify(s))}).slice(0,8).forEach(function(s){L.push(sh(s))});
+  t.value=L.join('\n');t.focus();t.select();
+};
+
 load();
 })();
 </script>
