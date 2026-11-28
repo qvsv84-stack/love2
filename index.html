@@ -83,6 +83,11 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
 #pOpen .shot .btn{width:100%;margin-top:12px}
 #pOpen .skip{color:var(--muted);font-size:16px;margin:0 2px 12px}
 #pOpen .ohint{color:var(--muted);font-size:15px;margin:8px 2px 0;line-height:1.5}
+#pOpen .shot .brow{display:flex;gap:10px;margin-top:12px}
+#pOpen .shot .brow .btn{width:auto;flex:1;margin:0}
+#pOpen details.zn{margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+#pOpen details.zn summary{font-weight:800;font-size:18px;cursor:pointer}
+#pOpen textarea{width:100%;min-height:150px;margin-top:10px;font:16px/1.5 ui-monospace,Menlo,monospace;border:2px solid var(--line);border-radius:10px;padding:10px;background:#fff;color:var(--ink)}
 </style>
 </head>
 <body>
@@ -122,6 +127,17 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
   <div class="oerr" id="err"></div>
 
   <div id="app">
+    <details class="zn">
+      <summary>Phân khu phòng (B3.1, B3.2…)</summary>
+      <p class="ohelp">Mỗi dòng một khu: <b>Tên khu: các phòng</b>. Phòng không ghi ở đây sẽ tự chia theo quy tắc mặc định.</p>
+      <textarea id="znText" spellcheck="false" placeholder="B3.1: B3-001, B3-003, B3-004&#10;B3.2: B3-005, B3-006, B3-007"></textarea>
+      <div class="presets">
+        <button class="btn alt small" id="znFill" type="button">Điền sẵn từ file</button>
+        <button class="btn small" id="znApply" type="button">Áp dụng</button>
+        <button class="btn alt small" id="znClear" type="button">Xoá hết</button>
+      </div>
+      <div class="ohint" id="znMsg"></div>
+    </details>
     <div id="bldBox" style="display:none">
       <div class="ostep"><i>1</i>Chọn khu</div>
       <p class="ohelp">File này có 2 khu. Chọn khu cần làm ảnh (mỗi khu có ảnh riêng).</p>
@@ -145,6 +161,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
     <div class="actions">
       <button class="btn" id="btnDay" type="button">Lưu tất cả ảnh của ngày này</button>
       <button class="btn alt" id="btnAll" type="button">Lưu cả tuần</button>
+      <button class="btn alt" id="btnDayDl" type="button">Tải về ngày này</button>
+      <button class="btn alt" id="btnAllDl" type="button">Tải về cả tuần</button>
     </div>
     <div id="skip" class="skip"></div>
     <div id="shots"></div>
@@ -492,7 +510,28 @@ function parseEntries(txt){
   return out;
 }
 /* B4: 2 chữ số cuối của số phòng 01-10 → B4.1, 11-20 → B4.2 (101, 201… là phòng 1; 111, 211… là phòng 11) */
+let ZONES={}, lastRows=null;
+function parseZones(t){
+  const map={}; let n=0;
+  for(const ln of t.split('\n')){
+    if(!ln.trim()) continue;
+    const m=/^\s*([^:=]+?)\s*[:=]\s*(.*)$/.exec(ln);
+    if(!m) return {err:'Dòng sai: "'+ln.trim()+'" (cần dạng B3.1: B3-001, B3-003)'};
+    const zone=m[1].toUpperCase();
+    for(const r of m[2].split(/[\s,;]+/).filter(Boolean)){
+      if(!r.includes('-')) return {err:'Mã phòng sai: "'+r+'"'};
+      map[r.toUpperCase()]=zone; n++;
+    }
+  }
+  return {map,n};
+}
+function loadZones(){
+  let t=''; try{ t=localStorage.getItem('zonesText')||''; }catch(_){}
+  const z=parseZones(t); ZONES=z.err?{}:z.map;
+  document.getElementById('znText').value=t;
+}
 function bldOf(room){
+  const z=ZONES[room.toUpperCase()]; if(z) return z;
   const i=room.indexOf('-'), pre=room.slice(0,i), num=room.slice(i+1);
   if(pre.toUpperCase()==='B4' && /^\d{3}$/.test(num)){
     const n=+num.slice(-2);
@@ -542,7 +581,7 @@ function parseSchedule(rows){
   building=blds[0]||building;
   const floorsBy={};
   for(const b of blds) floorsBy[b]=[...new Set(roomList.filter(r=>bldOf(r)===b).map(floorOf))].sort((a,b)=>a-b);
-  return {days,building,blds,floorsBy,week,totalRooms:roomList.length};
+  return {days,building,blds,floorsBy,week,totalRooms:roomList.length,roomList};
 }
 
 /* ============ 3. Vẽ ảnh PNG (chữ lớn, rõ) ============ */
@@ -759,15 +798,18 @@ function buildTabs(){
     t.appendChild(b);
   });
 }
-async function saveFiles(files){
+async function shareFiles(files){
   if(!files.length) return;
   if(navigator.canShare&&navigator.canShare({files})){
     try{ await navigator.share({files}); return; }catch(e){ if(e&&e.name==='AbortError') return; }
   }
+  await downloadFiles(files);
+}
+async function downloadFiles(files){
   for(const f of files){
     const a=document.createElement('a'); a.href=URL.createObjectURL(f); a.download=f.name;
     document.body.appendChild(a); a.click(); a.remove();
-    await new Promise(r=>setTimeout(r,400));
+    await new Promise(r=>setTimeout(r,500));
   }
 }
 function changed(){ clearCache(); showCur(); }
@@ -778,7 +820,7 @@ async function showCur(){
   $('tabs').querySelectorAll('.otab').forEach((t,i)=>t.classList.toggle('on',i===cur));
   buildFloors();
   const box=$('shots'), d=sched.days[cur];
-  $('btnDay').disabled=!cnt(d);
+  $('btnDay').disabled=$('btnDayDl').disabled=!cnt(d);
   if(!cnt(d)){ box.innerHTML='<div class="loading">Ngày này không có lớp nào.</div>'; $('skip').textContent=''; return; }
   box.innerHTML='<div class="loading">Đang tạo ảnh…</div>';
   let shots;
@@ -790,21 +832,47 @@ async function showCur(){
     const h=document.createElement('h3');
     h.innerHTML=(shots.length>1?'Ảnh '+(i+1)+' · ':'')+floorsTitle(s.floors).replace('TẦNG ','Tầng ').replace('TRỆT','Trệt')+' <small>('+s.n+' phòng)</small>';
     const img=document.createElement('img'); img.src=s.url; img.alt=floorsTitle(s.floors);
-    const b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent='Lưu ảnh '+floorsTitle(s.floors).toLowerCase();
-    b.onclick=()=>saveFiles([s.file]);
-    card.append(h,img,b); box.appendChild(card);
+    const row=document.createElement('div'); row.className='brow';
+    const b1=document.createElement('button'); b1.type='button'; b1.className='btn'; b1.textContent='Chia sẻ';
+    b1.onclick=()=>shareFiles([s.file]);
+    const b2=document.createElement('button'); b2.type='button'; b2.className='btn alt'; b2.textContent='Tải về';
+    b2.onclick=()=>downloadFiles([s.file]);
+    row.append(b1,b2);
+    card.append(h,img,row); box.appendChild(card);
   });
   const have=new Set(shots.flatMap(s=>s.floors));
   const none=FL().filter(f=>!have.has(f));
   $('skip').textContent=none.length?'Không có lớp ngày này: '+none.map(f=>f===0?'tầng trệt':'tầng '+f).join(', ')+' (không cần ảnh).':'';
 }
 
-$('btnDay').onclick=async()=>{ const s=await getShots(cur); saveFiles(s.map(x=>x.file)); };
-$('btnAll').onclick=async()=>{
-  const btn=$('btnAll'), old=btn.textContent; btn.disabled=true; btn.textContent='Đang tạo ảnh…';
-  try{ const files=[]; for(let i=0;i<sched.days.length;i++) (await getShots(i)).forEach(s=>files.push(s.file));
-    btn.disabled=false; btn.textContent=old; await saveFiles(files); }
-  catch(e){ showErr(e.message||String(e)); btn.disabled=false; btn.textContent=old; }
+$('btnDay').onclick=async()=>{ shareFiles((await getShots(cur)).map(x=>x.file)); };
+$('btnDayDl').onclick=async()=>{ downloadFiles((await getShots(cur)).map(x=>x.file)); };
+async function allFiles(btn,fn){
+  const old=btn.textContent; btn.disabled=true; btn.textContent='Đang tạo ảnh…';
+  try{
+    const f=[]; for(let i=0;i<sched.days.length;i++) (await getShots(i)).forEach(x=>f.push(x.file));
+    btn.disabled=false; btn.textContent=old; await fn(f);
+  }catch(e){ showErr(e.message||String(e)); btn.disabled=false; btn.textContent=old; }
+}
+$('btnAll').onclick=()=>allFiles($('btnAll'),shareFiles);
+$('btnAllDl').onclick=()=>allFiles($('btnAllDl'),downloadFiles);
+$('znFill').onclick=()=>{
+  const g={}; sched.roomList.forEach(r=>(g[bldOf(r)]=g[bldOf(r)]||[]).push(r));
+  const nc=(a,b)=>a.localeCompare(b,undefined,{numeric:true});
+  $('znText').value=Object.keys(g).sort(nc).map(k=>k+': '+g[k].sort(nc).join(', ')).join('\n');
+};
+$('znClear').onclick=()=>{ $('znText').value=''; $('znApply').onclick(); };
+$('znApply').onclick=()=>{
+  const t=$('znText').value, z=parseZones(t), msgEl=$('znMsg');
+  if(z.err){ msgEl.textContent=z.err; return; }
+  ZONES=z.map; try{ localStorage.setItem('zonesText',t); }catch(_){}
+  const old=sched.building, oc=cur;
+  const ns=parseSchedule(lastRows); ns.building=ns.blds.includes(old)?old:ns.blds[0];
+  sched=ns; clearCache(); loadJoin(); buildBlds(); buildTabs();
+  cur=Math.min(oc,sched.days.length-1);
+  if(!cnt(sched.days[cur])){ const i=sched.days.findIndex(cnt); if(i>=0) cur=i; }
+  msgEl.textContent='Đã áp dụng '+z.n+' phòng. Các khu: '+sched.blds.join(', ');
+  showCur();
 };
 $('btnSplit').onclick=()=>{ join={}; saveJoin(); changed(); };
 $('btnMerge').onclick=()=>{ join={}; FL().slice(1).forEach(f=>join[f]=true); saveJoin(); changed(); };
@@ -815,7 +883,9 @@ async function handle(file){
   if(!file) return;
   try{
     if(!/\.xlsx$/i.test(file.name)) throw new Error('Hãy chọn file Excel có đuôi .xlsx (không phải .xls hay .csv).');
-    const s=parseSchedule(await readSheet(await file.arrayBuffer()));
+    loadZones();
+    lastRows=await readSheet(await file.arrayBuffer());
+    const s=parseSchedule(lastRows);
     if(!s.days.some(d=>d.count)) throw new Error('File này không có lịch học nào trong tuần.');
     sched=s; clearCache(); loadJoin();
     $('drop').classList.add('loaded');
