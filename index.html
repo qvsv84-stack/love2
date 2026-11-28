@@ -15,8 +15,8 @@ input[type=date]{font:inherit;font-size:16px;color:var(--fg);background:var(--bg
 button{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--ac);background:var(--ac);color:var(--acf);padding:12px 16px}
 button.alt{background:transparent;color:var(--ac);padding:6px 12px}
 button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
-.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.tabs button{background:transparent;color:var(--ac)}
+.tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.tabs button{background:transparent;color:var(--ac);padding:12px 6px}
 .tabs button[aria-selected=true]{background:var(--ac);color:var(--acf)}
 .daybar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .st{font-size:.88rem;color:var(--mu);flex:1 1 140px;min-width:0}
@@ -34,6 +34,55 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
 #out .res h3{margin:0;font-size:1rem}
 #out img{width:100%;border:1px solid var(--ln);border-radius:6px;display:block}
 [hidden]{display:none!important}
+
+/* ===== Tab "Mở cửa phòng" (xlsx) — mọi thứ nằm trong #pOpen, class đều có tiền tố o- để không đụng phần trên ===== */
+#pOpen{--obg:#f2efe8;--card:#fff;--ink:#1c2233;--muted:#5d6479;--line:#ddd7c9;--navy:#1f2a44;--am:#f59e0b;--amd:#92400e;--blue:#2563eb;
+  background:var(--obg);color:var(--ink);font-size:18px;border-radius:10px;padding:14px;min-width:0;color-scheme:light}
+#pOpen *{box-sizing:border-box}
+#pOpen .sub{color:var(--muted);font-size:17px;margin:0 0 14px;line-height:1.5}
+#pOpen .drop{display:block;border:3px dashed #b9b2a0;border-radius:16px;background:#faf8f3;padding:26px 16px;text-align:center;cursor:pointer;transition:.15s}
+#pOpen .drop.over{background:#fff3d6;border-color:var(--am)}
+#pOpen .drop b{display:block;font-size:20px;margin-bottom:4px}
+#pOpen .drop span{color:var(--muted);font-size:16px}
+#pOpen .drop.loaded{padding:12px 16px;text-align:left}
+#pOpen .drop.loaded b{font-size:18px;margin:0}
+#pOpen input[type=file]{display:none}
+#pOpen .oerr{background:#fde8e8;color:#9b1c1c;border-radius:12px;padding:14px 16px;margin-top:12px;font-size:17px;display:none;line-height:1.45}
+#pOpen #app{display:none;margin-top:18px}
+#pOpen .ostep{font-size:19px;font-weight:800;margin:22px 2px 8px;color:var(--navy)}
+#pOpen .ostep i{font-style:normal;display:inline-block;width:30px;height:30px;line-height:30px;text-align:center;border-radius:50%;background:var(--navy);color:#fff;font-size:17px;margin-right:8px}
+#pOpen .otabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch}
+#pOpen .otab{flex:0 0 auto;border:2px solid var(--line);background:var(--card);border-radius:14px;padding:10px 16px;font-size:18px;font-weight:700;line-height:1.25;cursor:pointer;text-align:center;color:var(--ink);font-family:inherit;min-width:78px}
+#pOpen .otab small{display:block;color:var(--muted);font-size:14px;font-weight:500}
+#pOpen .otab.on{background:var(--navy);border-color:var(--navy);color:#fff}
+#pOpen .otab.on small{color:#c9d1e6}
+#pOpen .otab.empty{opacity:.45}
+#pOpen .ohelp{color:var(--muted);font-size:16px;line-height:1.5;margin:0 2px 10px}
+#pOpen .floors{display:flex;flex-wrap:wrap;align-items:center;gap:8px 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+#pOpen .fchip{border:2px solid var(--navy);border-radius:12px;padding:8px 14px;font-size:19px;font-weight:800;text-align:center;line-height:1.2;min-width:84px}
+#pOpen .fchip small{display:block;font-size:13px;font-weight:600;opacity:.8}
+#pOpen .fchip.g0{background:#fff;color:var(--navy)}
+#pOpen .fchip.g1{background:var(--navy);color:#fff}
+#pOpen .fchip.none{opacity:.5}
+#pOpen .link{width:46px;height:46px;border-radius:50%;border:2px solid #b9b2a0;background:#fff;color:#6b7285;font-size:26px;font-weight:800;cursor:pointer;font-family:inherit;line-height:1;padding:0;margin:0 2px;flex:0 0 auto}
+#pOpen .link.on{background:var(--am);border-color:var(--am);color:#fff}
+#pOpen .presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+#pOpen .oopts{margin:14px 2px 0;font-size:17px}
+#pOpen .oopts label{display:flex;align-items:center;gap:10px;cursor:pointer}
+#pOpen .oopts input{width:24px;height:24px}
+#pOpen button.btn{font-family:inherit;font-size:18px;font-weight:700;border:0;border-radius:14px;padding:14px 18px;cursor:pointer;background:var(--navy);color:#fff;min-height:52px}
+#pOpen button.btn.alt{background:#fff;color:var(--navy);border:2px solid var(--navy)}
+#pOpen button.btn.small{font-size:16px;padding:10px 14px;min-height:44px}
+#pOpen button.btn:disabled{opacity:.4;cursor:default}
+#pOpen .actions{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px}
+#pOpen .loading{padding:30px;text-align:center;color:var(--muted);font-size:18px}
+#pOpen .shot{background:var(--card);border-radius:16px;padding:12px;border:1px solid var(--line);margin-bottom:16px}
+#pOpen .shot h3{margin:2px 2px 10px;font-size:20px}
+#pOpen .shot h3 small{color:var(--muted);font-weight:500;font-size:16px}
+#pOpen .shot img{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--line)}
+#pOpen .shot .btn{width:100%;margin-top:12px}
+#pOpen .skip{color:var(--muted);font-size:16px;margin:0 2px 12px}
+#pOpen .ohint{color:var(--muted);font-size:15px;margin:8px 2px 0;line-height:1.5}
 </style>
 </head>
 <body>
@@ -42,8 +91,9 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
   <div class="tabs" role="tablist">
     <button type="button" role="tab" id="tab-hall" aria-selected="true">Hội trường</button>
     <button type="button" role="tab" id="tab-eve" aria-selected="false">Lịch học tối</button>
+    <button type="button" role="tab" id="tab-open" aria-selected="false">Mở cửa phòng</button>
   </div>
-  <div class="daybar">
+  <div class="daybar" id="daybar">
     <input type="date" id="day" aria-label="Chọn ngày">
     <span id="msg" class="st" role="status">Đang tải dữ liệu...</span>
     <button id="retry" class="alt" type="button" hidden>Thử lại</button>
@@ -60,7 +110,50 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
   <button id="make" type="button">Tạo ảnh</button>
 </section>
 <section id="outwrap" hidden><div id="out"></div></section>
+
+<div id="pOpen" hidden>
+  <p class="sub">Chọn file thời khoá biểu tuần (.xlsx) của một toà. Trang sẽ tạo ảnh lịch mở cửa phòng cho <b>từng tầng</b>, theo từng ngày.</p>
+
+  <label class="drop" id="drop">
+    <input type="file" id="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+    <b id="dropTitle">Bấm để chọn file Excel thời khoá biểu</b>
+    <span id="dropSub">hoặc kéo thả file vào đây</span>
+  </label>
+  <div class="oerr" id="err"></div>
+
+  <div id="app">
+    <div id="bldBox" style="display:none">
+      <div class="ostep"><i>1</i>Chọn khu</div>
+      <p class="ohelp">File này có 2 khu. Chọn khu cần làm ảnh (mỗi khu có ảnh riêng).</p>
+      <div class="otabs" id="blds"></div>
+    </div>
+    <div class="ostep"><i id="n2">1</i>Chọn ngày</div>
+    <div class="otabs" id="tabs"></div>
+
+    <div class="ostep"><i id="n3">2</i>Chia ảnh theo tầng</div>
+    <p class="ohelp">Mặc định mỗi tầng 1 ảnh. Nếu 1 cô phụ trách 2 tầng, bấm dấu <b>＋</b> giữa hai tầng để gộp vào 1 ảnh. Bấm <b>＝</b> để tách ra lại.</p>
+    <div class="floors" id="floors"></div>
+    <div class="presets">
+      <button class="btn alt small" id="btnSplit" type="button">Mỗi tầng 1 ảnh</button>
+      <button class="btn alt small" id="btnMerge" type="button">Gộp tất cả vào 1 ảnh</button>
+    </div>
+    <div class="oopts">
+      <label><input type="checkbox" id="optSubject"> Hiện tên môn / sự kiện trong ảnh</label>
+    </div>
+
+    <div class="ostep"><i id="n4">3</i>Lưu ảnh gửi cho từng cô</div>
+    <div class="actions">
+      <button class="btn" id="btnDay" type="button">Lưu tất cả ảnh của ngày này</button>
+      <button class="btn alt" id="btnAll" type="button">Lưu cả tuần</button>
+    </div>
+    <div id="skip" class="skip"></div>
+    <div id="shots"></div>
+    <p class="ohint">Trên iPhone: bấm “Lưu ảnh”, rồi chọn “Lưu hình ảnh” (hoặc chọn Zalo gửi thẳng). Cũng có thể nhấn giữ vào ảnh để lưu.</p>
+  </div>
+</div>
 </main>
+
+<!-- ============ PHẦN 1: Hội trường + Lịch học tối (lấy dữ liệu từ /api) ============ -->
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
@@ -94,13 +187,16 @@ $('split').addEventListener('change',function(){$('splitchip').classList.toggle(
 
 function setTab(t){
   TAB=t;
-  $('tab-hall').setAttribute('aria-selected',t=='hall');
-  $('tab-eve').setAttribute('aria-selected',t=='eve');
+  ['hall','eve','open'].forEach(function(k){$('tab-'+k).setAttribute('aria-selected',k==t)});
+  var isO=(t=='open');
+  $('daybar').hidden=isO;$('pOpen').hidden=!isO;
   $('opts').innerHTML='';$('pick').hidden=true;$('outwrap').hidden=true;$('blkwrap').hidden=true;
+  if(isO){REQ++;return}   // huỷ các lần tải đang chạy dở
   renderCols();load();
 }
 $('tab-hall').onclick=function(){setTab('hall')};
 $('tab-eve').onclick=function(){setTab('eve')};
+$('tab-open').onclick=function(){setTab('open')};
 $('retry').onclick=function(){load()};
 var tm=null;
 function dayChanged(){clearTimeout(tm);tm=setTimeout(load,150)}
@@ -113,6 +209,7 @@ function getJSON(url){
   });
 }
 function load(){
+  if(TAB=='open')return;
   var ds=$('day').value;if(!ds){msg('Hãy chọn ngày.','err');return}
   var my=++REQ;msg('Đang tải dữ liệu...');
   var p;
@@ -307,6 +404,435 @@ function draw(rows,title,names,heads,CW,stCol,fname){
 
 renderCols();
 load();
+})();
+</script>
+
+<!-- ============ PHẦN 2: Lịch mở cửa phòng (đọc file .xlsx ngay trên máy, không cần /api) ============ -->
+<script>
+(function(){
+/* ============ 1. Đọc file xlsx (không cần thư viện ngoài) ============ */
+async function inflateRaw(bytes){
+  if(typeof DecompressionStream==='undefined')
+    throw new Error('Trình duyệt quá cũ, chưa đọc được file Excel. Hãy cập nhật iOS/Safari (từ 16.4) hoặc dùng Chrome.');
+  const s=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+async function unzip(buf){
+  const u8=new Uint8Array(buf), dv=new DataView(buf), dec=new TextDecoder();
+  let e=-1;
+  for(let i=u8.length-22;i>=Math.max(0,u8.length-70000);i--){ if(dv.getUint32(i,true)===0x06054b50){e=i;break;} }
+  if(e<0) throw new Error('Đây không phải file .xlsx hợp lệ.');
+  const n=dv.getUint16(e+10,true); let p=dv.getUint32(e+16,true);
+  const files={};
+  for(let k=0;k<n;k++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true);
+    const nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true);
+    const off=dv.getUint32(p+42,true);
+    const name=dec.decode(u8.subarray(p+46,p+46+nl));
+    p+=46+nl+el+cl;
+    files[name]={method,csize,off};
+  }
+  const read=async name=>{
+    const f=files[name]; if(!f) return null;
+    const ln=dv.getUint16(f.off+26,true), le=dv.getUint16(f.off+28,true);
+    const data=u8.subarray(f.off+30+ln+le, f.off+30+ln+le+f.csize);
+    const out=f.method===0?data:await inflateRaw(data);
+    return dec.decode(out);
+  };
+  return {read,names:Object.keys(files)};
+}
+function xml(s){ return new DOMParser().parseFromString(s,'application/xml'); }
+function colIndex(ref){ const m=/^([A-Z]+)/.exec(ref)[1]; let n=0; for(const c of m) n=n*26+c.charCodeAt(0)-64; return n-1; }
+function textOf(si){
+  let t=''; const w=si.getElementsByTagName('t');
+  for(const x of w){ if(x.parentNode.nodeName==='rPh') continue; t+=x.textContent; }
+  return t;
+}
+async function readSheet(buf){
+  const z=await unzip(buf);
+  const shared=[]; const ss=await z.read('xl/sharedStrings.xml');
+  if(ss) for(const si of xml(ss).getElementsByTagName('si')) shared.push(textOf(si));
+  let path='xl/worksheets/sheet1.xml';
+  try{
+    const wb=xml(await z.read('xl/workbook.xml')), rels=xml(await z.read('xl/_rels/workbook.xml.rels'));
+    const rid=wb.getElementsByTagName('sheet')[0].getAttribute('r:id');
+    for(const r of rels.getElementsByTagName('Relationship'))
+      if(r.getAttribute('Id')===rid){ let t=r.getAttribute('Target'); path=t.startsWith('/')?t.slice(1):'xl/'+t; }
+  }catch(_){}
+  const sx=await z.read(path); if(!sx) throw new Error('Không tìm thấy bảng dữ liệu trong file.');
+  const rows=new Map();
+  for(const c of xml(sx).getElementsByTagName('c')){
+    const ref=c.getAttribute('r'), t=c.getAttribute('t'); let v=null;
+    if(t==='s'){ const vv=c.getElementsByTagName('v')[0]; if(vv) v=shared[+vv.textContent]; }
+    else if(t==='inlineStr'){ const is=c.getElementsByTagName('is')[0]; if(is) v=textOf(is); }
+    else { const vv=c.getElementsByTagName('v')[0]; if(vv) v=vv.textContent; }
+    if(v==null||String(v).trim()==='') continue;
+    const r=+/\d+/.exec(ref)[0];
+    if(!rows.has(r)) rows.set(r,new Map());
+    rows.get(r).set(colIndex(ref),String(v));
+  }
+  return rows;
+}
+
+/* ============ 2. Lọc & sắp xếp dữ liệu ============ */
+function parseEntries(txt){
+  const parts=txt.split(/(?:^|\n)\s*\*\s*/).map(s=>s.trim()).filter(Boolean);
+  const seen=new Set(), out=[];
+  for(const p of parts){
+    const lines=p.split('\n').map(s=>s.trim());
+    let title=lines[0].replace(/\s+/g,' ');
+    const tm=/Thời gian:\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/.exec(p);
+    let type='hoc';
+    if(/^THI\b/i.test(title)){ type='thi'; title=title.replace(/^THI\s*HỌC\s*KỲ\s*[-–:]?\s*/i,'').replace(/^THI\s*[-–:]?\s*/i,''); }
+    else if(/^Sự kiện\s*:/i.test(title)){ type='sk'; title=title.replace(/^Sự kiện\s*:\s*/i,''); }
+    const e={title,type,start:tm?tm[1].padStart(5,'0'):null,end:tm?tm[2].padStart(5,'0'):null};
+    const key=e.title+'|'+e.start+'|'+e.end; if(seen.has(key)) continue; seen.add(key); out.push(e);
+  }
+  return out;
+}
+/* B4: 2 chữ số cuối của số phòng 01-10 → B4.1, 11-20 → B4.2 (101, 201… là phòng 1; 111, 211… là phòng 11) */
+function bldOf(room){
+  const i=room.indexOf('-'), pre=room.slice(0,i), num=room.slice(i+1);
+  if(pre.toUpperCase()==='B4' && /^\d{3}$/.test(num)){
+    const n=+num.slice(-2);
+    if(n>=1&&n<=10) return 'B4.1';
+    if(n>=11&&n<=20) return 'B4.2';
+  }
+  return pre;
+}
+function parseSchedule(rows){
+  let hr=null;
+  for(const [r,m] of rows){ const a=m.get(0); if(a&&a.trim().toUpperCase()==='PHÒNG'){hr=r;break;} }
+  if(hr==null) throw new Error('Không nhận ra định dạng file (không thấy cột “PHÒNG”). Đây có đúng là file thời khoá biểu phòng không?');
+  const head=rows.get(hr), sub=rows.get(hr+1)||new Map();
+  const days=[];
+  for(const [c,t] of head){
+    const m=/^(Thứ\s*\d|Chủ\s*nhật)\s*\((\d{1,2})\/(\d{1,2})\/(\d{4})\)/i.exec(t.replace(/\s+/g,' ').trim());
+    if(m) days.push({col:c,label:m[1].replace(/\s+/g,' '),dd:+m[2],mm:+m[3],yy:+m[4],rooms:new Map(),count:0});
+  }
+  if(!days.length) throw new Error('Không đọc được các ngày trong tuần ở dòng tiêu đề.');
+  days.sort((a,b)=>a.col-b.col);
+  const sessCols=[];
+  for(const [c,t] of sub){
+    const s=t.trim().toLowerCase(); if(s!=='sáng'&&s!=='chiều') continue;
+    let d=null; for(const x of days) if(x.col<=c) d=x;
+    if(d) sessCols.push({c,day:d,sess:s==='sáng'?0:1});
+  }
+  const roomList=[]; let building='';
+  for(const [r,m] of [...rows].sort((a,b)=>a[0]-b[0])){
+    if(r<=hr+1) continue;
+    const a=m.get(0); if(!a) continue;
+    const code=/^\s*([A-Za-z0-9.]+-[A-Za-z0-9.]+)/.exec(a); if(!code) continue;
+    const room=code[1]; roomList.push(room);
+    if(!building) building=room.split('-')[0];
+    for(const sc of sessCols){
+      const txt=m.get(sc.c); if(!txt) continue;
+      const entries=parseEntries(txt); if(!entries.length) continue;
+      const starts=entries.map(e=>e.start).filter(Boolean).sort(), ends=entries.map(e=>e.end).filter(Boolean).sort();
+      const type=entries.some(e=>e.type==='thi')?'thi':entries.some(e=>e.type==='sk')?'sk':'hoc';
+      const cell={start:starts[0]||null,end:ends[ends.length-1]||null,type,titles:entries.map(e=>e.title)};
+      if(!sc.day.rooms.has(room)) sc.day.rooms.set(room,[null,null]);
+      sc.day.rooms.get(room)[sc.sess]=cell;
+    }
+  }
+  for(const d of days) d.count=d.rooms.size;
+  let week=''; for(const [,m] of rows){ for(const [,t] of m){ const x=/Từ ngày\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*Đến ngày\s*(\d{1,2}\/\d{1,2}\/\d{4})/i.exec(t); if(x){week=x[1]+' – '+x[2];break;} } if(week) break; }
+  const blds=[...new Set(roomList.map(bldOf))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  building=blds[0]||building;
+  const floorsBy={};
+  for(const b of blds) floorsBy[b]=[...new Set(roomList.filter(r=>bldOf(r)===b).map(floorOf))].sort((a,b)=>a-b);
+  return {days,building,blds,floorsBy,week,totalRooms:roomList.length};
+}
+
+/* ============ 3. Vẽ ảnh PNG (chữ lớn, rõ) ============ */
+const FONT='-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
+const C={bg:'#f2efe8',navy:'#1f2a44',ink:'#111827',muted:'#4b5266',line:'#ddd7c9',
+  amT:'#fff4d6',amD:'#92400e',amA:'#f59e0b',blT:'#e6efff',blD:'#1e40af',blA:'#2563eb',
+  thiT:'#fde8e8',thiD:'#b42318',skT:'#efe6ff',skD:'#6d28d9',white:'#fff'};
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function fit(ctx,t,w){ if(ctx.measureText(t).width<=w) return t; while(t.length>1&&ctx.measureText(t+'…').width>w) t=t.slice(0,-1); return t.trim()+'…'; }
+function floorOf(room){ const n=room.split('-').slice(1).join('-'); const m=/\d/.exec(n); return m?+m[0]:0; }
+function floorName(f){ return f===0?'TẦNG TRỆT':'TẦNG '+f; }
+function floorShort(f){ return f===0?'Trệt':String(f); }
+function floorsTitle(fl){ return fl.length===1?floorName(fl[0]):'TẦNG '+fl.map(f=>f===0?'TRỆT':f).join(' + '); }
+function floorsFile(fl){ return 'Tang-'+fl.map(f=>f===0?'Tret':f).join('-'); }
+const DOW=['Chủ nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+
+function render(sched,day,opts,floors){
+  const rooms=[...day.rooms.keys()].filter(r=>bldOf(r)===sched.building&&floors.includes(floorOf(r))).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const showF=floors.length>1;
+  const RH=opts.subject?108:80, FH=54, M=40, GAP=36, PW=780;
+  const nPanel=rooms.length>(showF?13:12)?2:1;
+  const W=M*2+PW*nPanel+GAP*(nPanel-1);
+  const items=[]; let lastF=null;
+  for(const r of rooms){ const f=floorOf(r); if(showF&&f!==lastF){ items.push({t:'f',f}); lastF=f; } items.push({t:'r',room:r,f}); }
+  const hOf=i=>i.t==='f'?FH:RH;
+  let panels=[items];
+  if(nPanel===2){
+    let best=1,bv=1e9;
+    for(let k=1;k<items.length;k++){
+      if(items[k-1].t==='f') continue;
+      const L=items.slice(0,k).reduce((s,i)=>s+hOf(i),0);
+      const R=items.slice(k).reduce((s,i)=>s+hOf(i),0)+(showF&&items[k].t==='r'?FH:0);
+      const v=Math.max(L,R); if(v<bv){bv=v;best=k;}
+    }
+    const right=items.slice(best);
+    if(showF&&right[0].t==='r') right.unshift({t:'f',f:right[0].f,cont:true});
+    panels=[items.slice(0,best),right];
+  }
+  const COLH=56, panelH=Math.max(...panels.map(p=>COLH+p.reduce((s,i)=>s+hOf(i),0)));
+  const HEAD=250, FOOT=190;
+  const H=HEAD+panelH+FOOT;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'); ctx.textBaseline='alphabetic';
+  ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
+
+  // header
+  ctx.fillStyle=C.navy; ctx.fillRect(0,0,W,HEAD-24);
+  const title=floorsTitle(floors);
+  ctx.fillStyle='#fff'; ctx.font='800 '+(title.length>14?54:70)+'px '+FONT;
+  ctx.fillText(title,M,88);
+  const dow=DOW[new Date(day.yy,day.mm-1,day.dd).getDay()];
+  const dstr=String(day.dd).padStart(2,'0')+'/'+String(day.mm).padStart(2,'0')+'/'+day.yy;
+  ctx.font='700 34px '+FONT; ctx.fillStyle='#ffd27a';
+  ctx.fillText('Toà '+sched.building+' · '+dow+', '+dstr,M,142);
+  const ns=rooms.filter(r=>day.rooms.get(r)[0]).length, nc=rooms.filter(r=>day.rooms.get(r)[1]).length;
+  let px=M; const py=164;
+  const pill=(txt,bg,fg)=>{ ctx.font='800 26px '+FONT; const w=ctx.measureText(txt).width+36; ctx.fillStyle=bg; rr(ctx,px,py,w,44,22); ctx.fill(); ctx.fillStyle=fg; ctx.fillText(txt,px+18,py+32); px+=w+12; };
+  pill('SÁNG: '+ns+' phòng',C.amT,C.amD); pill('CHIỀU: '+nc+' phòng',C.blT,C.blD);
+
+  // panels
+  const colRoom=190, colW=(PW-colRoom)/2;
+  panels.forEach((p,pi)=>{
+    const x0=M+pi*(PW+GAP); let y=HEAD;
+    const ph=COLH+p.reduce((s,i)=>s+hOf(i),0);
+    ctx.fillStyle=C.white; rr(ctx,x0,y,PW,ph,16); ctx.fill();
+    ctx.save(); rr(ctx,x0,y,PW,ph,16); ctx.clip();
+    ctx.fillStyle='#eceff6'; ctx.fillRect(x0,y,PW,COLH);
+    ctx.fillStyle=C.amA; ctx.fillRect(x0+colRoom,y+COLH-6,colW,6);
+    ctx.fillStyle=C.blA; ctx.fillRect(x0+colRoom+colW,y+COLH-6,colW,6);
+    ctx.font='800 26px '+FONT; ctx.fillStyle=C.navy;
+    ctx.fillText('PHÒNG',x0+20,y+37);
+    ctx.fillStyle=C.amD; ctx.fillText('SÁNG',x0+colRoom+16,y+37);
+    ctx.fillStyle=C.blD; ctx.fillText('CHIỀU',x0+colRoom+colW+16,y+37);
+    y+=COLH;
+    let z=0;
+    for(const it of p){
+      if(it.t==='f'){
+        ctx.fillStyle=C.navy; ctx.fillRect(x0,y,PW,FH);
+        ctx.fillStyle='#fff'; ctx.font='800 26px '+FONT;
+        ctx.fillText(floorName(it.f)+(it.cont?' (tiếp)':''),x0+20,y+36);
+        y+=FH; z=0; continue;
+      }
+      if(z%2) { ctx.fillStyle='#faf8f3'; ctx.fillRect(x0,y,PW,RH); }
+      z++;
+      ctx.fillStyle=C.line; ctx.fillRect(x0,y+RH-1,PW,1);
+      const pre=it.room.split('-')[0]+'-', num=it.room.split('-').slice(1).join('-');
+      const cy=y+60;
+      ctx.font='600 24px '+FONT; ctx.fillStyle=C.muted; ctx.fillText(pre,x0+16,cy);
+      const pw=ctx.measureText(pre).width;
+      ctx.font='800 44px '+FONT; ctx.fillStyle=C.ink; ctx.fillText(num,x0+16+pw+2,cy+2);
+      const cells=day.rooms.get(it.room);
+      for(let s=0;s<2;s++){
+        const cx=x0+colRoom+s*colW, cell=cells[s];
+        if(!cell){ ctx.font='600 32px '+FONT; ctx.fillStyle='#bdb8a9'; ctx.fillText('–',cx+18,cy); continue; }
+        const tint=cell.type==='thi'?C.thiT:cell.type==='sk'?C.skT:(s?C.blT:C.amT);
+        ctx.fillStyle=tint; rr(ctx,cx+6,y+6,colW-12,RH-12,10); ctx.fill();
+        const dark=s?C.blD:C.amD;
+        ctx.font='800 40px '+FONT; ctx.fillStyle=C.ink;
+        const st=cell.start||'?';
+        ctx.fillText(st,cx+16,cy);
+        const sw=ctx.measureText(st).width;
+        ctx.font='600 26px '+FONT; ctx.fillStyle=dark;
+        if(cell.end) ctx.fillText('–'+cell.end,cx+16+sw+3,cy);
+        if(cell.type!=='hoc'){
+          const lab=cell.type==='thi'?'THI':'SỰ KIỆN'; ctx.font='800 16px '+FONT;
+          const bw=ctx.measureText(lab).width+16, bx=cx+colW-12-bw, by=y+10;
+          ctx.fillStyle=cell.type==='thi'?C.thiD:C.skD; rr(ctx,bx,by,bw,22,6); ctx.fill();
+          ctx.fillStyle='#fff'; ctx.fillText(lab,bx+8,by+17);
+        }
+        if(opts.subject){
+          ctx.font='600 21px '+FONT; ctx.fillStyle='#2f364b';
+          ctx.fillText(fit(ctx,cell.titles.join(' · '),colW-36),cx+16,y+RH-18);
+        }
+      }
+      y+=RH;
+    }
+    ctx.restore();
+  });
+
+  // footer
+  const fy=HEAD+panelH+44;
+  ctx.fillStyle=C.ink; ctx.font='800 26px '+FONT;
+  ctx.fillText('Giờ in đậm là giờ bắt đầu học.',M,fy);
+  ctx.fillText('Cần mở cửa và vệ sinh xong trước giờ này.',M,fy+36);
+  ctx.fillStyle=C.muted; ctx.font='600 21px '+FONT;
+  ctx.fillText('Phòng không có trong danh sách = không có lớp.   “–” = buổi đó không dùng.',M,fy+78);
+  ctx.fillText('Tuần '+sched.week,M,fy+110);
+  return cv;
+}
+
+/* ============ 4. Giao diện ============ */
+const $=id=>document.getElementById(id);
+let sched=null, cur=0, join={}, cache=new Map(), tok=0;
+const pad=n=>String(n).padStart(2,'0');
+function showErr(m){ const e=$('err'); e.textContent=m; e.style.display=m?'block':'none'; }
+function dayName(d){ return d.label.replace('Thứ ','T').replace('Chủ nhật','CN'); }
+const blobOf=cv=>new Promise(r=>cv.toBlob(r,'image/png'));
+const subjectOn=()=>$('optSubject').checked;
+const FL=()=>sched.floorsBy[sched.building];
+const roomsOf=d=>[...d.rooms.keys()].filter(r=>bldOf(r)===sched.building);
+const cnt=d=>roomsOf(d).length;
+
+/* nhóm tầng: join[f]=true nghĩa là tầng f gộp chung ảnh với tầng liền trước */
+function groupsOfAll(){
+  const gs=[];
+  FL().forEach((f,i)=>{ if(i===0||!join[f]) gs.push([]); gs[gs.length-1].push(f); });
+  return gs;
+}
+function groupsForDay(day){
+  const have=new Set(roomsOf(day).map(floorOf));
+  return groupsOfAll().map(g=>g.filter(f=>have.has(f))).filter(g=>g.length);
+}
+function saveJoin(){ try{ localStorage.setItem('join_'+sched.building,JSON.stringify(join)); }catch(_){} }
+function loadJoin(){ join={}; try{ const s=localStorage.getItem('join_'+sched.building); if(s) join=JSON.parse(s)||{}; }catch(_){} }
+function clearCache(){ for(const v of cache.values()) v.forEach(s=>URL.revokeObjectURL(s.url)); cache=new Map(); }
+
+async function getShots(di){
+  const d=sched.days[di]; if(!d||!cnt(d)) return [];
+  const key=sched.building+'|'+di+'|'+JSON.stringify(join)+'|'+subjectOn();
+  if(cache.has(key)) return cache.get(key);
+  const out=[];
+  for(const g of groupsForDay(d)){
+    const blob=await blobOf(render(sched,d,{subject:subjectOn()},g));
+    const name=sched.building+'_'+floorsFile(g)+'_'+dayName(d)+'_'+pad(d.dd)+'-'+pad(d.mm)+'-'+d.yy+'.png';
+    const n=roomsOf(d).filter(r=>g.includes(floorOf(r))).length;
+    out.push({blob,url:URL.createObjectURL(blob),name,floors:g,n,file:new File([blob],name,{type:'image/png'})});
+  }
+  cache.set(key,out);
+  return out;
+}
+
+function buildFloors(){
+  const box=$('floors'); box.innerHTML='';
+  const d=sched.days[cur];
+  const gid={}; let g=-1;
+  FL().forEach((f,i)=>{ if(i===0||!join[f]) g++; gid[f]=g; });
+  FL().forEach((f,i)=>{
+    if(i>0){
+      const b=document.createElement('button'); b.type='button';
+      const on=!!join[f]; b.className='link'+(on?' on':'');
+      b.textContent=on?'＝':'＋';
+      b.setAttribute('aria-label',(on?'Tách tầng ':'Gộp tầng ')+floorShort(FL()[i-1])+' và tầng '+floorShort(f));
+      b.onclick=()=>{ join[f]=!join[f]; saveJoin(); changed(); };
+      box.appendChild(b);
+    }
+    const nr=roomsOf(d).filter(r=>floorOf(r)===f).length;
+    const c=document.createElement('div');
+    c.className='fchip g'+(gid[f]%2)+(nr?'':' none');
+    c.innerHTML=(f===0?'Trệt':'Tầng '+f)+'<small>'+(nr?nr+' phòng':'không có lớp')+'</small>';
+    box.appendChild(c);
+  });
+}
+function buildBlds(){
+  const box=$('bldBox'), t=$('blds'); t.innerHTML='';
+  const multi=sched.blds.length>1;
+  box.style.display=multi?'block':'none';
+  $('n2').textContent=multi?'2':'1'; $('n3').textContent=multi?'3':'2'; $('n4').textContent=multi?'4':'3';
+  if(!multi) return;
+  sched.blds.forEach(b=>{
+    const x=document.createElement('button'); x.type='button';
+    x.className='otab'+(b===sched.building?' on':'');
+    x.textContent='Toà '+b;
+    x.onclick=()=>{ sched.building=b; loadJoin(); buildBlds(); buildTabs(); const d=sched.days[cur]; if(!cnt(d)){ const i=sched.days.findIndex(cnt); if(i>=0) cur=i; } showCur(); };
+    t.appendChild(x);
+  });
+}
+function buildTabs(){
+  const t=$('tabs'); t.innerHTML='';
+  sched.days.forEach((d,i)=>{
+    const b=document.createElement('button'); b.type='button';
+    b.className='otab'+(cnt(d)?'':' empty');
+    b.innerHTML=dayName(d)+'<small>'+pad(d.dd)+'/'+pad(d.mm)+' · '+(cnt(d)?cnt(d)+' phòng':'trống')+'</small>';
+    b.onclick=()=>{cur=i;showCur();};
+    t.appendChild(b);
+  });
+}
+async function saveFiles(files){
+  if(!files.length) return;
+  if(navigator.canShare&&navigator.canShare({files})){
+    try{ await navigator.share({files}); return; }catch(e){ if(e&&e.name==='AbortError') return; }
+  }
+  for(const f of files){
+    const a=document.createElement('a'); a.href=URL.createObjectURL(f); a.download=f.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    await new Promise(r=>setTimeout(r,400));
+  }
+}
+function changed(){ clearCache(); showCur(); }
+
+async function showCur(){
+  const my=++tok;
+  /* chỉ đánh dấu các tab NGÀY (#tabs); tab chọn toà (#blds) tự giữ trạng thái riêng */
+  $('tabs').querySelectorAll('.otab').forEach((t,i)=>t.classList.toggle('on',i===cur));
+  buildFloors();
+  const box=$('shots'), d=sched.days[cur];
+  $('btnDay').disabled=!cnt(d);
+  if(!cnt(d)){ box.innerHTML='<div class="loading">Ngày này không có lớp nào.</div>'; $('skip').textContent=''; return; }
+  box.innerHTML='<div class="loading">Đang tạo ảnh…</div>';
+  let shots;
+  try{ shots=await getShots(cur); }catch(e){ showErr(e.message||String(e)); return; }
+  if(my!==tok) return;
+  box.innerHTML='';
+  shots.forEach((s,i)=>{
+    const card=document.createElement('div'); card.className='shot';
+    const h=document.createElement('h3');
+    h.innerHTML=(shots.length>1?'Ảnh '+(i+1)+' · ':'')+floorsTitle(s.floors).replace('TẦNG ','Tầng ').replace('TRỆT','Trệt')+' <small>('+s.n+' phòng)</small>';
+    const img=document.createElement('img'); img.src=s.url; img.alt=floorsTitle(s.floors);
+    const b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent='Lưu ảnh '+floorsTitle(s.floors).toLowerCase();
+    b.onclick=()=>saveFiles([s.file]);
+    card.append(h,img,b); box.appendChild(card);
+  });
+  const have=new Set(shots.flatMap(s=>s.floors));
+  const none=FL().filter(f=>!have.has(f));
+  $('skip').textContent=none.length?'Không có lớp ngày này: '+none.map(f=>f===0?'tầng trệt':'tầng '+f).join(', ')+' (không cần ảnh).':'';
+}
+
+$('btnDay').onclick=async()=>{ const s=await getShots(cur); saveFiles(s.map(x=>x.file)); };
+$('btnAll').onclick=async()=>{
+  const btn=$('btnAll'), old=btn.textContent; btn.disabled=true; btn.textContent='Đang tạo ảnh…';
+  try{ const files=[]; for(let i=0;i<sched.days.length;i++) (await getShots(i)).forEach(s=>files.push(s.file));
+    btn.disabled=false; btn.textContent=old; await saveFiles(files); }
+  catch(e){ showErr(e.message||String(e)); btn.disabled=false; btn.textContent=old; }
+};
+$('btnSplit').onclick=()=>{ join={}; saveJoin(); changed(); };
+$('btnMerge').onclick=()=>{ join={}; FL().slice(1).forEach(f=>join[f]=true); saveJoin(); changed(); };
+$('optSubject').onchange=()=>{ if(sched) changed(); };
+
+async function handle(file){
+  showErr('');
+  if(!file) return;
+  try{
+    if(!/\.xlsx$/i.test(file.name)) throw new Error('Hãy chọn file Excel có đuôi .xlsx (không phải .xls hay .csv).');
+    const s=parseSchedule(await readSheet(await file.arrayBuffer()));
+    if(!s.days.some(d=>d.count)) throw new Error('File này không có lịch học nào trong tuần.');
+    sched=s; clearCache(); loadJoin();
+    $('drop').classList.add('loaded');
+    $('dropTitle').textContent='Toà '+sched.blds.join(' + ')+' · tuần '+sched.week+'  (bấm để chọn file khác)';
+    $('dropSub').textContent=file.name;
+    $('app').style.display='block';
+    buildBlds(); buildTabs();
+    const now=new Date(), ti=sched.days.findIndex(d=>cnt(d)&&d.dd===now.getDate()&&d.mm===now.getMonth()+1&&d.yy===now.getFullYear());
+    cur=ti>=0?ti:Math.max(0,sched.days.findIndex(d=>cnt(d)));
+    await showCur();
+  }catch(e){ showErr(e.message||String(e)); console.error(e); }
+}
+$('file').onchange=e=>{ handle(e.target.files[0]); e.target.value=''; };
+const drop=$('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>handle(e.dataTransfer.files[0]));
 })();
 </script>
 </body>
